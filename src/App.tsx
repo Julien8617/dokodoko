@@ -1,6 +1,7 @@
 import type { Locale } from './i18n'
 import { useI18n, interpolate } from './i18n'
 import UpdatePrompt from './UpdatePrompt'
+import { supabase } from './lib/supabase'
 
 const LOCALES: { code: Locale; label: string }[] = [
   { code: 'fr', label: 'FR' },
@@ -41,6 +42,10 @@ export default function App() {
 
       <p className="home-status">{t.home.offlineQueueEmpty}</p>
       <p className="home-status">{interpolate(t.home.movementsToday, { count: 0 })}</p>
+
+      <button className="sign-out" onClick={() => supabase.auth.signOut()}>
+        {t.auth.signOut}
+      </button>
     </main>
   )
 }

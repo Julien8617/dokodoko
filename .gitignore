@@ -10,6 +10,7 @@ dist-ssr/
 # Environnement
 .env
 .env.*
+!.env.example
 
 # Éditeurs / OS
 .DS_Store

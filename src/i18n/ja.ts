@@ -25,6 +25,15 @@ const ja: Dictionary = {
     save: '保存',
     loading: '読み込み中…',
   },
+  auth: {
+    emailLabel: 'メールアドレス',
+    emailPlaceholder: 'yamada.taro@example.com',
+    sendLink: 'ログインリンクを送信',
+    sending: '送信中…',
+    linkSent: 'リンクを送信しました。メールをご確認ください。',
+    error: '送信に失敗しました。もう一度お試しください。',
+    signOut: 'ログアウト',
+  },
   motifs: {
     reception: '入庫',
     retour_client: '返品',

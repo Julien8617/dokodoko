@@ -37,21 +37,30 @@ d'acceptation) fait foi ; ce README n'en est pas un résumé exhaustif.
 
 ## Statut
 
-Socle initial en place (étape 1 de l'ordre de livraison) :
+Étape 1 de l'ordre de livraison en place :
 
 - scaffold Vite + React + TypeScript + PWA (manifest, service worker avec
   invite de mise à jour explicite) ;
 - socle de traduction typé `fr` / `ja` / `en` (`src/i18n`), `fr` servant de
   type de référence — une clé manquante dans une autre langue est une
   erreur de compilation ;
-- écran d'accueil minimal (destinations inertes, sélecteur de langue).
+- écran d'accueil minimal (destinations inertes, sélecteur de langue) ;
+- schéma Supabase + RLS + immutabilité de `mouvements`/`conditionnements`
+  (`supabase/migrations/`) ;
+- authentification par lien magique (`src/auth/AuthGate.tsx`) devant tout
+  écran de l'app.
 
-Pas encore fait : schéma Supabase, RLS, authentification par lien magique,
-imports, écrans Mouvement/Inventaire, file hors ligne, exports.
+**Mise en place Supabase requise avant de pouvoir se connecter** : voir
+`supabase/README.md` (création du projet, application du schéma, réglages
+d'auth, liste blanche d'e-mails, variables d'environnement).
+
+Pas encore fait : imports, écrans Mouvement/Inventaire, file hors ligne,
+exports.
 
 ## Démarrage
 
 ```bash
+cp .env.example .env   # puis renseigner les valeurs — voir supabase/README.md
 npm install
 npm run dev        # serveur de développement
 npm run build      # build de production (sortie dans dist/)

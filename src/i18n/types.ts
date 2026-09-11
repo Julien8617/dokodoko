@@ -45,5 +45,14 @@ export interface Dictionary {
     save: string
     loading: string
   }
+  auth: {
+    emailLabel: string
+    emailPlaceholder: string
+    sendLink: string
+    sending: string
+    linkSent: string
+    error: string
+    signOut: string
+  }
   motifs: Record<MotifKey, string>
 }
