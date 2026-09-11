@@ -50,9 +50,9 @@ d'acceptation) fait foi ; ce README n'en est pas un résumé exhaustif.
 - authentification par lien magique (`src/auth/AuthGate.tsx`) devant tout
   écran de l'app.
 
-**Mise en place Supabase requise avant de pouvoir se connecter** : voir
-`supabase/README.md` (création du projet, application du schéma, réglages
-d'auth, liste blanche d'e-mails, variables d'environnement).
+**Supabase configuré** (projet `xvmroixkazhuxllssdrh`) : schéma appliqué,
+RLS vérifié en conditions réelles, lien magique activé, liste blanche
+peuplée. Détails et procédure dans `supabase/README.md`.
 
 Pas encore fait : imports, écrans Mouvement/Inventaire, file hors ligne,
 exports.
@@ -69,6 +69,6 @@ npm run typecheck  # vérification TypeScript stricte
 
 Le déploiement se fait automatiquement sur `main` via GitHub Actions
 (`.github/workflows/deploy.yml`), vers
-`https://<compte>.github.io/dokodoko/`. Régler la source de déploiement du
-dépôt sur « GitHub Actions » dans les paramètres GitHub avant le premier
-push sur `main`.
+`https://julien8617.github.io/dokodoko/`. Source de déploiement du dépôt
+déjà réglée sur « GitHub Actions », secrets `VITE_SUPABASE_URL` /
+`VITE_SUPABASE_ANON_KEY` déjà renseignés.
