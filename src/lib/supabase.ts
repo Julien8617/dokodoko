@@ -12,8 +12,13 @@ export const isSupabaseConfigured = Boolean(url && anonKey)
 // Client factice tant que .env n'est pas renseigné (voir .env.example) :
 // permet à l'app de démarrer et d'afficher un message clair plutôt qu'un
 // écran blanc — AuthGate vérifie `isSupabaseConfigured` avant tout usage.
+// flowType 'pkce' : le lien magique renvoie un `?code=` à usage unique,
+// échangé en arrière-plan contre la session — jamais de access_token ni de
+// refresh_token exposés dans l'URL (contrairement au flux implicite par
+// défaut, où ils apparaissent en clair dans la barre d'adresse et peuvent
+// être copiés-collés par erreur, comme constaté en pratique).
 export const supabase: SupabaseClient = isSupabaseConfigured
-  ? createClient(url, anonKey)
+  ? createClient(url, anonKey, { auth: { flowType: 'pkce', detectSessionInUrl: true } })
   : (new Proxy(
       {},
       {
