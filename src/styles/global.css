@@ -204,6 +204,13 @@ body {
   color: #fff;
 }
 
+.build-version {
+  text-align: center;
+  color: #999;
+  font-size: 0.8rem;
+  margin: 1rem 0 0;
+}
+
 .form-status {
   margin: 0;
   font-size: 0.9rem;

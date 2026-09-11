@@ -16,6 +16,7 @@ export default function Settings({ onBack }: { onBack: () => void }) {
       <h1>{t.settings.title}</h1>
       <ReferenceForm />
       <EmplacementForm />
+      <p className="build-version">v{__APP_VERSION__}</p>
     </main>
   )
 }

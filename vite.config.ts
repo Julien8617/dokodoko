@@ -1,11 +1,19 @@
+import { readFileSync } from 'node:fs'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+
+const { version } = JSON.parse(readFileSync('./package.json', 'utf-8')) as { version: string }
 
 // Servi sous https://<compte>.github.io/dokodoko/ — base, start_url et scope
 // doivent tous pointer vers ce sous-chemin (spec v2 §13).
 export default defineConfig({
   base: '/dokodoko/',
+  define: {
+    // Affiché dans Réglages (§6.6) : vérifier à l'œil quelle version tourne
+    // plutôt que deviner si le service worker a bien basculé.
+    __APP_VERSION__: JSON.stringify(version),
+  },
   plugins: [
     react(),
     VitePWA({
