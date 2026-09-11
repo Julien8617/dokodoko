@@ -49,7 +49,9 @@ create table conditionnements (
 -- libelle_court restent modifiables (écoulement de l'ancien conditionnement,
 -- §4.1).
 create or replace function prevent_conditionnement_rate_change()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql
+set search_path = public -- évite un détournement de search_path (advisor sécurité)
+as $$
 begin
   if new.ref_code is distinct from old.ref_code
      or new.pieces_par_carton is distinct from old.pieces_par_carton then
@@ -119,7 +121,9 @@ create table mouvements (
 -- 23). Une erreur se corrige par un mouvement inverse (motif `annulation`),
 -- jamais par une modification.
 create or replace function prevent_mouvements_mutation()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql
+set search_path = public
+as $$
 begin
   raise exception 'mouvements is append-only: % not allowed', tg_op;
 end;
@@ -178,6 +182,14 @@ as $$
     select 1 from autorises where email = (auth.jwt() ->> 'email')
   );
 $$;
+
+-- Supabase accorde EXECUTE à `anon`/`authenticated` par défaut sur toute
+-- nouvelle fonction (default privileges). `anon` n'en a aucun besoin — sans
+-- ce revoke, n'importe qui pourrait interroger cette fonction en RPC direct
+-- sans être connecté (advisor sécurité : anon_security_definer_function_executable).
+revoke execute on function is_email_allowed() from public;
+revoke execute on function is_email_allowed() from anon;
+grant execute on function is_email_allowed() to authenticated;
 
 -- ---------------------------------------------------------------------
 -- RLS — activé partout, aucune policy pour `anon` (§3, critère 1)
