@@ -1,0 +1,25 @@
+# Dépendances
+node_modules/
+
+# Build
+dist/
+dist-ssr/
+*.local
+*.tsbuildinfo
+
+# Environnement
+.env
+.env.*
+
+# Éditeurs / OS
+.DS_Store
+Thumbs.db
+
+# Données de stock — jamais committées (spec v2 §13) : références clients,
+# comptages, exports. package.json / tsconfig / manifest ne sont PAS
+# couverts par ces règles, seuls les exports applicatifs le sont.
+*.xlsx
+*.csv
+*.export.json
+/data/
+/exports/
