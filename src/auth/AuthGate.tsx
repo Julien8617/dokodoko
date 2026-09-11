@@ -44,7 +44,14 @@ function LoginForm() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setStatus('sending')
-    const { error } = await supabase.auth.signInWithOtp({ email })
+    // Sans emailRedirectTo explicite, Supabase retombe sur
+    // window.location.origin — qui ne contient jamais de chemin. Sur un
+    // site de projet GitHub Pages (/dokodoko/), ça renvoie à la racine du
+    // compte, où rien n'est servi (404). BASE_URL (Vite) porte ce chemin.
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: `${window.location.origin}${import.meta.env.BASE_URL}` },
+    })
     setStatus(error ? 'error' : 'sent')
   }
 
