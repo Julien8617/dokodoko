@@ -55,4 +55,39 @@ export interface Dictionary {
     signOut: string
   }
   motifs: Record<MotifKey, string>
+  settings: {
+    title: string
+    addReference: string
+    addEmplacement: string
+    code: string
+    libelle: string
+    piecesParCarton: string
+    ordreOptional: string
+    invalidCode: string
+    saved: string
+  }
+  movement: {
+    title: string
+    sensEntree: string
+    sensSortie: string
+    sensTransfert: string
+    reference: string
+    referenceSearch: string
+    emplacement: string
+    emplacementSearch: string
+    emplacementDestination: string
+    conditionnement: string
+    aEcouler: string
+    cartons: string
+    pieces: string
+    totalFormula: string
+    motif: string
+    motifPlaceholder: string
+    comment: string
+    confirmArmed: string
+    insufficientStock: string
+    success: string
+    back: string
+    sameEmplacement: string
+  }
 }

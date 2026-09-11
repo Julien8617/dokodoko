@@ -1,7 +1,10 @@
+import { useState } from 'react'
 import type { Locale } from './i18n'
 import { useI18n, interpolate } from './i18n'
 import UpdatePrompt from './UpdatePrompt'
 import { supabase } from './lib/supabase'
+import Settings from './screens/Settings'
+import Movement from './screens/Movement'
 
 const LOCALES: { code: Locale; label: string }[] = [
   { code: 'fr', label: 'FR' },
@@ -9,10 +12,17 @@ const LOCALES: { code: Locale; label: string }[] = [
   { code: 'en', label: 'EN' },
 ]
 
-// Écran d'accueil (spec v2 §6.1). Les quatre destinations sont pour
-// l'instant des boutons inertes : le routage et les écrans réels arrivent
-// aux étapes suivantes de l'ordre de livraison (§12).
+type Screen = 'home' | 'movement' | 'inventory' | 'settings'
+
 export default function App() {
+  const [screen, setScreen] = useState<Screen>('home')
+
+  if (screen === 'settings') return <Settings onBack={() => setScreen('home')} />
+  if (screen === 'movement') return <Movement onBack={() => setScreen('home')} />
+  return <Home onNavigate={setScreen} />
+}
+
+function Home({ onNavigate }: { onNavigate: (screen: Screen) => void }) {
   const { locale, setLocale, t } = useI18n()
 
   return (
@@ -35,9 +45,13 @@ export default function App() {
 
       <div className="home-actions">
         <button className="home-action">{t.nav.search}</button>
-        <button className="home-action">{t.nav.movement}</button>
+        <button className="home-action" onClick={() => onNavigate('movement')}>
+          {t.nav.movement}
+        </button>
         <button className="home-action">{t.nav.inventory}</button>
-        <button className="home-action">{t.nav.settings}</button>
+        <button className="home-action" onClick={() => onNavigate('settings')}>
+          {t.nav.settings}
+        </button>
       </div>
 
       <p className="home-status">{t.home.offlineQueueEmpty}</p>

@@ -130,3 +130,207 @@ body {
   color: #111;
   font-weight: 600;
 }
+
+/* Écrans internes (Réglages, Mouvement, Inventaire) */
+
+.settings,
+.movement {
+  min-height: 100dvh;
+  padding: max(1.5rem, env(safe-area-inset-top)) 1rem max(1.5rem, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 32rem;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.back-link {
+  align-self: flex-start;
+  border: none;
+  background: none;
+  color: #111;
+  font-size: 1rem;
+  padding: 0.25rem 0;
+}
+
+.settings h1,
+.movement h1 {
+  margin: 0;
+}
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 1rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 0.75rem;
+  background: #fff;
+}
+
+.settings-form h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+
+.settings-form label,
+.field-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.settings-form input,
+.field-label input,
+.field-label select {
+  font-weight: 400;
+  padding: 0.8rem;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 0.5rem;
+  width: 100%;
+}
+
+.settings-form button,
+.movement > button {
+  padding: 0.8rem;
+  font-size: 1rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: #111;
+  color: #fff;
+}
+
+.form-status {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.form-error {
+  color: #b00020;
+}
+
+.sens-picker {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.sens-picker button {
+  flex: 1;
+  padding: 0.7rem;
+  border: 1px solid #ccc;
+  border-radius: 0.5rem;
+  background: #fff;
+}
+
+.sens-picker button.active {
+  background: #111;
+  color: #fff;
+  border-color: #111;
+}
+
+.search-select {
+  position: relative;
+}
+
+.search-select input {
+  padding: 0.8rem;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 0.5rem;
+  width: 100%;
+}
+
+.search-select-list {
+  position: absolute;
+  z-index: 10;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin: 0.25rem 0 0;
+  padding: 0.25rem;
+  list-style: none;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 0.5rem;
+  max-height: 14rem;
+  overflow-y: auto;
+}
+
+.search-select-list button {
+  width: 100%;
+  text-align: left;
+  padding: 0.6rem;
+  border: none;
+  background: none;
+  border-radius: 0.4rem;
+}
+
+.search-select-list button:hover,
+.search-select-list button:focus {
+  background: #f0f0f0;
+}
+
+.search-select-empty {
+  padding: 0.6rem;
+  color: #888;
+}
+
+.quantity-row {
+  display: flex;
+  gap: 1rem;
+}
+
+.quantity-row .field-label {
+  flex: 1;
+}
+
+.number-stepper {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid #ccc;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.number-stepper button {
+  width: 2.75rem;
+  border: none;
+  background: #f0f0f0;
+  font-size: 1.2rem;
+}
+
+.number-stepper input {
+  flex: 1;
+  text-align: center;
+  border: none;
+  font-size: 1rem;
+  min-width: 0;
+}
+
+.quantity-formula {
+  margin: -0.5rem 0 0;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.arm-button {
+  padding: 1rem;
+  font-size: 1.1rem;
+  border: none;
+  border-radius: 0.75rem;
+  background: #111;
+  color: #fff;
+}
+
+.arm-button:disabled {
+  background: #ccc;
+}
+
+.arm-button.armed {
+  background: #ffcc00;
+  color: #111;
+}
