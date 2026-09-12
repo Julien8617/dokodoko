@@ -89,6 +89,7 @@ function LoginForm() {
       <main className="login">
         <form onSubmit={handleVerifyCode}>
           <p className="login-status">{t.auth.linkSent}</p>
+          <p className="login-status login-hint">{t.auth.checkSpam}</p>
           <label htmlFor="code">{t.auth.codeLabel}</label>
           <input
             id="code"

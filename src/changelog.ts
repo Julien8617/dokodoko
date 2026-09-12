@@ -10,6 +10,11 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.3.1',
+    date: '2026-09-13',
+    items: ['Rappel de vérifier le dossier spam/indésirables sur l’écran de saisie du code'],
+  },
+  {
     version: '0.3.0',
     date: '2026-09-13',
     items: [

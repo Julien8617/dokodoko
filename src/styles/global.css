@@ -112,6 +112,12 @@ body {
   color: #b00020;
 }
 
+.login-hint {
+  color: #888;
+  font-size: 0.85rem;
+  margin-top: -0.5rem;
+}
+
 .sign-out {
   margin-top: auto;
   padding: 0.75rem;

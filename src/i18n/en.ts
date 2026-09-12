@@ -31,6 +31,7 @@ const en: Dictionary = {
     sendLink: 'Send sign-in code',
     sending: 'Sending…',
     linkSent: 'Code sent — check your inbox and enter it below.',
+    checkSpam: "Don't see it? Check your spam / junk folder.",
     codeLabel: 'Code from the email',
     verifyCode: 'Verify code',
     changeEmail: 'Change email address',

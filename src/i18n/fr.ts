@@ -31,6 +31,7 @@ const fr: Dictionary = {
     sendLink: 'Envoyer le code de connexion',
     sending: 'Envoi…',
     linkSent: 'Code envoyé — vérifiez votre boîte mail et saisissez-le ci-dessous.',
+    checkSpam: 'Vous ne le voyez pas ? Vérifiez le dossier spam / indésirables.',
     codeLabel: 'Code reçu par e-mail',
     verifyCode: 'Valider le code',
     changeEmail: 'Changer d’adresse e-mail',

@@ -31,6 +31,7 @@ const ja: Dictionary = {
     sendLink: 'ログインコードを送信',
     sending: '送信中…',
     linkSent: 'コードを送信しました。メールを確認して以下に入力してください。',
+    checkSpam: '見当たらない場合は迷惑メールフォルダもご確認ください。',
     codeLabel: 'メールで届いたコード',
     verifyCode: 'コードを確認',
     changeEmail: 'メールアドレスを変更',
