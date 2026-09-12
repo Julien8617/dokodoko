@@ -28,10 +28,13 @@ const ja: Dictionary = {
   auth: {
     emailLabel: 'メールアドレス',
     emailPlaceholder: 'yamada.taro@example.com',
-    sendLink: 'ログインリンクを送信',
+    sendLink: 'ログインコードを送信',
     sending: '送信中…',
-    linkSent: 'リンクを送信しました。メールをご確認ください。',
-    error: '送信に失敗しました。もう一度お試しください。',
+    linkSent: 'コードを送信しました。メールを確認して以下に入力してください。',
+    codeLabel: '6桁のコード',
+    verifyCode: 'コードを確認',
+    changeEmail: 'メールアドレスを変更',
+    error: '失敗しました。コードを確認するか、もう一度お試しください。',
     signOut: 'ログアウト',
   },
   motifs: {

@@ -36,28 +36,90 @@ function ConfigMissing() {
   )
 }
 
+// Une PWA installée sur l'écran d'accueil iOS et Safari n'ont pas le même
+// stockage local : le vérificateur PKCE posé par signInWithOtp() depuis
+// l'app installée n'est pas visible par Safari, qui traite toujours le
+// clic du lien reçu par mail (Mail n'ouvre jamais une PWA installée).
+// Résultat vérifié en pratique : demander le lien depuis l'app installée
+// puis cliquer dessus dans Safari échoue silencieusement ; demander le
+// lien depuis Safari fonctionne. Le code à 6 chiffres évite complètement
+// le problème : aucune redirection, la vérification se fait dans le même
+// onglet/contexte que la demande, qu'il s'agisse de l'app installée ou de
+// Safari.
 function LoginForm() {
   const { t } = useI18n()
+  const [step, setStep] = useState<'email' | 'code'>('email')
   const [email, setEmail] = useState('')
-  const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
+  const [code, setCode] = useState('')
+  const [status, setStatus] = useState<'idle' | 'busy' | 'error'>('idle')
 
-  async function handleSubmit(e: FormEvent) {
+  async function handleSendCode(e: FormEvent) {
     e.preventDefault()
-    setStatus('sending')
-    // Sans emailRedirectTo explicite, Supabase retombe sur
-    // window.location.origin — qui ne contient jamais de chemin. Sur un
-    // site de projet GitHub Pages (/dokodoko/), ça renvoie à la racine du
-    // compte, où rien n'est servi (404). BASE_URL (Vite) porte ce chemin.
+    setStatus('busy')
+    // emailRedirectTo reste renseigné pour le lien de secours inclus dans le
+    // mail (fonctionne si demandé et cliqué depuis Safari) — voir commentaire
+    // ci-dessus pour pourquoi le code à 6 chiffres est le chemin principal.
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: { emailRedirectTo: `${window.location.origin}${import.meta.env.BASE_URL}` },
     })
-    setStatus(error ? 'error' : 'sent')
+    if (error) {
+      setStatus('error')
+      return
+    }
+    setStatus('idle')
+    setStep('code')
+  }
+
+  async function handleVerifyCode(e: FormEvent) {
+    e.preventDefault()
+    setStatus('busy')
+    const { error } = await supabase.auth.verifyOtp({ email, token: code, type: 'email' })
+    if (error) setStatus('error')
+    // succès : onAuthStateChange (AuthGate) bascule automatiquement vers l'app
+  }
+
+  if (step === 'code') {
+    return (
+      <main className="login">
+        <form onSubmit={handleVerifyCode}>
+          <p className="login-status">{t.auth.linkSent}</p>
+          <label htmlFor="code">{t.auth.codeLabel}</label>
+          <input
+            id="code"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            autoComplete="one-time-code"
+            maxLength={6}
+            required
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+            disabled={status === 'busy'}
+          />
+          <button type="submit" disabled={status === 'busy' || code.length < 6}>
+            {status === 'busy' ? t.auth.sending : t.auth.verifyCode}
+          </button>
+          <button
+            type="button"
+            className="back-link"
+            onClick={() => {
+              setStep('email')
+              setCode('')
+              setStatus('idle')
+            }}
+          >
+            {t.auth.changeEmail}
+          </button>
+          {status === 'error' && <p className="login-status login-error">{t.auth.error}</p>}
+        </form>
+      </main>
+    )
   }
 
   return (
     <main className="login">
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSendCode}>
         <label htmlFor="email">{t.auth.emailLabel}</label>
         <input
           id="email"
@@ -67,12 +129,11 @@ function LoginForm() {
           placeholder={t.auth.emailPlaceholder}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          disabled={status === 'sending' || status === 'sent'}
+          disabled={status === 'busy'}
         />
-        <button type="submit" disabled={status === 'sending' || status === 'sent'}>
-          {status === 'sending' ? t.auth.sending : t.auth.sendLink}
+        <button type="submit" disabled={status === 'busy'}>
+          {status === 'busy' ? t.auth.sending : t.auth.sendLink}
         </button>
-        {status === 'sent' && <p className="login-status">{t.auth.linkSent}</p>}
         {status === 'error' && <p className="login-status login-error">{t.auth.error}</p>}
       </form>
     </main>

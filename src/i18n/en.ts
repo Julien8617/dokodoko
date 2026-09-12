@@ -28,10 +28,13 @@ const en: Dictionary = {
   auth: {
     emailLabel: 'Email address',
     emailPlaceholder: 'jane.doe@example.com',
-    sendLink: 'Send sign-in link',
+    sendLink: 'Send sign-in code',
     sending: 'Sending…',
-    linkSent: 'Link sent — check your inbox.',
-    error: 'Failed to send. Try again.',
+    linkSent: 'Code sent — check your inbox and enter it below.',
+    codeLabel: '6-digit code',
+    verifyCode: 'Verify code',
+    changeEmail: 'Change email address',
+    error: 'Failed — check the code or try again.',
     signOut: 'Sign out',
   },
   motifs: {

@@ -28,10 +28,13 @@ const fr: Dictionary = {
   auth: {
     emailLabel: 'Adresse e-mail',
     emailPlaceholder: 'prenom.nom@exemple.com',
-    sendLink: 'Envoyer le lien de connexion',
+    sendLink: 'Envoyer le code de connexion',
     sending: 'Envoi…',
-    linkSent: 'Lien envoyé — vérifiez votre boîte mail.',
-    error: 'Échec de l’envoi. Réessayez.',
+    linkSent: 'Code envoyé — vérifiez votre boîte mail et saisissez-le ci-dessous.',
+    codeLabel: 'Code à 6 chiffres',
+    verifyCode: 'Valider le code',
+    changeEmail: 'Changer d’adresse e-mail',
+    error: 'Échec. Vérifiez le code ou réessayez.',
     signOut: 'Se déconnecter',
   },
   motifs: {
