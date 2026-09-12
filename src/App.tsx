@@ -6,6 +6,7 @@ import { supabase } from './lib/supabase'
 import Settings from './screens/Settings'
 import Movement from './screens/Movement'
 import Inventory from './screens/Inventory'
+import VersionFooter from './components/VersionFooter'
 
 const LOCALES: { code: Locale; label: string }[] = [
   { code: 'fr', label: 'FR' },
@@ -64,6 +65,7 @@ function Home({ onNavigate }: { onNavigate: (screen: Screen) => void }) {
       <button className="sign-out" onClick={() => supabase.auth.signOut()}>
         {t.auth.signOut}
       </button>
+      <VersionFooter />
     </main>
   )
 }

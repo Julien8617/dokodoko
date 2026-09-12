@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useI18n } from '../i18n'
 import { insertEmplacement, upsertReferenceWithConditionnement } from '../lib/db'
+import VersionFooter from '../components/VersionFooter'
 
 // Socle minimal de l'étape 2 de l'ordre de livraison (§12) : saisie manuelle
 // unitaire, un élément à la fois (§7, §6.6). Les imports CSV et les exports
@@ -16,7 +17,7 @@ export default function Settings({ onBack }: { onBack: () => void }) {
       <h1>{t.settings.title}</h1>
       <ReferenceForm />
       <EmplacementForm />
-      <p className="build-version">v{__APP_VERSION__}</p>
+      <VersionFooter />
     </main>
   )
 }

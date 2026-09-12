@@ -204,11 +204,48 @@ body {
   color: #fff;
 }
 
+.version-footer {
+  margin-top: 1rem;
+}
+
 .build-version {
+  display: block;
+  width: 100%;
   text-align: center;
   color: #999;
   font-size: 0.8rem;
-  margin: 1rem 0 0;
+  background: none;
+  border: none;
+  padding: 0.25rem;
+}
+
+.changelog {
+  list-style: none;
+  margin: 0.5rem auto 0;
+  padding: 0.75rem 1rem;
+  max-width: 24rem;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 0.5rem;
+  font-size: 0.8rem;
+  color: #555;
+}
+
+.changelog > li + li {
+  margin-top: 0.6rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid #eee;
+}
+
+.changelog-heading {
+  margin: 0 0 0.25rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.changelog ul {
+  margin: 0;
+  padding-left: 1.1rem;
 }
 
 .form-status {
