@@ -36,6 +36,11 @@ function ConfigMissing() {
   )
 }
 
+// Longueur du code à usage unique — doit correspondre au réglage "Email OTP
+// length" du projet Supabase (Auth > Sign In / Providers > Email), pas une
+// valeur fixée par le SDK. Ce projet est configuré à 8 (pas le défaut de 6).
+const OTP_LENGTH = 8
+
 // Une PWA installée sur l'écran d'accueil iOS et Safari n'ont pas le même
 // stockage local : le vérificateur PKCE posé par signInWithOtp() depuis
 // l'app installée n'est pas visible par Safari, qui traite toujours le
@@ -51,7 +56,7 @@ function LoginForm() {
   const [step, setStep] = useState<'email' | 'code'>('email')
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
-  const [status, setStatus] = useState<'idle' | 'busy' | 'error'>('idle')
+  const [status, setStatus] = useState<'idle' | 'busy' | 'error' | 'sendError'>('idle')
 
   async function handleSendCode(e: FormEvent) {
     e.preventDefault()
@@ -64,7 +69,7 @@ function LoginForm() {
       options: { emailRedirectTo: `${window.location.origin}${import.meta.env.BASE_URL}` },
     })
     if (error) {
-      setStatus('error')
+      setStatus('sendError')
       return
     }
     setStatus('idle')
@@ -91,13 +96,13 @@ function LoginForm() {
             inputMode="numeric"
             pattern="[0-9]*"
             autoComplete="one-time-code"
-            maxLength={6}
+            maxLength={OTP_LENGTH}
             required
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
             disabled={status === 'busy'}
           />
-          <button type="submit" disabled={status === 'busy' || code.length < 6}>
+          <button type="submit" disabled={status === 'busy' || code.length < OTP_LENGTH}>
             {status === 'busy' ? t.auth.sending : t.auth.verifyCode}
           </button>
           <button
@@ -134,7 +139,7 @@ function LoginForm() {
         <button type="submit" disabled={status === 'busy'}>
           {status === 'busy' ? t.auth.sending : t.auth.sendLink}
         </button>
-        {status === 'error' && <p className="login-status login-error">{t.auth.error}</p>}
+        {status === 'sendError' && <p className="login-status login-error">{t.auth.sendError}</p>}
       </form>
     </main>
   )

@@ -31,10 +31,11 @@ const ja: Dictionary = {
     sendLink: 'ログインコードを送信',
     sending: '送信中…',
     linkSent: 'コードを送信しました。メールを確認して以下に入力してください。',
-    codeLabel: '6桁のコード',
+    codeLabel: 'メールで届いたコード',
     verifyCode: 'コードを確認',
     changeEmail: 'メールアドレスを変更',
-    error: '失敗しました。コードを確認するか、もう一度お試しください。',
+    sendError: 'コードの送信に失敗しました。もう一度お試しください。',
+    error: 'コードが正しくないか、期限切れです。もう一度お試しください。',
     signOut: 'ログアウト',
   },
   motifs: {

@@ -31,10 +31,11 @@ const fr: Dictionary = {
     sendLink: 'Envoyer le code de connexion',
     sending: 'Envoi…',
     linkSent: 'Code envoyé — vérifiez votre boîte mail et saisissez-le ci-dessous.',
-    codeLabel: 'Code à 6 chiffres',
+    codeLabel: 'Code reçu par e-mail',
     verifyCode: 'Valider le code',
     changeEmail: 'Changer d’adresse e-mail',
-    error: 'Échec. Vérifiez le code ou réessayez.',
+    sendError: 'Échec de l’envoi du code. Réessayez.',
+    error: 'Code invalide ou expiré. Réessayez.',
     signOut: 'Se déconnecter',
   },
   motifs: {

@@ -31,10 +31,11 @@ const en: Dictionary = {
     sendLink: 'Send sign-in code',
     sending: 'Sending…',
     linkSent: 'Code sent — check your inbox and enter it below.',
-    codeLabel: '6-digit code',
+    codeLabel: 'Code from the email',
     verifyCode: 'Verify code',
     changeEmail: 'Change email address',
-    error: 'Failed — check the code or try again.',
+    sendError: 'Failed to send the code. Try again.',
+    error: 'Invalid or expired code. Try again.',
     signOut: 'Sign out',
   },
   motifs: {

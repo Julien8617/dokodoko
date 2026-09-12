@@ -54,6 +54,7 @@ export interface Dictionary {
     codeLabel: string
     verifyCode: string
     changeEmail: string
+    sendError: string
     error: string
     signOut: string
   }
