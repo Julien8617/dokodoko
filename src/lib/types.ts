@@ -44,3 +44,17 @@ export interface MouvementInsert {
 }
 
 export type Sens = 'entree' | 'sortie' | 'transfert'
+
+export interface Comptage {
+  id: string
+  emplacement_code: string
+  ts: string
+  statut: 'en_cours' | 'clos'
+  attendu_consulte: boolean
+}
+
+export interface StockLine {
+  ref_code: string
+  conditionnement_id: string
+  quantite_pieces: number
+}

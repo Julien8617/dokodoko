@@ -5,6 +5,7 @@ import UpdatePrompt from './UpdatePrompt'
 import { supabase } from './lib/supabase'
 import Settings from './screens/Settings'
 import Movement from './screens/Movement'
+import Inventory from './screens/Inventory'
 
 const LOCALES: { code: Locale; label: string }[] = [
   { code: 'fr', label: 'FR' },
@@ -19,6 +20,7 @@ export default function App() {
 
   if (screen === 'settings') return <Settings onBack={() => setScreen('home')} />
   if (screen === 'movement') return <Movement onBack={() => setScreen('home')} />
+  if (screen === 'inventory') return <Inventory onBack={() => setScreen('home')} />
   return <Home onNavigate={setScreen} />
 }
 
@@ -48,7 +50,9 @@ function Home({ onNavigate }: { onNavigate: (screen: Screen) => void }) {
         <button className="home-action" onClick={() => onNavigate('movement')}>
           {t.nav.movement}
         </button>
-        <button className="home-action">{t.nav.inventory}</button>
+        <button className="home-action" onClick={() => onNavigate('inventory')}>
+          {t.nav.inventory}
+        </button>
         <button className="home-action" onClick={() => onNavigate('settings')}>
           {t.nav.settings}
         </button>

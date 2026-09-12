@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type MouseEvent, type TouchEvent } from 'react'
 import { useI18n, interpolate, type MotifKey } from '../i18n'
 import { supabase } from '../lib/supabase'
 import {
@@ -329,9 +329,13 @@ export default function Movement({ onBack }: { onBack: () => void }) {
 }
 
 function NumberStepper({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  // preventDefault sur mousedown/touchstart : un <button> qui reçoit le
+  // focus par défaut ferme le clavier virtuel iOS le temps de l'appui,
+  // ce qui interrompt une saisie en cours dans le champ voisin.
+  const keepFocus = (e: MouseEvent | TouchEvent) => e.preventDefault()
   return (
     <div className="number-stepper">
-      <button type="button" onClick={() => onChange(Math.max(0, value - 1))}>
+      <button type="button" onMouseDown={keepFocus} onTouchStart={keepFocus} onClick={() => onChange(Math.max(0, value - 1))}>
         −
       </button>
       <input
@@ -340,7 +344,7 @@ function NumberStepper({ value, onChange }: { value: number; onChange: (v: numbe
         value={value}
         onChange={(e) => onChange(Math.max(0, Number(e.target.value)))}
       />
-      <button type="button" onClick={() => onChange(value + 1)}>
+      <button type="button" onMouseDown={keepFocus} onTouchStart={keepFocus} onClick={() => onChange(value + 1)}>
         +
       </button>
     </div>

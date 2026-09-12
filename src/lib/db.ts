@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { Conditionnement, Emplacement, MouvementInsert, Reference } from './types'
+import type { Comptage, Conditionnement, Emplacement, MouvementInsert, Reference, StockLine } from './types'
 
 export async function listReferences(): Promise<Reference[]> {
   const { data, error } = await supabase.from('references').select('code, libelle').order('code')
@@ -99,6 +99,58 @@ export async function upsertReferenceWithConditionnement(
     .from('conditionnements')
     .insert({ ref_code: code, pieces_par_carton: piecesParCarton, a_ecouler: false })
   if (insertError) throw insertError
+}
+
+// Stock théorique d'un casier au moment où on l'ouvre pour comptage — sert de
+// base au comptage à l'aveugle (le théorique reste caché côté écran tant que
+// « voir l'attendu » n'a pas été demandé). Les lignes à 0 sont exclues : une
+// référence trouvée en trop se rajoute manuellement pendant le comptage.
+export async function listStockAtEmplacement(emplacementCode: string): Promise<StockLine[]> {
+  const { data, error } = await supabase
+    .from('stock')
+    .select('ref_code, conditionnement_id, quantite_pieces')
+    .eq('emplacement_code', emplacementCode)
+  if (error) throw error
+  return data.filter((row) => row.quantite_pieces !== 0)
+}
+
+// Un casier = un comptage (emplacement_code not null en base). Reprendre un
+// comptage en_cours existant permet la pause/reprise (§6.5, critère 20) sans
+// mécanisme dédié : rouvrir le même casier retombe sur la même ligne.
+export async function getOrCreateComptage(
+  emplacementCode: string,
+): Promise<{ comptage: Comptage; resumed: boolean }> {
+  const { data: existing, error: findError } = await supabase
+    .from('comptages')
+    .select('id, emplacement_code, ts, statut, attendu_consulte')
+    .eq('emplacement_code', emplacementCode)
+    .eq('statut', 'en_cours')
+    .order('ts', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (findError) throw findError
+  if (existing) return { comptage: existing, resumed: true }
+
+  const { data, error } = await supabase
+    .from('comptages')
+    .insert({ emplacement_code: emplacementCode, ts: new Date().toISOString(), statut: 'en_cours' })
+    .select('id, emplacement_code, ts, statut, attendu_consulte')
+    .single()
+  if (error) throw error
+  return { comptage: data, resumed: false }
+}
+
+export async function markAttenduConsulte(comptageId: string): Promise<void> {
+  const { error } = await supabase
+    .from('comptages')
+    .update({ attendu_consulte: true })
+    .eq('id', comptageId)
+  if (error) throw error
+}
+
+export async function closeComptage(comptageId: string): Promise<void> {
+  const { error } = await supabase.from('comptages').update({ statut: 'clos' }).eq('id', comptageId)
+  if (error) throw error
 }
 
 export async function insertMouvements(rows: MouvementInsert[]): Promise<void> {

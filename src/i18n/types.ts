@@ -90,4 +90,28 @@ export interface Dictionary {
     back: string
     sameEmplacement: string
   }
+  inventory: {
+    title: string
+    emplacement: string
+    emplacementSearch: string
+    loading: string
+    noStock: string
+    theoretical: string
+    counted: string
+    showExpected: string
+    addUnexpected: string
+    reference: string
+    referenceSearch: string
+    conditionnement: string
+    aEcouler: string
+    cartons: string
+    pieces: string
+    ecart: string
+    noChange: string
+    confirmArmed: string
+    validateCasier: string
+    success: string
+    back: string
+    resumed: string
+  }
 }
