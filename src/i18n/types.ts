@@ -64,6 +64,10 @@ export interface Dictionary {
     title: string
     addReference: string
     addEmplacement: string
+    addClient: string
+    client: string
+    clientSearch: string
+    clientNom: string
     code: string
     libelle: string
     piecesParCarton: string
@@ -97,26 +101,50 @@ export interface Dictionary {
   }
   inventory: {
     title: string
-    emplacement: string
-    emplacementSearch: string
+    back: string
     loading: string
-    noStock: string
-    theoretical: string
-    counted: string
-    showExpected: string
+    // Lancement
+    launchScope: string
+    scopeTout: string
+    scopeClient: string
+    scopeReferences: string
+    resumeTitle: string
+    resumeSubtitle: string
+    resumeButton: string
+    clientPickTitle: string
+    referencesPickTitle: string
+    referenceSearch: string
+    selectedCount: string
+    start: string
+    // Liste des casiers
+    progress: string
+    incomplete: string
+    statusDone: string
+    statusTodo: string
+    emplacementSearch: string
+    viewEcarts: string
+    emptyList: string
+    // Comptage d'un casier
+    casier: string
+    noExpected: string
     addUnexpected: string
     reference: string
-    referenceSearch: string
     conditionnement: string
     aEcouler: string
     cartons: string
     pieces: string
-    ecart: string
-    noChange: string
-    confirmArmed: string
-    validateCasier: string
-    success: string
-    back: string
-    resumed: string
+    removeLine: string
+    prev: string
+    next: string
+    backToList: string
+    // Écarts
+    ecartsTitle: string
+    syntheseTitle: string
+    noEcart: string
+    ecartCompense: string
+    ecartReel: string
+    detailByEmplacement: string
+    notAllVisited: string
+    phase1Notice: string
   }
 }

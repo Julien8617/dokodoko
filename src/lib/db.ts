@@ -1,16 +1,35 @@
 import { supabase } from './supabase'
-import type { Comptage, Conditionnement, Emplacement, MouvementInsert, Reference, StockLine } from './types'
+import type { Client, Comptage, Conditionnement, Emplacement, MouvementInsert, Reference, StockLine } from './types'
 
 export async function listReferences(): Promise<Reference[]> {
-  const { data, error } = await supabase.from('references').select('code, libelle').order('code')
+  const { data, error } = await supabase
+    .from('references')
+    .select('code, libelle, client_code')
+    .order('code')
   if (error) throw error
   return data
 }
 
+export async function listClients(): Promise<Client[]> {
+  const { data, error } = await supabase.from('clients').select('code, nom').order('nom')
+  if (error) throw error
+  return data
+}
+
+export async function insertClient(code: string, nom: string): Promise<void> {
+  const { error } = await supabase.from('clients').insert({ code, nom })
+  if (error) throw error
+}
+
+// L'ordre de parcours physique (`ordre`) prime quand il est renseigné —
+// c'est tout son rôle (brief Inventaire du 2026-09-14, écran "liste des
+// casiers") ; zone/baie/niveau reste le repli pour les emplacements sans
+// ordre défini.
 export async function listEmplacements(): Promise<Emplacement[]> {
   const { data, error } = await supabase
     .from('emplacements')
     .select('code, zone, baie, niveau, ordre')
+    .order('ordre', { ascending: true, nullsFirst: false })
     .order('zone')
     .order('baie')
     .order('niveau')
@@ -77,10 +96,11 @@ export async function upsertReferenceWithConditionnement(
   code: string,
   libelle: string,
   piecesParCarton: number,
+  clientCode: string,
 ): Promise<void> {
   const { error: refError } = await supabase
     .from('references')
-    .upsert({ code, libelle }, { onConflict: 'code' })
+    .upsert({ code, libelle, client_code: clientCode }, { onConflict: 'code' })
   if (refError) throw refError
 
   const existing = await listConditionnements(code)

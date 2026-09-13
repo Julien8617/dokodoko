@@ -10,6 +10,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.4.0',
+    date: '2026-09-14',
+    items: [
+      'Refonte de l’Inventaire : lancement par périmètre (tout l’entrepôt / un client / des références), stock théorique figé au lancement, liste des casiers avec progression, comptage précédent/suivant, synthèse des écarts en deux niveaux',
+      'Nouvelle dimension client (Réglages : ajout de clients, réf rattachée à un client)',
+      'Le comptage n’écrit plus de mouvement automatiquement — le traitement des écarts et la clôture arrivent dans une prochaine mise à jour',
+    ],
+  },
+  {
     version: '0.3.1',
     date: '2026-09-13',
     items: ['Rappel de vérifier le dossier spam/indésirables sur l’écran de saisie du code'],

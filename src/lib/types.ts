@@ -3,6 +3,12 @@ import type { MotifKey } from '../i18n'
 export interface Reference {
   code: string
   libelle: string | null
+  client_code: string
+}
+
+export interface Client {
+  code: string
+  nom: string
 }
 
 export interface Emplacement {
@@ -57,4 +63,41 @@ export interface StockLine {
   ref_code: string
   conditionnement_id: string
   quantite_pieces: number
+}
+
+export type ScopeKind = 'tout' | 'client' | 'references'
+
+export interface Inventaire {
+  id: string
+  scope_kind: ScopeKind
+  scope_client_code: string | null
+  frozen_ts: string
+  statut: 'en_cours' | 'clos'
+  auteur: string
+  created_at: string
+}
+
+export interface ComptageLigne {
+  id: string
+  comptage_id: string
+  ref_code: string
+  conditionnement_id: string
+  cartons: number
+  pieces: number
+  ts: string
+  auteur: string
+}
+
+// Une ligne de comptage résolue pour l'écran : théorique (figé au
+// lancement), dernière saisie connue (ou non touchée), et le nécessaire
+// pour l'affichage (libellé, pièces/carton, à écouler).
+export interface CasierLigne {
+  refCode: string
+  conditionnementId: string
+  piecesParCarton: number
+  libelleCourt: string | null
+  aEcouler: boolean
+  theorique: number
+  cartons: number | null // null = jamais saisi, distinct de 0
+  pieces: number | null
 }
