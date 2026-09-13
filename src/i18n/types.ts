@@ -127,6 +127,7 @@ export interface Dictionary {
     cartons: string
     pieces: string
     removeLine: string
+    editLine: string
     invalidEmplacement: string
     unknownReference: string
     emptyQuantity: string
@@ -137,8 +138,6 @@ export interface Dictionary {
     noEcart: string
     ecartCompense: string
     ecartReel: string
-    ecartPartiel: string
-    remainingCasiers: string
     detailByEmplacement: string
     notAllVisited: string
     phase1Notice: string

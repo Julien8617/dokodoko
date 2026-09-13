@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { listConditionnements, listEmplacements } from './db'
+import { listConditionnements } from './db'
 import type { Comptage, ComptageLigne, Conditionnement, Inventaire, ScopeKind } from './types'
 
 // Séparateur de clé composite pour les Map ci-dessous — un caractère qui ne
@@ -88,16 +88,6 @@ async function scopeRefCodes(inventaire: Inventaire): Promise<string[] | undefin
     .eq('inventaire_id', inventaire.id)
   if (error) throw error
   return data.map((r) => r.ref_code)
-}
-
-// Liste des casiers du périmètre, dans l'ordre de parcours physique
-// (brief, écran 2) — dérivée du stock figé, jamais devinée par l'opérateur.
-export async function listInventaireEmplacements(inventaire: Inventaire): Promise<string[]> {
-  const refCodes = await scopeRefCodes(inventaire)
-  const stock = await stockAsOf(inventaire.frozen_ts, refCodes)
-  const codes = new Set(stock.map((row) => row.emplacement_code))
-  const ordered = await listEmplacements() // déjà trié par `ordre` puis zone/baie/niveau
-  return ordered.filter((e) => codes.has(e.code)).map((e) => e.code)
 }
 
 // Un casier = un comptage, rattaché à l'inventaire en cours. Rouvrir un
@@ -197,27 +187,16 @@ export interface SyntheseReference {
   conditionnementId: string
   piecesParCarton: number
   libelleCourt: string | null
-  // Dès qu'au moins un casier de cette réf a été visité, l'écart se calcule
-  // sur le théorique COMPLET (2026-09-14, retour terrain : "ça devrait me
-  // donner l'écart et me dire que j'ai -x dans le casier xxxx" plutôt que
-  // de tout masquer derrière "casiers non comptés") — un casier théorique
-  // pas encore visité compte pour 0 dans `compteTotal`, ce qui EST le
-  // signal recherché (voir `pendingEmplacements`), pas une raison d'attendre.
   theoriqueTotal: number
-  compteTotal: number | null // null si aucun casier de cette réf n'a encore été visité
-  ecartTotal: number | null
+  // Jamais null : un casier théorique jamais visité compte pour 0 — retour
+  // terrain du 2026-09-14, "je compte ce que je compte, si ce n'est pas
+  // compté, c'est un écart". Pas d'état intermédiaire "en attente" : la
+  // synthèse compare simplement ce qui a été saisi au théorique, point.
+  compteTotal: number
+  ecartTotal: number
   parEmplacement: SyntheseLigneEmplacement[]
-  // Casiers théoriquement concernés par cette réf mais pas encore visités —
-  // à vérifier : soit la palette y est toujours (écart réel), soit elle a
-  // été déplacée ailleurs (voir `compense`).
-  pendingEmplacements: string[]
-  // vrai quand tous les casiers théoriques de cette réf ont été visités.
-  complet: boolean
   // vrai quand l'écart total est nul mais qu'au moins un casier individuel
-  // ne l'est pas — brief §4b : "déplacement probable", pas une perte. Ne
-  // dépend pas de `complet` : si la totalité comptée ailleurs compense déjà
-  // exactement le théorique, l'ancien casier n'a justement plus de raison
-  // d'être revisité.
+  // ne l'est pas — brief §4b : "déplacement probable", pas une perte.
   compense: boolean
 }
 
@@ -225,12 +204,9 @@ export interface SyntheseReference {
 // — recompter/corriger/justifier, clôture avec écriture des mouvements —
 // vient dans une itération suivante). Ne modifie jamais le stock.
 export async function getInventaireSynthese(inventaire: Inventaire): Promise<{
-  emplacements: string[]
-  visites: Set<string>
   references: SyntheseReference[]
 }> {
   const refCodes = await scopeRefCodes(inventaire)
-  const emplacements = await listInventaireEmplacements(inventaire)
   const theorique = await stockAsOf(inventaire.frozen_ts, refCodes)
 
   const { data: comptages, error: comptagesError } = await supabase
@@ -238,8 +214,6 @@ export async function getInventaireSynthese(inventaire: Inventaire): Promise<{
     .select('id, emplacement_code, statut')
     .eq('inventaire_id', inventaire.id)
   if (comptagesError) throw comptagesError
-
-  const visites = new Set(comptages.filter((c) => c.statut === 'clos').map((c) => c.emplacement_code))
 
   const lignesByComptage = new Map<string, ComptageLigne[]>()
   for (const c of comptages) {
@@ -309,22 +283,11 @@ export async function getInventaireSynthese(inventaire: Inventaire): Promise<{
       a.emplacementCode.localeCompare(b.emplacementCode),
     )
 
-    const anyVisited = parEmplacement.some((l) => l.compte !== null)
-    const pendingEmplacements = parEmplacement
-      .filter((l) => l.compte === null)
-      .map((l) => l.emplacementCode)
-    const complet = pendingEmplacements.length === 0
-
     const theoriqueTotal = parEmplacement.reduce((sum, l) => sum + l.theorique, 0)
-    // Dès qu'un casier de cette réf a été visité, l'écart se calcule sur le
-    // théorique COMPLET (un casier pas encore visité compte pour 0) : dans
-    // ce modèle en marche libre, un casier théorique jamais visité EST le
-    // signal à donner, pas une raison de masquer le nombre. C'est aussi ce
-    // qui permet de détecter un déplacement : compter la totalité ailleurs
-    // ramène l'écart net à 0 (`compense`), sans attendre d'avoir revisité
-    // l'ancien casier — qui, justement, n'a plus de raison d'être compté.
-    const compteTotal = anyVisited ? parEmplacement.reduce((sum, l) => sum + (l.compte ?? 0), 0) : null
-    const ecartTotal = compteTotal === null ? null : compteTotal - theoriqueTotal
+    // Un casier jamais visité compte pour 0, tout de suite — pas de seuil
+    // "au moins un casier visité" à atteindre avant d'afficher un nombre.
+    const compteTotal = parEmplacement.reduce((sum, l) => sum + (l.compte ?? 0), 0)
+    const ecartTotal = compteTotal - theoriqueTotal
     const compense = ecartTotal === 0 && parEmplacement.some((l) => l.compte !== null && l.compte !== l.theorique)
 
     references.push({
@@ -336,12 +299,10 @@ export async function getInventaireSynthese(inventaire: Inventaire): Promise<{
       compteTotal,
       ecartTotal,
       parEmplacement,
-      pendingEmplacements,
-      complet,
       compense,
     })
   }
 
   references.sort((a, b) => a.refCode.localeCompare(b.refCode))
-  return { emplacements, visites, references }
+  return { references }
 }

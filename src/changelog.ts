@@ -10,6 +10,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.7.0',
+    date: '2026-09-14',
+    items: [
+      'Écarts : suppression du statut « casiers en attente » — un casier théorique pas encore compté vaut désormais 0 et apparaît directement comme un écart, sans état intermédiaire',
+      'Inventaire : possibilité de modifier une saisie récente (en plus de l’annuler) — pratique pour corriger un oubli sans tout retaper',
+    ],
+  },
+  {
     version: '0.6.1',
     date: '2026-09-14',
     items: [

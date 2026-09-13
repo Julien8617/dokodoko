@@ -253,6 +253,7 @@ interface RecentEntry {
   ligneId: string
   emplacementCode: string
   refCode: string
+  conditionnementId: string
   cartons: number
   pieces: number
 }
@@ -384,6 +385,7 @@ function Walk({
           ligneId,
           emplacementCode: empl,
           refCode: code,
+          conditionnementId: condId,
           cartons: cartonsValue,
           pieces: piecesValue,
         },
@@ -404,6 +406,21 @@ function Walk({
   async function undo(entry: RecentEntry) {
     await deleteCasierLigne(entry.ligneId)
     setRecent((prev) => prev.filter((e) => e.ligneId !== entry.ligneId))
+  }
+
+  // Recharge une saisie récente dans le formulaire pour la corriger (ex. un
+  // carton oublié) — pas de suppression : réenregistrer crée simplement une
+  // nouvelle ligne plus récente pour la même (réf, casier), qui prévaut sur
+  // l'ancienne (dernière valeur connue), en gardant l'historique complet.
+  async function editEntry(entry: RecentEntry) {
+    setEmplacementCode(entry.emplacementCode)
+    setRefCode(entry.refCode)
+    setCartons(String(entry.cartons))
+    setPieces(String(entry.pieces))
+    setStatus({ kind: 'idle' })
+    const list = await listConditionnements(entry.refCode)
+    setConditionnements(list)
+    setConditionnementId(entry.conditionnementId)
   }
 
   return (
@@ -474,9 +491,14 @@ function Walk({
                 <span>
                   {entry.emplacementCode} — {entry.refCode} : {entry.cartons}c + {entry.pieces}p
                 </span>
-                <button type="button" className="back-link" onClick={() => undo(entry)}>
-                  {t.inventory.removeLine}
-                </button>
+                <span className="recent-entry-actions">
+                  <button type="button" className="back-link" onClick={() => editEntry(entry)}>
+                    {t.inventory.editLine}
+                  </button>
+                  <button type="button" className="back-link" onClick={() => undo(entry)}>
+                    {t.inventory.removeLine}
+                  </button>
+                </span>
               </div>
             </li>
           ))}
@@ -497,8 +519,6 @@ function Walk({
 function Ecarts({ inventaire, onBack }: { inventaire: Inventaire; onBack: () => void }) {
   const { t } = useI18n()
   const [loading, setLoading] = useState(true)
-  const [emplacements, setEmplacements] = useState<string[]>([])
-  const [visites, setVisites] = useState<Set<string>>(new Set())
   const [references, setReferences] = useState<SyntheseReference[]>([])
   const [openRef, setOpenRef] = useState<string | null>(null)
 
@@ -506,8 +526,6 @@ function Ecarts({ inventaire, onBack }: { inventaire: Inventaire; onBack: () => 
     let cancelled = false
     getInventaireSynthese(inventaire).then((result) => {
       if (cancelled) return
-      setEmplacements(result.emplacements)
-      setVisites(result.visites)
       setReferences(result.references)
       setLoading(false)
     })
@@ -516,12 +534,11 @@ function Ecarts({ inventaire, onBack }: { inventaire: Inventaire; onBack: () => 
     }
   }, [inventaire])
 
-  const enEcart = references.filter((r) => r.ecartTotal !== null && (r.ecartTotal !== 0 || r.compense))
-  const sansEcart = references.filter((r) => r.ecartTotal === 0 && r.complet && !r.compense)
-  // Casiers attendus (théorique non nul) jamais touchés pendant la marche —
-  // c'est ici, à la comparaison, que se découvre un casier oublié (brief
-  // révisé du 2026-09-14), pas via une liste à cocher en amont.
-  const nonVisites = emplacements.filter((e) => !visites.has(e))
+  // Un casier théorique jamais compté vaut 0 dans le calcul (règle du
+  // 2026-09-14 : "je compte ce que je compte, si ce n'est pas compté, c'est
+  // un écart") — pas de statut "en attente" séparé, l'écart parle seul.
+  const enEcart = references.filter((r) => r.ecartTotal !== 0 || r.compense)
+  const sansEcart = references.filter((r) => r.ecartTotal === 0 && !r.compense)
 
   return (
     <main className="inventory">
@@ -530,12 +547,6 @@ function Ecarts({ inventaire, onBack }: { inventaire: Inventaire; onBack: () => 
       </button>
       <h1>{t.inventory.ecartsTitle}</h1>
       <p className="login-hint">{t.inventory.phase1Notice}</p>
-
-      {nonVisites.length > 0 && (
-        <p className="form-status form-error">
-          {nonVisites.length} {t.inventory.notAllVisited} : {nonVisites.join(', ')}
-        </p>
-      )}
 
       {loading ? (
         <p className="form-status">{t.inventory.loading}</p>
@@ -567,17 +578,8 @@ function Ecarts({ inventaire, onBack }: { inventaire: Inventaire; onBack: () => 
                 </span>
               </button>
               <p className="quantity-formula">
-                {ref.compense
-                  ? t.inventory.ecartCompense
-                  : !ref.complet
-                    ? t.inventory.ecartPartiel
-                    : t.inventory.ecartReel}
+                {ref.compense ? t.inventory.ecartCompense : t.inventory.ecartReel}
               </p>
-              {!ref.complet && ref.pendingEmplacements.length > 0 && (
-                <p className="quantity-formula">
-                  {interpolate(t.inventory.remainingCasiers, { list: ref.pendingEmplacements.join(', ') })}
-                </p>
-              )}
 
               {openRef === `${ref.refCode}|${ref.conditionnementId}` && (
                 <div className="settings-form">
