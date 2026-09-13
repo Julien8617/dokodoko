@@ -1,7 +1,16 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useI18n, interpolate } from '../i18n'
 import { supabase } from '../lib/supabase'
-import { ensureEmplacement, listClients, listConditionnements, listReferences, parseEmplacementCode } from '../lib/db'
+import {
+  ensureEmplacement,
+  listClients,
+  listConditionnements,
+  listEmplacements,
+  listReferences,
+  matchEmplacements,
+  parseEmplacementCode,
+  resolveEmplacementInput,
+} from '../lib/db'
 import {
   createInventaire,
   deleteCasierLigne,
@@ -14,6 +23,7 @@ import {
 } from '../lib/inventaireDb'
 import type { Client, Conditionnement, Inventaire, Reference, ScopeKind } from '../lib/types'
 import SearchSelect from '../components/SearchSelect'
+import ComboInput from '../components/ComboInput'
 import CountStepper from '../components/CountStepper'
 
 type Phase = 'launch' | 'walk' | 'ecarts'
@@ -267,6 +277,7 @@ function Walk({
 }) {
   const { t } = useI18n()
   const [emplacementCode, setEmplacementCode] = useState('')
+  const [knownEmplacements, setKnownEmplacements] = useState<string[]>([])
   const [refCode, setRefCode] = useState('')
   const [conditionnements, setConditionnements] = useState<Conditionnement[]>([])
   const [conditionnementId, setConditionnementId] = useState<string | null>(null)
@@ -274,6 +285,24 @@ function Walk({
   const [pieces, setPieces] = useState('')
   const [status, setStatus] = useState<WalkStatus>({ kind: 'idle' })
   const [recent, setRecent] = useState<RecentEntry[]>([])
+
+  useEffect(() => {
+    listEmplacements()
+      .then((list) => setKnownEmplacements(list.map((e) => e.code)))
+      .catch(() => {})
+  }, [])
+
+  // Une entrée complète (tirets déjà posés, ou zone+chiffres sans tiret) se
+  // résout de façon déterministe (règle stricte "A11" -> "A-01-1" seulement)
+  // — pas de recherche floue dans ce cas, sinon un code plus long qui
+  // partage le même préfixe compact (ex. "A-11-1") réapparaîtrait à tort.
+  // La recherche floue ne sert que tant que la saisie est encore incomplète.
+  const resolvedEmplacement = resolveEmplacementInput(emplacementCode)
+  const emplacementSuggestions = resolvedEmplacement
+    ? resolvedEmplacement === emplacementCode.trim().toUpperCase()
+      ? []
+      : [resolvedEmplacement]
+    : matchEmplacements(emplacementCode, knownEmplacements)
 
   async function lookupReference() {
     const code = refCode.trim().toUpperCase()
@@ -296,7 +325,8 @@ function Walk({
     e.preventDefault()
     if (!auteur || status.kind === 'saving') return
 
-    const empl = emplacementCode.trim().toUpperCase()
+    const typed = emplacementCode.trim().toUpperCase()
+    const empl = parseEmplacementCode(typed) ? typed : resolveEmplacementInput(typed) ?? typed
     if (!empl || !parseEmplacementCode(empl)) {
       setStatus({ kind: 'error', message: t.inventory.invalidEmplacement })
       return
@@ -332,6 +362,7 @@ function Walk({
       const ligneId = await saveCasierLigne(comptage.id, code, condId, cartonsValue, piecesValue, auteur)
       await markCasierVisite(comptage.id) // "touché" = compté, dans ce modèle il n'y a pas d'état intermédiaire
 
+      setEmplacementCode(empl) // affiche la forme canonique réellement enregistrée (ex. "A11" tapé -> "A-01-1")
       setRecent((prev) => [
         {
           ligneId,
@@ -369,9 +400,10 @@ function Walk({
       <form className="settings-form" onSubmit={handleSave}>
         <label className="field-label">
           {t.inventory.casier}
-          <input
+          <ComboInput
             value={emplacementCode}
-            onChange={(e) => setEmplacementCode(e.target.value)}
+            onChange={setEmplacementCode}
+            suggestions={emplacementSuggestions}
             placeholder={t.inventory.casierPlaceholder}
             disabled={status.kind === 'saving'}
           />

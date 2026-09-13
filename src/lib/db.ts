@@ -76,6 +76,63 @@ export function parseEmplacementCode(code: string) {
   return { zone, baie: Number(baie), niveau: Number(niveau) }
 }
 
+// Complète un code emplacement tapé sans tiret ni zéro de tête (ex. "A11")
+// en code canonique "A-01-1" — découpage strict décidé le 2026-09-14 : le
+// dernier chiffre tapé est toujours le niveau, tout ce qui précède est la
+// baie (zéro-complétée à 2 chiffres). "A11" ne résout donc jamais vers
+// "A-10-1" — il faut taper les 3 chiffres (A101 ou A-10-1) pour la baie 10.
+export function resolveEmplacementInput(raw: string): string | null {
+  const trimmed = raw.trim().toUpperCase()
+
+  // Tirets déjà tapés entre zone/baie/niveau : pas d'ambiguïté, le tiret dit
+  // où s'arrête la baie ("A-1-1" = baie 1) — on complète juste le zéro de
+  // tête ("A-1-1" -> "A-01-1").
+  const dashed = /^([A-Z]{1,2})-(\d{1,2})-(\d)$/.exec(trimmed)
+  if (dashed) {
+    const [, zone, baie, niveau] = dashed
+    const code = `${zone}-${baie.padStart(2, '0')}-${niveau}`
+    return parseEmplacementCode(code) ? code : null
+  }
+
+  // Aucun tiret, uniquement zone + chiffres : le dernier chiffre tapé est
+  // toujours le niveau (règle stricte du 2026-09-14 — "A11" ne résout
+  // jamais vers "A-10-1" ; il faut taper A101 ou A-10-1 pour la baie 10).
+  const compact = /^([A-Z]{1,2})(\d{2,3})$/.exec(trimmed)
+  if (compact) {
+    const [, zone, digits] = compact
+    const niveau = digits.slice(-1)
+    const baie = digits.slice(0, -1).padStart(2, '0')
+    const code = `${zone}-${baie}-${niveau}`
+    return parseEmplacementCode(code) ? code : null
+  }
+
+  return null
+}
+
+// Forme compacte (sans tiret, baie sans zéro de tête) d'un code déjà
+// canonique — sert à reconnaître une saisie du type "A11" pour "A-01-1"
+// sans jamais la confondre avec "A-10-1" (dont la forme compacte est
+// "A101", donc distincte).
+function emplacementCompact(code: string): string {
+  const parsed = parseEmplacementCode(code)
+  if (!parsed) return code.replace(/[-\s]/g, '').toUpperCase()
+  return `${parsed.zone}${parsed.baie}${parsed.niveau}`
+}
+
+// Suggestions pour la saisie du casier (Inventaire, écran "marche") : une
+// aide anti-faute de frappe, jamais une restriction — un code absent de
+// cette liste reste saisissable tel quel et sera créé par
+// `ensureEmplacement` (palette déplacée vers un casier jamais enregistré).
+export function matchEmplacements(raw: string, knownCodes: string[]): string[] {
+  const trimmed = raw.trim().toUpperCase()
+  if (!trimmed) return []
+  const compactInput = trimmed.replace(/[-\s]/g, '')
+  return knownCodes
+    .filter((code) => code.toUpperCase().startsWith(trimmed) || emplacementCompact(code).startsWith(compactInput))
+    .sort()
+    .slice(0, 8)
+}
+
 export async function insertEmplacement(code: string, ordre?: number): Promise<void> {
   const parsed = parseEmplacementCode(code)
   if (!parsed) throw new Error(`Code emplacement invalide : ${code}`)

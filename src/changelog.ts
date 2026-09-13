@@ -10,6 +10,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.5.1',
+    date: '2026-09-14',
+    items: [
+      'Inventaire : liste déroulante d’aide à la frappe sur le champ casier — reconnaît les saisies sans tiret ni zéro de tête (ex. « A11 » ou « A-1-1 » pour « A-01-1 »), sans jamais imposer de choisir dans la liste',
+    ],
+  },
+  {
     version: '0.5.0',
     date: '2026-09-14',
     items: [
