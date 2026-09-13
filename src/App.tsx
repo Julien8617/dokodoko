@@ -6,6 +6,7 @@ import { supabase } from './lib/supabase'
 import Settings from './screens/Settings'
 import Movement from './screens/Movement'
 import Inventory from './screens/Inventory'
+import Search from './screens/Search'
 import VersionFooter from './components/VersionFooter'
 
 const LOCALES: { code: Locale; label: string }[] = [
@@ -14,7 +15,7 @@ const LOCALES: { code: Locale; label: string }[] = [
   { code: 'en', label: 'EN' },
 ]
 
-type Screen = 'home' | 'movement' | 'inventory' | 'settings'
+type Screen = 'home' | 'movement' | 'inventory' | 'settings' | 'search'
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('home')
@@ -22,6 +23,7 @@ export default function App() {
   if (screen === 'settings') return <Settings onBack={() => setScreen('home')} />
   if (screen === 'movement') return <Movement onBack={() => setScreen('home')} />
   if (screen === 'inventory') return <Inventory onBack={() => setScreen('home')} />
+  if (screen === 'search') return <Search onBack={() => setScreen('home')} />
   return <Home onNavigate={setScreen} />
 }
 
@@ -47,7 +49,9 @@ function Home({ onNavigate }: { onNavigate: (screen: Screen) => void }) {
       </nav>
 
       <div className="home-actions">
-        <button className="home-action">{t.nav.search}</button>
+        <button className="home-action" onClick={() => onNavigate('search')}>
+          {t.nav.search}
+        </button>
         <button className="home-action" onClick={() => onNavigate('movement')}>
           {t.nav.movement}
         </button>

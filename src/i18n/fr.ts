@@ -90,6 +90,17 @@ const fr: Dictionary = {
     back: 'Retour',
     sameEmplacement: 'La destination doit différer de l’emplacement source',
   },
+  search: {
+    title: 'Recherche',
+    back: 'Retour',
+    modeReference: 'Par référence',
+    modeEmplacement: 'Par emplacement',
+    searchButton: 'Rechercher',
+    loading: 'Recherche…',
+    noResults: 'Aucun stock trouvé.',
+    invalidEmplacement: 'Code emplacement invalide (attendu : A-03-1)',
+    pickSuggestion: 'Choisissez une référence dans la liste, ou précisez votre saisie.',
+  },
   inventory: {
     title: 'Inventaire',
     back: 'Retour',

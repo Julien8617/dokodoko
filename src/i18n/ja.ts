@@ -90,6 +90,17 @@ const ja: Dictionary = {
     back: '戻る',
     sameEmplacement: '移動先は移動元と異なる場所にしてください',
   },
+  search: {
+    title: '検索',
+    back: '戻る',
+    modeReference: '品番で検索',
+    modeEmplacement: 'ロケーションで検索',
+    searchButton: '検索',
+    loading: '検索中…',
+    noResults: '在庫が見つかりません。',
+    invalidEmplacement: 'ロケーションコードが不正です（例：A-03-1）',
+    pickSuggestion: '候補から品番を選ぶか、入力を絞り込んでください。',
+  },
   inventory: {
     title: '棚卸',
     back: '戻る',

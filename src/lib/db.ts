@@ -1,5 +1,14 @@
 import { supabase } from './supabase'
-import type { Client, Comptage, Conditionnement, Emplacement, MouvementInsert, Reference, StockLine } from './types'
+import type {
+  Client,
+  Comptage,
+  Conditionnement,
+  Emplacement,
+  MouvementInsert,
+  Reference,
+  StockByReferenceLine,
+  StockLine,
+} from './types'
 
 export async function listReferences(): Promise<Reference[]> {
   const { data, error } = await supabase
@@ -231,6 +240,17 @@ export async function listStockAtEmplacement(emplacementCode: string): Promise<S
     .from('stock')
     .select('ref_code, conditionnement_id, quantite_pieces')
     .eq('emplacement_code', emplacementCode)
+  if (error) throw error
+  return data.filter((row) => row.quantite_pieces !== 0)
+}
+
+// Stock courant (vue, jamais figé) d'une référence, tous emplacements
+// confondus — écran Recherche : "où se trouve REU003 ?".
+export async function listStockByReference(refCode: string): Promise<StockByReferenceLine[]> {
+  const { data, error } = await supabase
+    .from('stock')
+    .select('emplacement_code, conditionnement_id, quantite_pieces')
+    .eq('ref_code', refCode)
   if (error) throw error
   return data.filter((row) => row.quantite_pieces !== 0)
 }

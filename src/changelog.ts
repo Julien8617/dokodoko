@@ -10,6 +10,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.0',
+    date: '2026-09-14',
+    items: [
+      'Le bouton Recherche fonctionne enfin : cherche le stock actuel par référence (« où se trouve REU003 ? ») ou par emplacement (« qu’y a-t-il dans A-05-1 ? »), avec la même recherche floue et la même reconnaissance des codes emplacement que dans l’Inventaire',
+    ],
+  },
+  {
     version: '0.8.0',
     date: '2026-09-14',
     items: [

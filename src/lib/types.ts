@@ -65,6 +65,12 @@ export interface StockLine {
   quantite_pieces: number
 }
 
+export interface StockByReferenceLine {
+  emplacement_code: string
+  conditionnement_id: string
+  quantite_pieces: number
+}
+
 export type ScopeKind = 'tout' | 'client' | 'references'
 
 export interface Inventaire {

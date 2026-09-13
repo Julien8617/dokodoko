@@ -99,6 +99,17 @@ export interface Dictionary {
     back: string
     sameEmplacement: string
   }
+  search: {
+    title: string
+    back: string
+    modeReference: string
+    modeEmplacement: string
+    searchButton: string
+    loading: string
+    noResults: string
+    invalidEmplacement: string
+    pickSuggestion: string
+  }
   inventory: {
     title: string
     back: string
