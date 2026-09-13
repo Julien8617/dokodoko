@@ -9,7 +9,7 @@
 
 body {
   margin: 0;
-  background: #fafafa;
+  background: #e9ebed;
   color: #111;
 }
 
@@ -140,7 +140,8 @@ body {
 /* Écrans internes (Réglages, Mouvement, Inventaire) */
 
 .settings,
-.movement {
+.movement,
+.inventory {
   min-height: 100dvh;
   padding: max(1.5rem, env(safe-area-inset-top)) 1rem max(1.5rem, env(safe-area-inset-bottom));
   display: flex;
@@ -198,6 +199,8 @@ body {
   border: 1px solid #ccc;
   border-radius: 0.5rem;
   width: 100%;
+  background: #fff;
+  color: #111;
 }
 
 .settings-form button,
@@ -292,6 +295,8 @@ body {
   border: 1px solid #ccc;
   border-radius: 0.5rem;
   width: 100%;
+  background: #fff;
+  color: #111;
 }
 
 .search-select-list {
@@ -308,6 +313,7 @@ body {
   border-radius: 0.5rem;
   max-height: 14rem;
   overflow-y: auto;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }
 
 .search-select-list button {
@@ -317,6 +323,8 @@ body {
   border: none;
   background: none;
   border-radius: 0.4rem;
+  color: #111;
+  font: inherit;
 }
 
 .search-select-list button:hover,
@@ -350,6 +358,7 @@ body {
   width: 2.75rem;
   border: none;
   background: #f0f0f0;
+  color: #111;
   font-size: 1.2rem;
 }
 
@@ -359,6 +368,8 @@ body {
   border: none;
   font-size: 1rem;
   min-width: 0;
+  background: #fff;
+  color: #111;
 }
 
 .quantity-formula {
@@ -420,7 +431,10 @@ body {
   border: 1px solid #e0e0e0;
   border-radius: 0.6rem;
   background: #fff;
+  color: #111;
   font-size: 1rem;
+  font: inherit;
+  text-align: left;
 }
 
 .casier-row.done {

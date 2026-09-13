@@ -10,6 +10,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.5.2',
+    date: '2026-09-14',
+    items: [
+      'Correction : texte parfois invisible (blanc sur blanc) dans la liste déroulante de suggestions',
+      'Fond d’écran plus gris pour mieux distinguer les champs de saisie',
+    ],
+  },
+  {
     version: '0.5.1',
     date: '2026-09-14',
     items: [
