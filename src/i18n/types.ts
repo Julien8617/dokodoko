@@ -136,6 +136,7 @@ export interface Dictionary {
     ecartsTitle: string
     syntheseTitle: string
     noEcart: string
+    sansEcartLabel: string
     ecartCompense: string
     ecartReel: string
     detailByEmplacement: string

@@ -124,11 +124,12 @@ const fr: Dictionary = {
     ecartsTitle: 'Écarts',
     syntheseTitle: 'Synthèse par référence',
     noEcart: 'Aucun écart pour l’instant.',
+    sansEcartLabel: 'Pas d’écart',
     ecartCompense: 'Déplacement probable (écart compensé)',
     ecartReel: 'Écart réel',
     detailByEmplacement: 'Détail par emplacement',
     notAllVisited: 'non compté',
-    phase1Notice: 'Le traitement des écarts (recompter, corriger, justifier) et la clôture arrivent dans une prochaine mise à jour. Cette synthèse est en lecture seule.',
+    phase1Notice: 'Tu peux corriger ou retirer une saisie en tapant dessus dans le détail par emplacement. La justification tracée et la clôture (avec écriture du stock) arrivent dans une prochaine mise à jour.',
   },
 }
 

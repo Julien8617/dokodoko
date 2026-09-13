@@ -20,6 +20,7 @@ import {
   getOrCreateCasier,
   markCasierVisite,
   saveCasierLigne,
+  type SyntheseLigneEmplacement,
   type SyntheseReference,
 } from '../lib/inventaireDb'
 import type { Client, Conditionnement, Inventaire, Reference, ScopeKind } from '../lib/types'
@@ -56,7 +57,7 @@ export default function Inventory({ onBack }: { onBack: () => void }) {
   }
 
   if (phase === 'ecarts') {
-    return <Ecarts inventaire={inventaire} onBack={() => setPhase('walk')} />
+    return <Ecarts inventaire={inventaire} auteur={auteur} onBack={() => setPhase('walk')} />
   }
 
   return <Walk inventaire={inventaire} auteur={auteur} onDone={() => setPhase('ecarts')} onBack={onBack} />
@@ -516,11 +517,30 @@ function Walk({
 // Écran 3 — écarts (synthèse, lecture seule en phase 1)
 // ---------------------------------------------------------------------
 
-function Ecarts({ inventaire, onBack }: { inventaire: Inventaire; onBack: () => void }) {
+function Ecarts({
+  inventaire,
+  auteur,
+  onBack,
+}: {
+  inventaire: Inventaire
+  auteur: string | null
+  onBack: () => void
+}) {
   const { t } = useI18n()
   const [loading, setLoading] = useState(true)
   const [references, setReferences] = useState<SyntheseReference[]>([])
   const [openRef, setOpenRef] = useState<string | null>(null)
+  const [editingLigneId, setEditingLigneId] = useState<string | null>(null)
+  const [editCartons, setEditCartons] = useState('')
+  const [editPieces, setEditPieces] = useState('')
+  const [editStatus, setEditStatus] = useState<
+    { kind: 'idle' } | { kind: 'saving' } | { kind: 'error'; message: string }
+  >({ kind: 'idle' })
+
+  async function refresh() {
+    const result = await getInventaireSynthese(inventaire)
+    setReferences(result.references)
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -534,11 +554,136 @@ function Ecarts({ inventaire, onBack }: { inventaire: Inventaire; onBack: () => 
     }
   }, [inventaire])
 
+  function startEdit(l: SyntheseLigneEmplacement) {
+    setEditingLigneId(l.ligneId)
+    setEditCartons(String(l.cartons ?? 0))
+    setEditPieces(String(l.pieces ?? 0))
+    setEditStatus({ kind: 'idle' })
+  }
+
+  // Corriger ou retirer une saisie DEPUIS l'écran Écarts, sans repasser par
+  // la marche (2026-09-14, retour terrain) : on est déjà en train de
+  // regarder l'écart, c'est le bon moment pour le corriger.
+  async function saveEdit(ref: SyntheseReference, l: SyntheseLigneEmplacement) {
+    if (!auteur || !l.comptageId) return
+    setEditStatus({ kind: 'saving' })
+    try {
+      await saveCasierLigne(
+        l.comptageId,
+        ref.refCode,
+        ref.conditionnementId,
+        Number(editCartons) || 0,
+        Number(editPieces) || 0,
+        auteur,
+      )
+      setEditingLigneId(null)
+      await refresh()
+    } catch (err) {
+      setEditStatus({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
+    }
+  }
+
+  async function deleteEdit(l: SyntheseLigneEmplacement) {
+    if (!l.ligneId) return
+    setEditStatus({ kind: 'saving' })
+    try {
+      await deleteCasierLigne(l.ligneId)
+      setEditingLigneId(null)
+      await refresh()
+    } catch (err) {
+      setEditStatus({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
+    }
+  }
+
   // Un casier théorique jamais compté vaut 0 dans le calcul (règle du
   // 2026-09-14 : "je compte ce que je compte, si ce n'est pas compté, c'est
   // un écart") — pas de statut "en attente" séparé, l'écart parle seul.
   const enEcart = references.filter((r) => r.ecartTotal !== 0 || r.compense)
   const sansEcart = references.filter((r) => r.ecartTotal === 0 && !r.compense)
+
+  // Fonction (pas un composant JSX) : une réf corrigée depuis ce même écran
+  // peut passer d'"en écart" à "sans écart" après `refresh()`, donc les deux
+  // listes doivent pouvoir afficher/éditer la même ligne sans qu'elle
+  // disparaisse ni perde son état déplié (2026-09-14, retour terrain).
+  function renderReferenceRow(ref: SyntheseReference) {
+    const key = `${ref.refCode}|${ref.conditionnementId}`
+    return (
+      <div className="inventory-line" key={key}>
+        <button
+          type="button"
+          className="casier-row"
+          onClick={() => setOpenRef(openRef === key ? null : key)}
+        >
+          <span>
+            {ref.refCode}
+            {ref.libelleCourt ? ` — ${ref.libelleCourt}` : ''}
+          </span>
+          <span className="casier-status">
+            {ref.theoriqueTotal} → {ref.compteTotal} ({ref.ecartTotal > 0 ? '+' : ''}
+            {ref.ecartTotal})
+          </span>
+        </button>
+        <p className="quantity-formula">
+          {ref.compense
+            ? t.inventory.ecartCompense
+            : ref.ecartTotal !== 0
+              ? t.inventory.ecartReel
+              : t.inventory.sansEcartLabel}
+        </p>
+
+        {openRef === key && (
+          <div className="settings-form">
+            <h2>{t.inventory.detailByEmplacement}</h2>
+            {ref.parEmplacement.map((l) =>
+              l.compte === null ? (
+                <p className="quantity-formula" key={l.emplacementCode}>
+                  {l.emplacementCode} — {l.theorique} → ({t.inventory.notAllVisited})
+                </p>
+              ) : (
+                <div key={l.emplacementCode}>
+                  <button
+                    type="button"
+                    className="casier-row"
+                    onClick={() => (editingLigneId === l.ligneId ? setEditingLigneId(null) : startEdit(l))}
+                  >
+                    <span>
+                      {l.emplacementCode} — {l.theorique} → {l.compte}
+                    </span>
+                  </button>
+                  {editingLigneId === l.ligneId && (
+                    <div className="settings-form">
+                      <div className="quantity-row">
+                        <label className="field-label">
+                          {t.inventory.cartons}
+                          <CountStepper value={editCartons} onChange={setEditCartons} />
+                        </label>
+                        <label className="field-label">
+                          {t.inventory.pieces}
+                          <CountStepper value={editPieces} onChange={setEditPieces} />
+                        </label>
+                      </div>
+                      <button type="button" onClick={() => saveEdit(ref, l)} disabled={editStatus.kind === 'saving'}>
+                        {t.common.save}
+                      </button>
+                      <button
+                        type="button"
+                        className="back-link"
+                        onClick={() => deleteEdit(l)}
+                        disabled={editStatus.kind === 'saving'}
+                      >
+                        {t.inventory.removeLine}
+                      </button>
+                      {editStatus.kind === 'error' && <p className="form-status form-error">{editStatus.message}</p>}
+                    </div>
+                  )}
+                </div>
+              ),
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <main className="inventory">
@@ -554,50 +699,13 @@ function Ecarts({ inventaire, onBack }: { inventaire: Inventaire; onBack: () => 
         <>
           <h2>{t.inventory.syntheseTitle}</h2>
           {enEcart.length === 0 && <p className="form-status">{t.inventory.noEcart}</p>}
-
-          {enEcart.map((ref) => (
-            <div className="inventory-line" key={`${ref.refCode}|${ref.conditionnementId}`}>
-              <button
-                type="button"
-                className="casier-row"
-                onClick={() =>
-                  setOpenRef(
-                    openRef === `${ref.refCode}|${ref.conditionnementId}`
-                      ? null
-                      : `${ref.refCode}|${ref.conditionnementId}`,
-                  )
-                }
-              >
-                <span>
-                  {ref.refCode}
-                  {ref.libelleCourt ? ` — ${ref.libelleCourt}` : ''}
-                </span>
-                <span className="casier-status">
-                  {ref.theoriqueTotal} → {ref.compteTotal} ({ref.ecartTotal! > 0 ? '+' : ''}
-                  {ref.ecartTotal})
-                </span>
-              </button>
-              <p className="quantity-formula">
-                {ref.compense ? t.inventory.ecartCompense : t.inventory.ecartReel}
-              </p>
-
-              {openRef === `${ref.refCode}|${ref.conditionnementId}` && (
-                <div className="settings-form">
-                  <h2>{t.inventory.detailByEmplacement}</h2>
-                  {ref.parEmplacement.map((l) => (
-                    <p className="quantity-formula" key={l.emplacementCode}>
-                      {l.emplacementCode} — {l.theorique} → {l.compte === null ? `(${t.inventory.notAllVisited})` : l.compte}
-                    </p>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+          {enEcart.map(renderReferenceRow)}
 
           {sansEcart.length > 0 && (
-            <p className="login-hint">
-              {sansEcart.length} / {references.length}
-            </p>
+            <>
+              <h2>{t.inventory.sansEcartLabel}</h2>
+              {sansEcart.map(renderReferenceRow)}
+            </>
           )}
         </>
       )}

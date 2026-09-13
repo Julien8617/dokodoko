@@ -180,6 +180,13 @@ export interface SyntheseLigneEmplacement {
   emplacementCode: string
   theorique: number
   compte: number | null // null = casier pas encore visité pour cette réf
+  // Identifiants nécessaires pour corriger cette ligne directement depuis
+  // l'écran Écarts (modifier ou supprimer) — null quand `compte` l'est,
+  // rien à corriger tant qu'il n'y a pas de saisie.
+  comptageId: string | null
+  ligneId: string | null
+  cartons: number | null
+  pieces: number | null
 }
 
 export interface SyntheseReference {
@@ -248,6 +255,10 @@ export async function getInventaireSynthese(inventaire: Inventaire): Promise<{
       emplacementCode: row.emplacement_code,
       theorique: 0,
       compte: null,
+      comptageId: null,
+      ligneId: null,
+      cartons: null,
+      pieces: null,
     }
     line.theorique += row.quantite_pieces
     b.set(row.emplacement_code, line)
@@ -269,8 +280,16 @@ export async function getInventaireSynthese(inventaire: Inventaire): Promise<{
         emplacementCode: c.emplacement_code,
         theorique: 0,
         compte: null,
+        comptageId: null,
+        ligneId: null,
+        cartons: null,
+        pieces: null,
       }
       line.compte = total
+      line.comptageId = c.id
+      line.ligneId = ligne.id
+      line.cartons = ligne.cartons
+      line.pieces = ligne.pieces
       b.set(c.emplacement_code, line)
     }
   }

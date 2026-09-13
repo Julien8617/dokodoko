@@ -124,11 +124,12 @@ const en: Dictionary = {
     ecartsTitle: 'Differences',
     syntheseTitle: 'Summary by reference',
     noEcart: 'No difference so far.',
+    sansEcartLabel: 'No difference',
     ecartCompense: 'Likely relocation (offsetting difference)',
     ecartReel: 'Real difference',
     detailByEmplacement: 'Detail by location',
     notAllVisited: 'not yet counted',
-    phase1Notice: 'Resolving differences (recount, correct, justify) and closing the inventory are coming in a future update. This summary is read-only for now.',
+    phase1Notice: 'You can correct or remove an entry by tapping it in the per-location detail. Tracked justification and closing the inventory (writing stock adjustments) are coming in a future update.',
   },
 }
 

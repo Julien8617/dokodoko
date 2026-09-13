@@ -124,11 +124,12 @@ const ja: Dictionary = {
     ecartsTitle: '差異',
     syntheseTitle: '品番別サマリー',
     noEcart: '今のところ差異はありません。',
+    sansEcartLabel: '差異なし',
     ecartCompense: '移動の可能性（差異が相殺）',
     ecartReel: '実差異',
     detailByEmplacement: 'ロケーション別詳細',
     notAllVisited: '未計測',
-    phase1Notice: '差異の処理（再計測・修正・理由付け）と確定は今後のアップデートで追加されます。このサマリーは閲覧専用です。',
+    phase1Notice: 'ロケーション別詳細をタップすると、入力の修正・削除ができます。理由付けの記録と確定（在庫調整の反映）は今後のアップデートで追加されます。',
   },
 }
 

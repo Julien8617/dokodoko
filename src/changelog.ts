@@ -10,6 +10,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.8.0',
+    date: '2026-09-14',
+    items: [
+      'Écarts : le détail par emplacement est maintenant cliquable — modifier ou retirer une saisie directement depuis l’écran des écarts, sans repasser par la marche',
+      'Les références sans écart restent visibles (sous « Pas d’écart ») au lieu de disparaître, y compris juste après une correction',
+    ],
+  },
+  {
     version: '0.7.0',
     date: '2026-09-14',
     items: [
