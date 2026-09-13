@@ -8,6 +8,7 @@ import {
   listEmplacements,
   listReferences,
   matchEmplacements,
+  matchReferences,
   parseEmplacementCode,
   resolveEmplacementInput,
 } from '../lib/db'
@@ -279,6 +280,7 @@ function Walk({
   const [emplacementCode, setEmplacementCode] = useState('')
   const [knownEmplacements, setKnownEmplacements] = useState<string[]>([])
   const [refCode, setRefCode] = useState('')
+  const [allReferences, setAllReferences] = useState<Reference[]>([])
   const [conditionnements, setConditionnements] = useState<Conditionnement[]>([])
   const [conditionnementId, setConditionnementId] = useState<string | null>(null)
   const [cartons, setCartons] = useState('')
@@ -290,6 +292,7 @@ function Walk({
     listEmplacements()
       .then((list) => setKnownEmplacements(list.map((e) => e.code)))
       .catch(() => {})
+    listReferences().then(setAllReferences).catch(() => {})
   }, [])
 
   // Une entrée complète (tirets déjà posés, ou zone+chiffres sans tiret) se
@@ -298,14 +301,25 @@ function Walk({
   // partage le même préfixe compact (ex. "A-11-1") réapparaîtrait à tort.
   // La recherche floue ne sert que tant que la saisie est encore incomplète.
   const resolvedEmplacement = resolveEmplacementInput(emplacementCode)
-  const emplacementSuggestions = resolvedEmplacement
-    ? resolvedEmplacement === emplacementCode.trim().toUpperCase()
-      ? []
-      : [resolvedEmplacement]
-    : matchEmplacements(emplacementCode, knownEmplacements)
+  const emplacementSuggestions = (
+    resolvedEmplacement
+      ? resolvedEmplacement === emplacementCode.trim().toUpperCase()
+        ? []
+        : [resolvedEmplacement]
+      : matchEmplacements(emplacementCode, knownEmplacements)
+  ).map((code) => ({ value: code, label: code }))
 
-  async function lookupReference() {
-    const code = refCode.trim().toUpperCase()
+  // Recherche floue par sous-chaîne (n'importe où dans le code, y compris
+  // juste les chiffres) : "65", "265" ou "REU26" trouvent tous "REU265" —
+  // permet de ne taper que des chiffres au clavier iPhone la plupart du
+  // temps, sans passer par le clavier lettres (2026-09-14).
+  const referenceSuggestions = matchReferences(refCode, allReferences).map((r) => ({
+    value: r.code,
+    label: r.libelle ? `${r.code} — ${r.libelle}` : r.code,
+  }))
+
+  async function lookupReference(codeOverride?: string) {
+    const code = (codeOverride ?? refCode).trim().toUpperCase()
     if (!code) {
       setConditionnements([])
       setConditionnementId(null)
@@ -343,12 +357,14 @@ function Walk({
 
     setStatus({ kind: 'saving' })
     try {
-      // Ne jamais se fier à `conditionnements`/`conditionnementId` d'état ici :
-      // le stepper cartons/pieces bloque le blur (`keepFocus`), donc le lookup
-      // au blur peut ne s'être jamais déclenché avant la soumission clavier.
-      const list = conditionnements.length && refCode.trim().toUpperCase() === code
-        ? conditionnements
-        : await listConditionnements(code)
+      // Toujours relire les conditionnements ici, jamais se fier à l'état
+      // `conditionnements` : le stepper cartons/pieces bloque le blur
+      // (`keepFocus`), donc le lookup au blur peut ne jamais s'être
+      // déclenché avant la soumission clavier — et depuis l'ajout des
+      // suggestions, `conditionnements` peut aussi rester celui d'une
+      // référence choisie précédemment si le champ est retapé par-dessus
+      // sans repasser par le blur ou une sélection.
+      const list = await listConditionnements(code)
       const condId = list.some((c) => c.id === conditionnementId) ? conditionnementId : list[0]?.id ?? null
       if (list.length === 0 || !condId) {
         setStatus({ kind: 'error', message: t.inventory.unknownReference })
@@ -410,10 +426,12 @@ function Walk({
         </label>
         <label className="field-label">
           {t.inventory.reference}
-          <input
+          <ComboInput
             value={refCode}
-            onChange={(e) => setRefCode(e.target.value)}
-            onBlur={lookupReference}
+            onChange={setRefCode}
+            onSelect={(code) => lookupReference(code)}
+            onBlur={() => lookupReference()}
+            suggestions={referenceSuggestions}
             placeholder={t.inventory.referencePlaceholder}
             disabled={status.kind === 'saving'}
           />

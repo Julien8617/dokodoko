@@ -133,6 +133,33 @@ export function matchEmplacements(raw: string, knownCodes: string[]): string[] {
     .slice(0, 8)
 }
 
+// Suggestions pour la saisie libre de la référence (Inventaire, écran
+// "marche") : recherche floue par sous-chaîne — "65", "265" ou "REU26"
+// trouvent tous "REU265", pas seulement un préfixe exact. Évite d'avoir à
+// taper le code en entier au clavier en marchant dans l'entrepôt.
+export function matchReferences(raw: string, refs: Reference[]): Reference[] {
+  const query = raw.trim().toUpperCase()
+  if (!query) return []
+  const digitsQuery = /^\d+$/.test(query) ? query : null
+
+  const scored: { ref: Reference; index: number }[] = []
+  for (const ref of refs) {
+    const code = ref.code.toUpperCase()
+    const codeIndex = code.indexOf(query)
+    if (codeIndex >= 0) {
+      scored.push({ ref, index: codeIndex })
+      continue
+    }
+    if (digitsQuery) {
+      const digitsIndex = code.replace(/\D/g, '').indexOf(digitsQuery)
+      if (digitsIndex >= 0) scored.push({ ref, index: digitsIndex })
+    }
+  }
+
+  scored.sort((a, b) => a.index - b.index || a.ref.code.localeCompare(b.ref.code))
+  return scored.slice(0, 8).map((s) => s.ref)
+}
+
 export async function insertEmplacement(code: string, ordre?: number): Promise<void> {
   const parsed = parseEmplacementCode(code)
   if (!parsed) throw new Error(`Code emplacement invalide : ${code}`)
