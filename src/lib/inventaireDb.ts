@@ -36,34 +36,6 @@ async function stockAsOf(frozenTs: string, refCodes?: string[]): Promise<StockAs
   return [...totals.values()].filter((row) => row.quantite_pieces !== 0)
 }
 
-export interface StockAsOfLine {
-  ref_code: string
-  conditionnement_id: string
-  quantite_pieces: number
-}
-
-// Théorique figé d'un seul casier — sert à construire l'écran de comptage
-// (§3 du brief). Le théorique n'y est jamais affiché (comptage à l'aveugle,
-// cohérent avec le comportement déjà en place) ; il sert uniquement à savoir
-// quelles lignes proposer par défaut.
-export async function stockAsOfEmplacement(frozenTs: string, emplacementCode: string): Promise<StockAsOfLine[]> {
-  const { data, error } = await supabase
-    .from('mouvements')
-    .select('ref_code, conditionnement_id, quantite_pieces')
-    .eq('emplacement_code', emplacementCode)
-    .lt('ts', frozenTs)
-  if (error) throw error
-
-  const totals = new Map<string, StockAsOfLine>()
-  for (const row of data) {
-    const key = [row.ref_code, row.conditionnement_id].join(SEP)
-    const existing = totals.get(key)
-    if (existing) existing.quantite_pieces += row.quantite_pieces
-    else totals.set(key, { ...row })
-  }
-  return [...totals.values()].filter((row) => row.quantite_pieces !== 0)
-}
-
 export async function getActiveInventaire(): Promise<Inventaire | null> {
   const { data, error } = await supabase
     .from('inventaires')
@@ -186,28 +158,31 @@ export async function saveCasierLigne(
   cartons: number,
   pieces: number,
   auteur: string,
-): Promise<void> {
-  const { error } = await supabase.from('comptage_lignes').insert({
-    comptage_id: comptageId,
-    ref_code: refCode,
-    conditionnement_id: conditionnementId,
-    cartons,
-    pieces,
-    auteur,
-  })
+): Promise<string> {
+  const { data, error } = await supabase
+    .from('comptage_lignes')
+    .insert({
+      comptage_id: comptageId,
+      ref_code: refCode,
+      conditionnement_id: conditionnementId,
+      cartons,
+      pieces,
+      auteur,
+    })
+    .select('id')
+    .single()
   if (error) throw error
+  return data.id
 }
 
 // "Retirer une référence ajoutée par erreur de saisie" (2026-09-14) : une
 // correction d'UI, pas un événement métier — suppression réelle, contraste
-// volontaire avec l'immutabilité de `mouvements`.
-export async function deleteCasierLigne(comptageId: string, refCode: string, conditionnementId: string): Promise<void> {
-  const { error } = await supabase
-    .from('comptage_lignes')
-    .delete()
-    .eq('comptage_id', comptageId)
-    .eq('ref_code', refCode)
-    .eq('conditionnement_id', conditionnementId)
+// volontaire avec l'immutabilité de `mouvements`. Ciblée par `id` (pas par
+// ref+conditionnement) : latest-wins fait qu'une correction (nouvelle saisie
+// sur la même réf) et l'ancienne ligne partagent ref+conditionnement — les
+// supprimer toutes deux effacerait aussi la correction.
+export async function deleteCasierLigne(id: string): Promise<void> {
+  const { error } = await supabase.from('comptage_lignes').delete().eq('id', id)
   if (error) throw error
 }
 

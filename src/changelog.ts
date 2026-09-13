@@ -10,6 +10,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.5.0',
+    date: '2026-09-14',
+    items: [
+      'Inventaire : la saisie se fait maintenant en marchant librement (emplacement + référence + quantité, sans liste ni suggestion) — une palette déplacée sans le signaler se retrouve donc détectée à la comparaison finale',
+      'L’écran des écarts liste maintenant les casiers jamais saisis, pas seulement leur nombre',
+      'Correction : annuler une saisie ne supprime plus par erreur une correction plus récente de la même référence',
+    ],
+  },
+  {
     version: '0.4.0',
     date: '2026-09-14',
     items: [

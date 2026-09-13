@@ -89,6 +89,23 @@ export async function insertEmplacement(code: string, ordre?: number): Promise<v
   if (error) throw error
 }
 
+// Enregistre un emplacement à la volée s'il n'existe pas encore — une
+// palette peut avoir été déplacée sans que personne ne le signale, et
+// l'Inventaire (2026-09-14) doit pouvoir compter n'importe quel casier
+// physique, pas seulement ceux déjà connus du système. Le format reste
+// vérifié (une vraie contrainte physique), mais plus l'existence préalable.
+export async function ensureEmplacement(code: string): Promise<void> {
+  const parsed = parseEmplacementCode(code)
+  if (!parsed) throw new Error(`Code emplacement invalide : ${code}`)
+  const { error } = await supabase
+    .from('emplacements')
+    .upsert(
+      { code, zone: parsed.zone, baie: parsed.baie, niveau: parsed.niveau },
+      { onConflict: 'code', ignoreDuplicates: true },
+    )
+  if (error) throw error
+}
+
 // Référence connue : le libellé est mis à jour. Un pieces_par_carton qui
 // diffère d'un conditionnement existant crée une nouvelle ligne et marque
 // l'ancienne à écouler — jamais de modification du taux existant (§4, §7).

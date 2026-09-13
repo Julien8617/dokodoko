@@ -116,27 +116,21 @@ export interface Dictionary {
     referenceSearch: string
     selectedCount: string
     start: string
-    // Liste des casiers
-    progress: string
-    incomplete: string
-    statusDone: string
-    statusTodo: string
-    emplacementSearch: string
     viewEcarts: string
-    emptyList: string
-    // Comptage d'un casier
+    // Saisie en marchant
     casier: string
-    noExpected: string
-    addUnexpected: string
+    casierPlaceholder: string
     reference: string
+    referencePlaceholder: string
     conditionnement: string
     aEcouler: string
     cartons: string
     pieces: string
     removeLine: string
-    prev: string
-    next: string
-    backToList: string
+    invalidEmplacement: string
+    unknownReference: string
+    emptyQuantity: string
+    recorded: string
     // Écarts
     ecartsTitle: string
     syntheseTitle: string
