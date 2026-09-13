@@ -125,6 +125,8 @@ const fr: Dictionary = {
     noEcart: 'Aucun écart pour l’instant.',
     ecartCompense: 'Déplacement probable (écart compensé)',
     ecartReel: 'Écart réel',
+    ecartPartiel: 'À vérifier — un casier théorique n’a pas encore été compté',
+    remainingCasiers: 'Casiers restants : {list}',
     detailByEmplacement: 'Détail par emplacement',
     notAllVisited: 'en attente de comptage',
     phase1Notice: 'Le traitement des écarts (recompter, corriger, justifier) et la clôture arrivent dans une prochaine mise à jour. Cette synthèse est en lecture seule.',

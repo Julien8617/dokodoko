@@ -197,12 +197,27 @@ export interface SyntheseReference {
   conditionnementId: string
   piecesParCarton: number
   libelleCourt: string | null
+  // Dès qu'au moins un casier de cette réf a été visité, l'écart se calcule
+  // sur le théorique COMPLET (2026-09-14, retour terrain : "ça devrait me
+  // donner l'écart et me dire que j'ai -x dans le casier xxxx" plutôt que
+  // de tout masquer derrière "casiers non comptés") — un casier théorique
+  // pas encore visité compte pour 0 dans `compteTotal`, ce qui EST le
+  // signal recherché (voir `pendingEmplacements`), pas une raison d'attendre.
   theoriqueTotal: number
-  compteTotal: number | null // null si aucun casier concerné n'a encore été visité
+  compteTotal: number | null // null si aucun casier de cette réf n'a encore été visité
   ecartTotal: number | null
   parEmplacement: SyntheseLigneEmplacement[]
+  // Casiers théoriquement concernés par cette réf mais pas encore visités —
+  // à vérifier : soit la palette y est toujours (écart réel), soit elle a
+  // été déplacée ailleurs (voir `compense`).
+  pendingEmplacements: string[]
+  // vrai quand tous les casiers théoriques de cette réf ont été visités.
+  complet: boolean
   // vrai quand l'écart total est nul mais qu'au moins un casier individuel
-  // ne l'est pas — brief §4b : "déplacement probable", pas une perte.
+  // ne l'est pas — brief §4b : "déplacement probable", pas une perte. Ne
+  // dépend pas de `complet` : si la totalité comptée ailleurs compense déjà
+  // exactement le théorique, l'ancien casier n'a justement plus de raison
+  // d'être revisité.
   compense: boolean
 }
 
@@ -225,7 +240,6 @@ export async function getInventaireSynthese(inventaire: Inventaire): Promise<{
   if (comptagesError) throw comptagesError
 
   const visites = new Set(comptages.filter((c) => c.statut === 'clos').map((c) => c.emplacement_code))
-  const comptageIdByEmplacement = new Map(comptages.map((c) => [c.emplacement_code, c.id as string]))
 
   const lignesByComptage = new Map<string, ComptageLigne[]>()
   for (const c of comptages) {
@@ -266,16 +280,24 @@ export async function getInventaireSynthese(inventaire: Inventaire): Promise<{
     await getConditionnement(row.conditionnement_id, row.ref_code)
   }
 
-  for (const emplacementCode of emplacements) {
-    const comptageId = comptageIdByEmplacement.get(emplacementCode)
-    if (!comptageId || !visites.has(emplacementCode)) continue
-    for (const ligne of lignesByComptage.get(comptageId) ?? []) {
+  // Parcourt TOUS les casiers visités de l'inventaire, pas seulement ceux
+  // du théorique — un casier compté qui n'avait aucun stock théorique pour
+  // aucune réf du périmètre (palette déplacée vers un endroit "vide") doit
+  // quand même apparaître ici, sinon la saisie disparaît silencieusement de
+  // la synthèse (2026-09-14, retour terrain).
+  for (const c of comptages) {
+    if (c.statut !== 'clos') continue
+    for (const ligne of lignesByComptage.get(c.id) ?? []) {
       const cond = await getConditionnement(ligne.conditionnement_id, ligne.ref_code)
       const total = ligne.cartons * (cond?.pieces_par_carton ?? 0) + ligne.pieces
       const b = bucket(ligne.ref_code, ligne.conditionnement_id)
-      const line = b.get(emplacementCode) ?? { emplacementCode, theorique: 0, compte: null }
+      const line = b.get(c.emplacement_code) ?? {
+        emplacementCode: c.emplacement_code,
+        theorique: 0,
+        compte: null,
+      }
       line.compte = total
-      b.set(emplacementCode, line)
+      b.set(c.emplacement_code, line)
     }
   }
 
@@ -287,14 +309,23 @@ export async function getInventaireSynthese(inventaire: Inventaire): Promise<{
       a.emplacementCode.localeCompare(b.emplacementCode),
     )
 
+    const anyVisited = parEmplacement.some((l) => l.compte !== null)
+    const pendingEmplacements = parEmplacement
+      .filter((l) => l.compte === null)
+      .map((l) => l.emplacementCode)
+    const complet = pendingEmplacements.length === 0
+
     const theoriqueTotal = parEmplacement.reduce((sum, l) => sum + l.theorique, 0)
-    const toutVisite = parEmplacement.every((l) => l.compte !== null)
-    const compteTotal = toutVisite
-      ? parEmplacement.reduce((sum, l) => sum + (l.compte ?? 0), 0)
-      : null
+    // Dès qu'un casier de cette réf a été visité, l'écart se calcule sur le
+    // théorique COMPLET (un casier pas encore visité compte pour 0) : dans
+    // ce modèle en marche libre, un casier théorique jamais visité EST le
+    // signal à donner, pas une raison de masquer le nombre. C'est aussi ce
+    // qui permet de détecter un déplacement : compter la totalité ailleurs
+    // ramène l'écart net à 0 (`compense`), sans attendre d'avoir revisité
+    // l'ancien casier — qui, justement, n'a plus de raison d'être compté.
+    const compteTotal = anyVisited ? parEmplacement.reduce((sum, l) => sum + (l.compte ?? 0), 0) : null
     const ecartTotal = compteTotal === null ? null : compteTotal - theoriqueTotal
-    const compense =
-      ecartTotal === 0 && parEmplacement.some((l) => l.compte !== null && l.compte !== l.theorique)
+    const compense = ecartTotal === 0 && parEmplacement.some((l) => l.compte !== null && l.compte !== l.theorique)
 
     references.push({
       refCode,
@@ -305,6 +336,8 @@ export async function getInventaireSynthese(inventaire: Inventaire): Promise<{
       compteTotal,
       ecartTotal,
       parEmplacement,
+      pendingEmplacements,
+      complet,
       compense,
     })
   }

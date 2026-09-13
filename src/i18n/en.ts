@@ -125,6 +125,8 @@ const en: Dictionary = {
     noEcart: 'No difference so far.',
     ecartCompense: 'Likely relocation (offsetting difference)',
     ecartReel: 'Real difference',
+    ecartPartiel: 'To check — a theoretical location hasn’t been counted yet',
+    remainingCasiers: 'Remaining locations: {list}',
     detailByEmplacement: 'Detail by location',
     notAllVisited: 'not yet counted',
     phase1Notice: 'Resolving differences (recount, correct, justify) and closing the inventory are coming in a future update. This summary is read-only for now.',

@@ -10,6 +10,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.6.1',
+    date: '2026-09-14',
+    items: [
+      'Correction : un comptage saisi dans un casier sans stock théorique (palette déplacée) disparaissait silencieusement de l’écran des écarts au lieu d’y apparaître',
+      'Écarts : le résultat s’affiche dès qu’un casier de la référence a été compté, sans attendre que tous ses casiers théoriques soient visités — un casier théorique pas encore compté est maintenant lui-même signalé (« à vérifier »)',
+    ],
+  },
+  {
     version: '0.6.0',
     date: '2026-09-14',
     items: [

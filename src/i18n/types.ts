@@ -137,6 +137,8 @@ export interface Dictionary {
     noEcart: string
     ecartCompense: string
     ecartReel: string
+    ecartPartiel: string
+    remainingCasiers: string
     detailByEmplacement: string
     notAllVisited: string
     phase1Notice: string

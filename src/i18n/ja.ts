@@ -125,6 +125,8 @@ const ja: Dictionary = {
     noEcart: '今のところ差異はありません。',
     ecartCompense: '移動の可能性（差異が相殺）',
     ecartReel: '実差異',
+    ecartPartiel: '要確認 — 未計測のロケーションがあります',
+    remainingCasiers: '未計測のロケーション：{list}',
     detailByEmplacement: 'ロケーション別詳細',
     notAllVisited: '未計測',
     phase1Notice: '差異の処理（再計測・修正・理由付け）と確定は今後のアップデートで追加されます。このサマリーは閲覧専用です。',
