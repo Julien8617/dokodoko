@@ -25,9 +25,9 @@ fonctionnalités livrées.
 - Front : React + TypeScript + Vite, PWA installable sur écran d'accueil
   iPhone. Site statique déployé sur **GitHub Pages** — pas de backend à
   héberger.
-- Lectures via cache local (IndexedDB), écritures mises en file hors ligne
-  et rejouées automatiquement (idempotentes par `id` UUID généré côté
-  client).
+- Prévu (voir spec) : lectures via cache local (IndexedDB), écritures
+  mises en file hors ligne et rejouées automatiquement (idempotentes par
+  `id` UUID généré côté client) — pas encore implémenté, voir Statut.
 - Aucune « synchronisation Excel » bidirectionnelle : export `.xlsx` depuis
   l'app, ou interrogation directe de Supabase depuis le PC (vue SQL, CSV,
   Power Query). Voir la spec pour le détail des décisions et leurs raisons.
@@ -37,25 +37,67 @@ d'acceptation) fait foi ; ce README n'en est pas un résumé exhaustif.
 
 ## Statut
 
-Étape 1 de l'ordre de livraison en place :
+Base technique en place :
 
 - scaffold Vite + React + TypeScript + PWA (manifest, service worker avec
   invite de mise à jour explicite) ;
 - socle de traduction typé `fr` / `ja` / `en` (`src/i18n`), `fr` servant de
   type de référence — une clé manquante dans une autre langue est une
   erreur de compilation ;
-- écran d'accueil minimal (destinations inertes, sélecteur de langue) ;
-- schéma Supabase + RLS + immutabilité de `mouvements`/`conditionnements`
+- schéma Supabase + RLS + immutabilité de `mouvements`
   (`supabase/migrations/`) ;
-- authentification par lien magique (`src/auth/AuthGate.tsx`) devant tout
-  écran de l'app.
+- authentification par **code reçu par e-mail** (`src/auth/AuthGate.tsx`,
+  `signInWithOtp` + `verifyOtp`) devant tout écran de l'app — pas de lien
+  magique : un lien ouvre toujours Safari et jamais la PWA installée sur
+  l'écran d'accueil iOS, le code évite complètement le problème (aucune
+  redirection). Détails et pourquoi dans `supabase/README.md` §3.
+- indicateur de version discret (pied de page Accueil/Réglages,
+  `src/components/VersionFooter.tsx` + `src/changelog.ts`) pour confirmer
+  après un déploiement que la bonne version est bien chargée sur iPhone.
+
+Écrans fonctionnels :
+
+- **Mouvement** (Entrée / Sortie / Transfert) — vérifié en conditions
+  réelles contre les vraies policies RLS (refus si stock insuffisant,
+  transfert entre deux emplacements).
+- **Inventaire** — saisie libre « en marchant » : emplacement + référence
+  + quantité (cartons et pièces séparés) tapés dans n'importe quel ordre,
+  sans liste de casiers à cocher ni auto-complétion imposée. Choix
+  délibéré : une liste de casiers « attendus » construite depuis le stock
+  théorique ne peut jamais révéler une palette déplacée vers un
+  emplacement qui n'était pas censé en avoir. Stock théorique figé au
+  lancement (`frozen_ts`, comparaison stricte `ts < frozen_ts` sur
+  `mouvements`, jamais une copie). Écran Écarts : un casier théorique
+  jamais compté vaut 0 dans le calcul et apparaît directement comme un
+  écart (pas d'état « en attente » séparé) ; détection de déplacement
+  probable (écart net nul mais casiers différents) ; correction possible
+  d'une saisie (modifier ou retirer) directement depuis l'écran des
+  écarts. **Hors périmètre pour l'instant** : justification tracée d'un
+  écart, clôture de l'inventaire (écriture d'`ajustement_inventaire`),
+  impression des feuilles de comptage.
+- **Recherche** — stock courant (jamais figé, contrairement à
+  l'Inventaire) par référence (« où se trouve REU003 ? ») ou par
+  emplacement (« qu'y a-t-il dans A-05-1 ? »).
+- **Réglages** — ajout de clients, références (avec conditionnement et
+  client rattaché) et emplacements.
+
+Aide à la saisie partagée entre Inventaire et Recherche (même code,
+`src/lib/db.ts`) : liste déroulante de suggestions sur les champs
+référence et emplacement, jamais restrictive — un code absent de la
+liste reste saisissable tel quel. Recherche floue par sous-chaîne pour
+les références (« 65 » trouve « REU065 ») ; reconnaissance des codes
+emplacement sans tiret ni zéro de tête pour les casiers (« A11 » →
+« A-01-1 », règle stricte : le dernier chiffre tapé est toujours le
+niveau).
 
 **Supabase configuré** (projet `xvmroixkazhuxllssdrh`) : schéma appliqué,
-RLS vérifié en conditions réelles, lien magique activé, liste blanche
-peuplée. Détails et procédure dans `supabase/README.md`.
+RLS vérifié en conditions réelles, authentification par code fonctionnelle
+(SMTP Gmail personnalisé), liste blanche peuplée. Détails et procédure
+dans `supabase/README.md`.
 
-Pas encore fait : imports, écrans Mouvement/Inventaire, file hors ligne,
-exports.
+Pas encore fait : imports en masse, file hors ligne (écritures en attente
+rejouées automatiquement), exports `.xlsx`, justification/clôture
+d'inventaire, impression.
 
 ## Démarrage
 
