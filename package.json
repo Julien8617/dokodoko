@@ -1,11 +1,13 @@
 {
   "name": "dokodoko",
   "private": true,
-  "version": "0.9.0",
+  "version": "0.9.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "npm run changelog",
     "build": "tsc --noEmit && vite build",
+    "changelog": "node scripts/generate-changelog.ts",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit"
   },

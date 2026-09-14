@@ -1,106 +1,74 @@
 # Changelog
 
-Miroir lisible sur GitHub de `src/changelog.ts`, qui reste la source de
-vérité — c'est ce fichier-là que l'app affiche (pied de page
-Accueil/Réglages, tape sur le numéro de version). **Toute modification de
-`src/changelog.ts` doit être répercutée ici**, dans le même commit.
+Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
+`prebuild`) — ne pas éditer directement, les modifications seraient
+écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
+build.
+
+## 0.9.1 — 2026-09-15
+
+- Correction : en Réglages, un échec d’enregistrement (référence, client ou emplacement) affichait parfois un message sans rapport (« code invalide ou expiré », copié du formulaire de connexion) au lieu de la vraie erreur
 
 ## 0.9.0 — 2026-09-14
 
-- Le bouton Recherche fonctionne enfin : cherche le stock actuel par
-  référence (« où se trouve REU003 ? ») ou par emplacement (« qu'y a-t-il
-  dans A-05-1 ? »), avec la même recherche floue et la même
-  reconnaissance des codes emplacement que dans l'Inventaire
+- Le bouton Recherche fonctionne enfin : cherche le stock actuel par référence (« où se trouve REU003 ? ») ou par emplacement (« qu’y a-t-il dans A-05-1 ? »), avec la même recherche floue et la même reconnaissance des codes emplacement que dans l’Inventaire
 
 ## 0.8.0 — 2026-09-14
 
-- Écarts : le détail par emplacement est maintenant cliquable — modifier
-  ou retirer une saisie directement depuis l'écran des écarts, sans
-  repasser par la marche
-- Les références sans écart restent visibles (sous « Pas d'écart ») au
-  lieu de disparaître, y compris juste après une correction
+- Écarts : le détail par emplacement est maintenant cliquable — modifier ou retirer une saisie directement depuis l’écran des écarts, sans repasser par la marche
+- Les références sans écart restent visibles (sous « Pas d’écart ») au lieu de disparaître, y compris juste après une correction
 
 ## 0.7.0 — 2026-09-14
 
-- Écarts : suppression du statut « casiers en attente » — un casier
-  théorique pas encore compté vaut désormais 0 et apparaît directement
-  comme un écart, sans état intermédiaire
-- Inventaire : possibilité de modifier une saisie récente (en plus de
-  l'annuler) — pratique pour corriger un oubli sans tout retaper
+- Écarts : suppression du statut « casiers en attente » — un casier théorique pas encore compté vaut désormais 0 et apparaît directement comme un écart, sans état intermédiaire
+- Inventaire : possibilité de modifier une saisie récente (en plus de l’annuler) — pratique pour corriger un oubli sans tout retaper
 
 ## 0.6.1 — 2026-09-14
 
-- Correction : un comptage saisi dans un casier sans stock théorique
-  (palette déplacée) disparaissait silencieusement de l'écran des écarts
-  au lieu d'y apparaître
-- Écarts : le résultat s'affiche dès qu'un casier de la référence a été
-  compté, sans attendre que tous ses casiers théoriques soient visités —
-  un casier théorique pas encore compté est maintenant lui-même signalé
-  (« à vérifier »)
+- Correction : un comptage saisi dans un casier sans stock théorique (palette déplacée) disparaissait silencieusement de l’écran des écarts au lieu d’y apparaître
+- Écarts : le résultat s’affiche dès qu’un casier de la référence a été compté, sans attendre que tous ses casiers théoriques soient visités — un casier théorique pas encore compté est maintenant lui-même signalé (« à vérifier »)
 
 ## 0.6.0 — 2026-09-14
 
-- Inventaire : liste déroulante d'aide à la frappe sur le champ
-  référence — recherche par sous-chaîne (« 65 », « 265 » ou « REU26 »
-  trouvent tous « REU265 »), pas besoin de taper le code en entier
-- Astuce : comme la recherche marche avec les chiffres seuls, un seul
-  passage au clavier numérique suffit pour trouver une référence, sans
-  revenir au clavier lettres
+- Inventaire : liste déroulante d’aide à la frappe sur le champ référence — recherche par sous-chaîne (« 65 », « 265 » ou « REU26 » trouvent tous « REU265 »), pas besoin de taper le code en entier
+- Astuce : comme la recherche marche avec les chiffres seuls, un seul passage au clavier numérique suffit pour trouver une référence, sans revenir au clavier lettres
 
 ## 0.5.2 — 2026-09-14
 
-- Correction : texte parfois invisible (blanc sur blanc) dans la liste
-  déroulante de suggestions
-- Fond d'écran plus gris pour mieux distinguer les champs de saisie
+- Correction : texte parfois invisible (blanc sur blanc) dans la liste déroulante de suggestions
+- Fond d’écran plus gris pour mieux distinguer les champs de saisie
 
 ## 0.5.1 — 2026-09-14
 
-- Inventaire : liste déroulante d'aide à la frappe sur le champ casier —
-  reconnaît les saisies sans tiret ni zéro de tête (ex. « A11 » ou
-  « A-1-1 » pour « A-01-1 »), sans jamais imposer de choisir dans la
-  liste
+- Inventaire : liste déroulante d’aide à la frappe sur le champ casier — reconnaît les saisies sans tiret ni zéro de tête (ex. « A11 » ou « A-1-1 » pour « A-01-1 »), sans jamais imposer de choisir dans la liste
 
 ## 0.5.0 — 2026-09-14
 
-- Inventaire : la saisie se fait maintenant en marchant librement
-  (emplacement + référence + quantité, sans liste ni suggestion) — une
-  palette déplacée sans le signaler se retrouve donc détectée à la
-  comparaison finale
-- L'écran des écarts liste maintenant les casiers jamais saisis, pas
-  seulement leur nombre
-- Correction : annuler une saisie ne supprime plus par erreur une
-  correction plus récente de la même référence
+- Inventaire : la saisie se fait maintenant en marchant librement (emplacement + référence + quantité, sans liste ni suggestion) — une palette déplacée sans le signaler se retrouve donc détectée à la comparaison finale
+- L’écran des écarts liste maintenant les casiers jamais saisis, pas seulement leur nombre
+- Correction : annuler une saisie ne supprime plus par erreur une correction plus récente de la même référence
 
 ## 0.4.0 — 2026-09-14
 
-- Refonte de l'Inventaire : lancement par périmètre (tout l'entrepôt /
-  un client / des références), stock théorique figé au lancement, liste
-  des casiers avec progression, comptage précédent/suivant, synthèse des
-  écarts en deux niveaux
-- Nouvelle dimension client (Réglages : ajout de clients, réf rattachée
-  à un client)
-- Le comptage n'écrit plus de mouvement automatiquement — le traitement
-  des écarts et la clôture arrivent dans une prochaine mise à jour
+- Refonte de l’Inventaire : lancement par périmètre (tout l’entrepôt / un client / des références), stock théorique figé au lancement, liste des casiers avec progression, comptage précédent/suivant, synthèse des écarts en deux niveaux
+- Nouvelle dimension client (Réglages : ajout de clients, réf rattachée à un client)
+- Le comptage n’écrit plus de mouvement automatiquement — le traitement des écarts et la clôture arrivent dans une prochaine mise à jour
 
 ## 0.3.1 — 2026-09-13
 
-- Rappel de vérifier le dossier spam/indésirables sur l'écran de saisie
-  du code
+- Rappel de vérifier le dossier spam/indésirables sur l’écran de saisie du code
 
 ## 0.3.0 — 2026-09-13
 
-- Connexion par code reçu par e-mail (fonctionne aussi depuis l'app
-  installée sur l'écran d'accueil)
-- Nouvel écran Inventaire : comptage à l'aveugle, écarts, reprise
-  automatique d'un casier en cours
-- Écran d'ouverture animé
+- Connexion par code reçu par e-mail (fonctionne aussi depuis l’app installée sur l’écran d’accueil)
+- Nouvel écran Inventaire : comptage à l’aveugle, écarts, reprise automatique d’un casier en cours
+- Écran d’ouverture animé
 
 ## 0.2.0 — 2026-09-12
 
 - Écran Mouvement (entrée / sortie / transfert)
-- Réglages : ajout manuel de références et d'emplacements
-- Détection automatique des mises à jour (bandeau « mise à jour
-  disponible »)
+- Réglages : ajout manuel de références et d’emplacements
+- Détection automatique des mises à jour (bandeau « mise à jour disponible »)
 
 ## 0.1.0 — 2026-09-11
 

@@ -63,8 +63,8 @@ const en: Dictionary = {
     libelle: 'Label',
     piecesParCarton: 'Pieces per carton',
     ordreOptional: 'Order (optional)',
-    invalidCode: 'Invalid location code (expected: A-03-2)',
     saved: 'Saved.',
+    saveError: 'Failed to save. Check your connection and try again.',
   },
   movement: {
     title: 'Movement',

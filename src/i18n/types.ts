@@ -72,8 +72,8 @@ export interface Dictionary {
     libelle: string
     piecesParCarton: string
     ordreOptional: string
-    invalidCode: string
     saved: string
+    saveError: string
   }
   movement: {
     title: string

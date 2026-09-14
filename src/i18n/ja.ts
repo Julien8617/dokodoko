@@ -63,8 +63,8 @@ const ja: Dictionary = {
     libelle: '品名',
     piecesParCarton: 'カートン入数',
     ordreOptional: '順序（任意）',
-    invalidCode: 'ロケーションコードが不正です（例：A-03-2）',
     saved: '保存しました。',
+    saveError: '保存に失敗しました。接続を確認してもう一度お試しください。',
   },
   movement: {
     title: '入出庫',

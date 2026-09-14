@@ -63,8 +63,8 @@ const fr: Dictionary = {
     libelle: 'Libellé',
     piecesParCarton: 'Pièces par carton',
     ordreOptional: 'Ordre (facultatif)',
-    invalidCode: 'Code emplacement invalide (attendu : A-03-2)',
     saved: 'Enregistré.',
+    saveError: 'Échec de l’enregistrement. Vérifiez la connexion et réessayez.',
   },
   movement: {
     title: 'Mouvement',

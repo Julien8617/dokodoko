@@ -32,7 +32,9 @@ function ReferenceForm() {
   const [code, setCode] = useState('')
   const [libelle, setLibelle] = useState('')
   const [pieces, setPieces] = useState('')
-  const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [status, setStatus] = useState<
+    { kind: 'idle' } | { kind: 'saving' } | { kind: 'saved' } | { kind: 'error'; message: string }
+  >({ kind: 'idle' })
 
   useEffect(() => {
     listClients().then(setClients).catch(() => {})
@@ -46,15 +48,15 @@ function ReferenceForm() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if (!clientCode) return
-    setStatus('saving')
+    setStatus({ kind: 'saving' })
     try {
       await upsertReferenceWithConditionnement(code.trim(), libelle.trim(), Number(pieces), clientCode)
-      setStatus('saved')
+      setStatus({ kind: 'saved' })
       setCode('')
       setLibelle('')
       setPieces('')
-    } catch {
-      setStatus('error')
+    } catch (err) {
+      setStatus({ kind: 'error', message: err instanceof Error ? err.message : t.settings.saveError })
     }
   }
 
@@ -88,11 +90,11 @@ function ReferenceForm() {
           required
         />
       </label>
-      <button type="submit" disabled={status === 'saving' || !clientCode}>
+      <button type="submit" disabled={status.kind === 'saving' || !clientCode}>
         {t.common.save}
       </button>
-      {status === 'saved' && <p className="form-status">{t.settings.saved}</p>}
-      {status === 'error' && <p className="form-status form-error">{t.auth.error}</p>}
+      {status.kind === 'saved' && <p className="form-status">{t.settings.saved}</p>}
+      {status.kind === 'error' && <p className="form-status form-error">{status.message}</p>}
     </form>
   )
 }
@@ -101,18 +103,20 @@ function ClientForm() {
   const { t } = useI18n()
   const [code, setCode] = useState('')
   const [nom, setNom] = useState('')
-  const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [status, setStatus] = useState<
+    { kind: 'idle' } | { kind: 'saving' } | { kind: 'saved' } | { kind: 'error'; message: string }
+  >({ kind: 'idle' })
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    setStatus('saving')
+    setStatus({ kind: 'saving' })
     try {
       await insertClient(code.trim().toUpperCase(), nom.trim())
-      setStatus('saved')
+      setStatus({ kind: 'saved' })
       setCode('')
       setNom('')
-    } catch {
-      setStatus('error')
+    } catch (err) {
+      setStatus({ kind: 'error', message: err instanceof Error ? err.message : t.settings.saveError })
     }
   }
 
@@ -127,11 +131,11 @@ function ClientForm() {
         {t.settings.clientNom}
         <input value={nom} onChange={(e) => setNom(e.target.value)} required />
       </label>
-      <button type="submit" disabled={status === 'saving'}>
+      <button type="submit" disabled={status.kind === 'saving'}>
         {t.common.save}
       </button>
-      {status === 'saved' && <p className="form-status">{t.settings.saved}</p>}
-      {status === 'error' && <p className="form-status form-error">{t.auth.error}</p>}
+      {status.kind === 'saved' && <p className="form-status">{t.settings.saved}</p>}
+      {status.kind === 'error' && <p className="form-status form-error">{status.message}</p>}
     </form>
   )
 }
@@ -140,18 +144,20 @@ function EmplacementForm() {
   const { t } = useI18n()
   const [code, setCode] = useState('')
   const [ordre, setOrdre] = useState('')
-  const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [status, setStatus] = useState<
+    { kind: 'idle' } | { kind: 'saving' } | { kind: 'saved' } | { kind: 'error'; message: string }
+  >({ kind: 'idle' })
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    setStatus('saving')
+    setStatus({ kind: 'saving' })
     try {
       await insertEmplacement(code.trim().toUpperCase(), ordre ? Number(ordre) : undefined)
-      setStatus('saved')
+      setStatus({ kind: 'saved' })
       setCode('')
       setOrdre('')
-    } catch {
-      setStatus('error')
+    } catch (err) {
+      setStatus({ kind: 'error', message: err instanceof Error ? err.message : t.settings.saveError })
     }
   }
 
@@ -171,11 +177,11 @@ function EmplacementForm() {
         {t.settings.ordreOptional}
         <input type="number" value={ordre} onChange={(e) => setOrdre(e.target.value)} />
       </label>
-      <button type="submit" disabled={status === 'saving'}>
+      <button type="submit" disabled={status.kind === 'saving'}>
         {t.common.save}
       </button>
-      {status === 'saved' && <p className="form-status">{t.settings.saved}</p>}
-      {status === 'error' && <p className="form-status form-error">{t.settings.invalidCode}</p>}
+      {status.kind === 'saved' && <p className="form-status">{t.settings.saved}</p>}
+      {status.kind === 'error' && <p className="form-status form-error">{status.message}</p>}
     </form>
   )
 }
