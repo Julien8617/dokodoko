@@ -10,6 +10,15 @@
 - **Excel en parallèle** : l'Excel existant reste tenu à jour sur ce même
   périmètre pendant toute la durée du pilote — l'app n'est pas encore
   considérée comme fiable seule.
+- **Repli papier en cas d'échec** : l'app n'a pas encore de file hors
+  ligne (voir Statut) — si l'écran affiche un message d'erreur après une
+  saisie (mouvement ou inventaire), ce mouvement n'a **pas** été
+  enregistré. Le noter sur l'Excel/papier comme d'habitude et réessayer
+  plus tard ; ne jamais supposer qu'une erreur affichée s'est quand même
+  enregistrée derrière.
+- **Stock d'ouverture** : saisi à la main en mouvements `stock_initial`
+  sur A, B et C (une session) — c'est aussi le premier comptage physique
+  du pilote. Pas d'import en masse pour cette étape (voir Statut).
 - **Durée prévue et critère d'arrêt** : 6 mois maximum. Point de situation
   après 1 mois (soit le 18 octobre 2026) : si l'écart entre l'app et le
   comptage physique est important et ne peut pas être expliqué, le pilote
@@ -95,9 +104,25 @@ RLS vérifié en conditions réelles, authentification par code fonctionnelle
 (SMTP Gmail personnalisé), liste blanche peuplée. Détails et procédure
 dans `supabase/README.md`.
 
-Pas encore fait : imports en masse, file hors ligne (écritures en attente
-rejouées automatiquement), exports `.xlsx`, justification/clôture
-d'inventaire, impression.
+**Rien de bloquant pour le démarrage du 18 septembre** : l'app se lance
+en l'état, stock d'ouverture saisi à la main (voir Cadre du pilote).
+
+Pas encore fait, par ordre de priorité jusqu'au point de situation du
+18 octobre 2026 (voir `docs/spec.md` pour le détail et les raisons) :
+
+1. File hors ligne (écritures en attente rejouées automatiquement,
+   bandeau « n en attente »)
+2. Export `.xlsx`
+3. Justification et clôture d'inventaire — un seul chantier avec :
+   affichage des mouvements postérieurs au gel sur l'écran des écarts,
+   et résolution d'une paire compensée en un **transfert** (deux
+   mouvements, même `transfert_id`, somme nulle) plutôt qu'en deux
+   `ajustement_inventaire` séparés — sans quoi une palette simplement
+   déplacée gonflerait à tort les statistiques d'écart de fin de pilote
+4. Synthèse imprimable
+
+**Repoussé** (fonction de passage à l'échelle, pas nécessaire tant que
+le périmètre reste REUZEL/A/B/C) : imports en masse.
 
 ## Démarrage
 
