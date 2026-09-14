@@ -1,5 +1,11 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.2 — 15 septembre 2026.
+>
+> Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
+>
+> Une fonctionnalité absente d'ici ne s'implémente pas : elle se propose, elle s'inscrit ici, puis elle s'implémente. Un écart assumé se répercute dans ce fichier **au même commit**, avec sa raison en une phrase. En cas de contradiction entre ce document et une instruction donnée en session, le signaler et demander l'arbitrage plutôt que de trancher seul.
+
 Remplace la spec v1 (cartographie seule). Ce qui en est repris est signalé.
 
 ## 1. Ce que le changement implique
@@ -50,7 +56,8 @@ Un site statique public expose forcément sa clé Supabase `anon`. Sans protecti
 - RLS activé sur **toutes** les tables, aucune policy ouverte à `anon`.
 - Authentification Supabase par **code à usage unique reçu par e-mail** (`signInWithOtp` + `verifyOtp`), sur une liste blanche d'adresses. Pas de lien magique : sur iOS, un lien ouvre toujours Safari et jamais la PWA installée sur l'écran d'accueil, ce qui casserait la session à chaque connexion. Le code supprime toute redirection.
 - Les policies autorisent les utilisateurs authentifiés uniquement.
-- `DELETE` refusé partout ; `UPDATE` refusé sur `mouvements`.
+- `UPDATE` et `DELETE` refusés sur `mouvements`, sans exception ni condition.
+- Sur `comptage_lignes` : `DELETE` **autorisé tant que le comptage parent est `en_cours`**, refusé dès qu'il est `clos`. Un comptage en cours est un brouillon, et une ligne mal tapée n'est pas un fait sur le stock ; une fois le comptage clos, c'est la pièce justificative des `ajustement_inventaire` écrits en base, et elle devient intouchable. La policy se pose dès maintenant avec la condition sur `statut` : elle est permissive aujourd'hui, elle se resserre d'elle-même quand la clôture arrivera, et personne n'a à s'en souvenir.
 
 Tester explicitement : ouvrir l'URL en navigation privée sans se connecter doit ne rien renvoyer.
 
@@ -127,7 +134,9 @@ Votre règle — les deux coexistent jusqu'à rupture du premier — est une rè
 
 ### Aucune modification, aucune suppression
 
-Une erreur se corrige par un mouvement inverse, de motif `annulation`, portant l'`id` du mouvement annulé. L'historique conserve l'erreur et sa correction.
+Une erreur se corrige par un mouvement inverse, de motif `annulation`, portant l'`id` du mouvement annulé dans `annule_mouvement_id`. L'historique conserve l'erreur et sa correction.
+
+État réel : la colonne existe, mais le lien n'est pas posé — `annulation` est un motif ordinaire choisi à la main, sans écran d'historique depuis lequel annuler un mouvement précis. Dette assumée (§14). En attendant, **le commentaire est obligatoire quand le motif est `annulation`** : à défaut d'un lien machine, une trace lisible.
 
 ## 5. Motifs
 
@@ -162,7 +171,9 @@ Un **transfert** écrit deux lignes partageant un `transfert_id` : une sortie de
 
 Quatre destinations, pleine largeur, empilées : **Rechercher**, **Mouvement**, **Inventaire**, **Réglages**.
 
-Sous les boutons : état de la file hors ligne, date du dernier export, nombre de mouvements du jour.
+**Sélecteur de langue** — français, 日本語, English — sur cet écran plutôt que dans les Réglages : un testeur terrain qui change de langue ne doit pas avoir à la chercher.
+
+Sous les boutons : état de la file hors ligne, date du dernier export, nombre de mouvements du jour. **Ces indicateurs n'affichent rien tant qu'ils ne sont pas branchés sur une vraie donnée** — jamais de texte fixe rassurant. Un « Tout est synchronisé » codé en dur est un mensonge en attente : il est vrai aujourd'hui parce qu'il n'y a pas encore de file, et il deviendra faux sans que personne s'en aperçoive.
 
 ### 6.2 Recherche
 
@@ -171,14 +182,15 @@ Repris de la v1, avec les quantités ajoutées.
 - Recherche par référence, filtrage incrémental sur code et libellé, sans focus automatique.
 - Les résultats sont des références ; taper l'une d'elles affiche **tous ses emplacements** avec la quantité à chacun, en cartons et pièces, plus le total en pièces.
 - Une référence à deux conditionnements affiche une ligne par conditionnement à chaque emplacement concerné — « 4 cartons de 12 » et « 2 cartons de 6 » restent deux lignes distinctes. Le total en pièces, lui, est unique.
-- Recherche par emplacement également : même barre, le filtre tolère les tirets manquants (`a032` retrouve `A-03-2`).
-- Quantité nulle sur un emplacement : afficher « vide », distinct de « non enregistré ».
+- Recherche par emplacement également, via **deux boutons de mode explicites** — par référence / par emplacement. C'est plus clair qu'une barre unique qui devine : `A11` peut être un code de casier comme un fragment de référence, et une heuristique qui se trompe une fois sur dix est pire qu'un bouton.
+- Le filtre tolère les tirets manquants (`a032` retrouve `A-03-2`).
+- Quantité nulle sur un emplacement : afficher **« vide »**, distinct de « non enregistré ». Aujourd'hui les lignes à zéro sont filtrées et disparaissent, ce qui rend les deux cas indistinguables ; à traiter avec le chantier de clôture, qui introduit la même notion de casier confirmé vide.
 
-### 6.3 Emplacement
+### 6.3 Emplacement — retiré du périmètre
 
-Contenu de l'emplacement, et trois actions : **Entrée**, **Sortie**, **Transfert**.
+Cet écran, hérité de la v1 (fiche par casier, navigation par flèches, bouton QR), **ne sera pas construit**. La consultation d'un casier est couverte par la Recherche par emplacement, et l'action par l'écran Mouvement. La navigation par flèches servait la tournée de vérification guidée de la v1, que la saisie libre en marchant a remplacée.
 
-Navigation par flèches entre emplacements, dans l'ordre `ordre` — zone, puis baie, puis niveau (§8). Barre d'accès avec recherche et bouton QR en haut de l'écran. Repris de la v1.
+Conservé ici comme décision, pour qu'il ne soit pas réintroduit à la lecture de la v1.
 
 ### 6.4 Mouvement
 
@@ -227,7 +239,6 @@ Hors périmètre pour l'instant : le suivi de l'historique casier par casier au 
 
 ### 6.6 Réglages
 
-- **Langue de l'interface : français, 日本語, English.**
 - Imports CSV : Références, Emplacements, Stock initial (§7).
 - Ajout manuel unitaire d'une référence ou d'un emplacement.
 - Exports : `.xlsx`, JSON complet (§9).
@@ -243,7 +254,8 @@ Hors périmètre pour l'instant : le suivi de l'historique casier par casier au 
 - Dictionnaire typé en TypeScript, `fr` servant de type de référence : une clé manquante dans `ja` ou `en` doit être une **erreur de compilation**, pas une chaîne vide découverte en entrepôt.
 - Langue initiale déduite de `navigator.language`, repli sur `fr`. Choix explicite conservé localement, par appareil : ce n'est pas une donnée métier, elle ne va pas dans Supabase.
 - Le changement de langue est immédiat, sans rechargement, et ne touche à aucune donnée.
-- Dates en relatif via `Intl.RelativeTimeFormat`, nombres via `Intl.NumberFormat`, avec la locale courante. Ne pas construire « il y a 3 j » à la main.
+- Nombres via `Intl.NumberFormat` avec la locale courante.
+- **Dates affichées en absolu** (`14/09 10:32`), pas en relatif. Le relatif venait de la carte v1, où « vu ce matin » était l'information utile ; sur un journal de mouvements, une heure précise vaut mieux qu'un « il y a 3 jours ». Les helpers de format relatif existants restent inutilisés — à supprimer plutôt qu'à garder en réserve.
 - Attribut `lang` du document mis à jour avec la langue choisie.
 
 **Ce qui n'est jamais traduit** : les codes de référence et d'emplacement, les libellés produits saisis par l'utilisateur, les clés de motif en base (§5), et les en-têtes des fichiers d'import/export (§9).
@@ -286,7 +298,9 @@ Feuille A4 de QR : une page par zone, nom de la zone en en-tête, contenu du QR 
 
 Le format canonique reste le seul **stocké**. À la saisie, l'app accepte une forme abrégée sans tirets ni zéros de tête, avec une règle stricte : **le dernier chiffre tapé est toujours le niveau**, les chiffres précédents forment la baie, les lettres de tête la zone.
 
-`a11` → `A-01-1`. `a111` → `A-11-1`. `ab110` → rejeté, une inter-allée n'existe qu'au niveau 0.
+`a11` → `A-01-1`. `a111` → `A-11-1`. `ab110` → `AB-11-0`. `ab11` → rejeté, car cela donnerait `AB-01-1` et une inter-allée n'existe qu'au niveau 0.
+
+La règle s'applique aussi aux zones à deux lettres : c'est l'algorithme qui décide, pas la longueur de la zone. Le rejet ne vient jamais de l'abréviation elle-même, toujours de la contrainte de niveau sur les inter-allées.
 
 L'abréviation est une commodité d'entrée, jamais une valeur stockée ni affichée : dès la validation, le code canonique remplace la saisie à l'écran, pour que l'utilisateur voie ce qui a été compris.
 
@@ -369,6 +383,8 @@ Deux choses seulement, et ce ne sont pas des chantiers :
 
 1. **Vérifier qu'un échec d'écriture est visible.** Une erreur réseau avalée en silence, sur un mouvement que l'utilisateur croit enregistré, est le seul défaut capable de fausser l'indicateur du pilote sans laisser de trace.
 2. **Écrire la consigne de repli** dans le README : si l'enregistrement échoue, noter sur papier et ressaisir au retour.
+3. **Retirer les deux indicateurs factices de l'Accueil.** C'est une suppression, pas une fonctionnalité : « Tout est synchronisé » en texte fixe est précisément ce qu'on regardera sans réfléchir pendant le pilote. Ils reviendront branchés avec la file hors ligne.
+4. **Rendre le commentaire obligatoire sur le motif `annulation`** (§4), si c'est l'affaire de quelques minutes. Sinon, avec le chantier de clôture.
 
 ### Jusqu'au 18 octobre — point de situation
 
@@ -376,7 +392,7 @@ Ordre dicté par l'indicateur du pilote, l'écart entre l'app et le physique :
 
 1. Automatisation du changelog — chantier isolé, sans dépendance, à sortir du chemin d'abord.
 2. **File hors ligne** et bandeau « n en attente ». C'est ce qui protège l'indicateur : un mouvement perdu le corrompt directement.
-3. **Clôture d'inventaire** : couverture dédiée à la clôture, justification des écarts, écriture des `ajustement_inventaire`.
+3. **Clôture d'inventaire** : couverture dédiée à la clôture, justification des écarts, écriture des `ajustement_inventaire`. Y rattacher l'affichage « vide » face à « non enregistré » dans la Recherche (§6.2) : c'est la même notion de casier confirmé vide.
 4. **Mouvements postérieurs au gel** listés sur l'écran des écarts — à coupler au point 3, c'est la même conversation.
 5. **Résolution des écarts compensés** en transfert (§6.5) — également couplée au point 3.
 6. **Export `.xlsx`** : l'instrument de comparaison avec l'Excel tenu en parallèle, donc de mesure de l'indicateur.
@@ -415,3 +431,13 @@ L'app s'appelle **どこどこ**. Dépôt public `dokodoko` — le nom du dépô
 - Publication par GitHub Actions sur `main`, source de déploiement réglée sur GitHub Actions dans les paramètres du dépôt.
 - Ne plus changer l'origine : renommer le dépôt ou passer sur un domaine personnalisé casse l'installation sur l'écran d'accueil et vide le cache local. Les données, elles, sont chez Supabase — c'est le gain de l'architecture v2.
 - Ne jamais committer un export, un CSV de stock ou une capture contenant des références clients : `*.csv`, `*.xlsx`, `*.json` d'export et tout dossier `data/` dans `.gitignore` dès le premier commit.
+
+## 14. Dettes assumées
+
+Écarts connus entre cette spec et le code, acceptés en l'état pour la durée du pilote. Ce sont des décisions, pas des oublis : elles n'entrent dans une liste de livraison que si quelqu'un les y met explicitement.
+
+- **`annule_mouvement_id` jamais posé.** `annulation` reste un motif choisi à la main, sans écran d'historique depuis lequel annuler un mouvement précis. Conséquence : les paires annulation/annulé ne sont pas reconstituables automatiquement, et les statistiques de fin de pilote comptent les annulations comme des mouvements ordinaires. Atténué par le commentaire obligatoire (§4). Se referme le jour où un écran d'historique des mouvements existe — qui n'est pas au programme.
+- **Helpers de format relatif non utilisés.** À supprimer, pas à câbler (§6.7).
+- **Suivi de l'historique casier par casier entre inventaires** : hors périmètre (§6.5).
+
+Toute dette ajoutée ici doit dire ce qu'elle coûte, pas seulement ce qui manque.
