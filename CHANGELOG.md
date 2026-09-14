@@ -5,6 +5,10 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.3 — 2026-09-15
+
+- Nettoyage interne : suppression du comptage à l’aveugle pré-refonte (getOrCreateComptage/markAttenduConsulte/closeComptage), remplacé depuis par l’Inventaire en marche libre — aucun changement visible
+
 ## 0.9.2 — 2026-09-15
 
 - Accueil : retrait des deux indicateurs qui n’affichaient jamais que « tout est synchronisé » et « 0 mouvement aujourd’hui », sans lien avec la réalité — ils reviendront une fois branchés sur la vraie file hors ligne

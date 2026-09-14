@@ -1,7 +1,6 @@
 import { supabase } from './supabase'
 import type {
   Client,
-  Comptage,
   Conditionnement,
   Emplacement,
   MouvementInsert,
@@ -253,45 +252,6 @@ export async function listStockByReference(refCode: string): Promise<StockByRefe
     .eq('ref_code', refCode)
   if (error) throw error
   return data.filter((row) => row.quantite_pieces !== 0)
-}
-
-// Un casier = un comptage (emplacement_code not null en base). Reprendre un
-// comptage en_cours existant permet la pause/reprise (§6.5, critère 20) sans
-// mécanisme dédié : rouvrir le même casier retombe sur la même ligne.
-export async function getOrCreateComptage(
-  emplacementCode: string,
-): Promise<{ comptage: Comptage; resumed: boolean }> {
-  const { data: existing, error: findError } = await supabase
-    .from('comptages')
-    .select('id, emplacement_code, ts, statut, attendu_consulte')
-    .eq('emplacement_code', emplacementCode)
-    .eq('statut', 'en_cours')
-    .order('ts', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  if (findError) throw findError
-  if (existing) return { comptage: existing, resumed: true }
-
-  const { data, error } = await supabase
-    .from('comptages')
-    .insert({ emplacement_code: emplacementCode, ts: new Date().toISOString(), statut: 'en_cours' })
-    .select('id, emplacement_code, ts, statut, attendu_consulte')
-    .single()
-  if (error) throw error
-  return { comptage: data, resumed: false }
-}
-
-export async function markAttenduConsulte(comptageId: string): Promise<void> {
-  const { error } = await supabase
-    .from('comptages')
-    .update({ attendu_consulte: true })
-    .eq('id', comptageId)
-  if (error) throw error
-}
-
-export async function closeComptage(comptageId: string): Promise<void> {
-  const { error } = await supabase.from('comptages').update({ statut: 'clos' }).eq('id', comptageId)
-  if (error) throw error
 }
 
 export async function insertMouvements(rows: MouvementInsert[]): Promise<void> {

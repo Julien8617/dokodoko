@@ -10,6 +10,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.3',
+    date: '2026-09-15',
+    items: [
+      'Nettoyage interne : suppression du comptage à l’aveugle pré-refonte (getOrCreateComptage/markAttenduConsulte/closeComptage), remplacé depuis par l’Inventaire en marche libre — aucun changement visible',
+    ],
+  },
+  {
     version: '0.9.2',
     date: '2026-09-15',
     items: [
