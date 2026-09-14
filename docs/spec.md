@@ -1,6 +1,6 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.2 — 15 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.4 — 15 septembre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -57,16 +57,23 @@ Un site statique public expose forcément sa clé Supabase `anon`. Sans protecti
 - Authentification Supabase par **code à usage unique reçu par e-mail** (`signInWithOtp` + `verifyOtp`), sur une liste blanche d'adresses. Pas de lien magique : sur iOS, un lien ouvre toujours Safari et jamais la PWA installée sur l'écran d'accueil, ce qui casserait la session à chaque connexion. Le code supprime toute redirection.
 - Les policies autorisent les utilisateurs authentifiés uniquement.
 - `UPDATE` et `DELETE` refusés sur `mouvements`, sans exception ni condition.
-- Sur `comptage_lignes` : `DELETE` **autorisé tant que le comptage parent est `en_cours`**, refusé dès qu'il est `clos`. Un comptage en cours est un brouillon, et une ligne mal tapée n'est pas un fait sur le stock ; une fois le comptage clos, c'est la pièce justificative des `ajustement_inventaire` écrits en base, et elle devient intouchable. La policy se pose dès maintenant avec la condition sur `statut` : elle est permissive aujourd'hui, elle se resserre d'elle-même quand la clôture arrivera, et personne n'a à s'en souvenir.
+- Sur `comptage_lignes` : `DELETE` **autorisé tant que l'inventaire n'est pas clôturé**, refusé après. Un inventaire en cours est un brouillon, et une ligne mal tapée n'est pas un fait sur le stock ; une fois clôturé, les lignes sont la pièce justificative des `ajustement_inventaire` écrits en base, et elles deviennent intouchables.
+- **Cette policy ne s'écrit pas avant le chantier de clôture.** L'état auquel elle doit se référer est celui de l'inventaire, et il n'existe pas encore : `comptages.statut` désigne aujourd'hui « ce casier a été touché » et passe à `clos` dès la première saisie (§14). Une policy branchée dessus casserait l'annulation d'une saisie dans la minute.
 
 Tester explicitement : ouvrir l'URL en navigation privée sans se connecter doit ne rien renvoyer.
 
 ## 4. Modèle de données
 
 ```sql
+clients (
+  code text primary key,
+  nom  text not null
+)
+
 references (
-  code            text primary key,
-  libelle         text
+  code        text primary key,
+  libelle     text,
+  client_code text not null references clients(code)
 )
 
 conditionnements (
@@ -88,27 +95,69 @@ emplacements (
 )
 
 mouvements (
-  id                        uuid primary key,     -- généré côté client
-  ts                        timestamptz not null,
-  ref_code                  text not null,
-  emplacement_code          text not null,
-  quantite_pieces           int  not null,        -- signé : + entrée, − sortie
-  motif                     text not null,        -- enum, voir §5
-  commentaire               text,
-  transfert_id              uuid,                 -- lie les deux lignes d'un transfert
-  comptage_id               uuid,                 -- lie un ajustement à son comptage
-  annule_mouvement_id       uuid,                 -- pour une annulation
-  conditionnement_id        uuid not null,
-  auteur                    text not null
+  id                   uuid primary key,     -- généré côté client
+  ts                   timestamptz not null,
+  ref_code             text not null,
+  emplacement_code     text not null,
+  quantite_pieces      int  not null,        -- signé : + entrée, − sortie
+  motif                text not null,        -- enum, voir §5
+  commentaire          text,
+  transfert_id         uuid,                 -- lie les deux lignes d'un transfert
+  comptage_id          uuid,                 -- lie un ajustement à son comptage
+  annule_mouvement_id  uuid,                 -- pour une annulation
+  conditionnement_id   uuid not null,
+  auteur               text not null
 )
 
-comptages (
+inventaires (                                -- porte le périmètre et le gel
+  id                uuid primary key,
+  scope_kind        text not null check (scope_kind in ('tout','client','references')),
+  scope_client_code text references clients(code),
+  frozen_ts         timestamptz not null default now(),
+  statut            text not null default 'en_cours'
+                    check (statut in ('en_cours','clos')),
+  auteur            text not null,
+  created_at        timestamptz not null default now(),
+  constraint scope_client_coherent check (
+    (scope_kind =  'client' and scope_client_code is not null) or
+    (scope_kind <> 'client' and scope_client_code is null)
+  )
+)
+-- index unique partiel one_inventaire_en_cours (where statut = 'en_cours')
+
+inventaire_references (                      -- périmètre « des références »
+  inventaire_id uuid not null references inventaires(id),
+  ref_code      text not null references "references"(code),
+  primary key (inventaire_id, ref_code)
+)
+
+comptages (                                  -- un casier dans un inventaire
   id               uuid primary key,
-  emplacement_code text not null,
+  emplacement_code text not null references emplacements(code),
   ts               timestamptz not null,
-  statut           text not null   -- 'en_cours' | 'clos'
+  statut           text not null check (statut in ('en_cours','clos')),
+  inventaire_id    uuid references inventaires(id)
+)
+
+comptage_lignes (                            -- journal des saisies
+  id                 uuid primary key,
+  comptage_id        uuid not null references comptages(id),
+  ref_code           text not null references "references"(code),
+  conditionnement_id uuid not null references conditionnements(id),
+  cartons            int  not null check (cartons >= 0),
+  pieces             int  not null check (pieces  >= 0),
+  ts                 timestamptz not null default now(),
+  auteur             text not null
 )
 ```
+
+Ce bloc reflète le schéma réellement appliqué en base au 15 septembre 2026.
+
+**`comptage_lignes` stocke ce qui a été compté, pas son équivalent en pièces** — cartons, pièces et conditionnement séparément. C'est volontaire et il ne faut pas le « normaliser » plus tard : le grand livre stocke des pièces parce qu'il fait de l'arithmétique, le comptage stocke le geste humain parce qu'il sert de preuve. La conversion se dérive, l'inverse non.
+
+`references.client_code` étant `not null`, tout stock appartient à un client ; du stock propre demanderait un pseudo-client dédié.
+
+Un seul inventaire peut être `en_cours`, contrainte appliquée en base. Limite connue et acceptée pour le pilote : un comptage ponctuel sur trois références pour répondre à un client est impossible pendant un inventaire complet. À rouvrir seulement si le cas se présente réellement.
 
 **Le stock n'est jamais une colonne.** C'est une vue : somme de `quantite_pieces` groupée par `(emplacement_code, ref_code)`. Une colonne de stock se désynchronise toujours, tôt ou tard, et rien ne permet alors de savoir laquelle des deux valeurs est la bonne.
 
@@ -230,6 +279,18 @@ Autrement dit : le zéro implicite est bon pour regarder, mauvais pour signer.
 Ce qui reste à construire est la **résolution**, à la clôture : sur une paire détectée, l'opérateur confirme le déplacement, et la clôture écrit alors **un transfert** — une sortie du casier source, une entrée sur le casier destination, même `transfert_id` — et non deux `ajustement_inventaire`. Physiquement, rien n'a disparu ni apparu : une palette a bougé. Écrire deux ajustements gonflerait artificiellement les statistiques d'écart de fin de pilote, qui sont l'indicateur du pilote. Si l'opérateur ne confirme pas, on retombe sur deux écarts ordinaires à justifier séparément.
 
 **Correction** : une saisie se modifie ou se retire depuis l'écran des écarts, sans repasser par la saisie.
+
+**Première étape du chantier de clôture — une seule migration, quatre corrections de schéma :**
+
+1. **`comptages.inventaire_id` passe en `not null`.** Aujourd'hui nullable, donc un comptage peut exister sans appartenir à aucun inventaire : ses lignes n'apparaissent alors dans le calcul d'écart d'aucun inventaire. Un trou silencieux, exactement dans le module qui produit l'indicateur du pilote. Vérifier d'abord s'il existe des lignes à `null` héritées de l'avant-refonte, et les rattacher ou les supprimer.
+2. **Index unique sur `(inventaire_id, emplacement_code)`.** Sans lui, `getOrCreateCasier` peut créer deux comptages pour le même casier dans le même inventaire : les lignes se répartissent entre les deux et l'écart est faux. À vérifier dès maintenant en lecture seule — si des doublons existent déjà, ce n'est plus une précaution mais un bug à traiter.
+3. **Suppression de `comptages.attendu_consulte`**, lue mais jamais écrite.
+4. **Découpler les deux notions qui partagent `comptages.statut`.**
+
+- « ce casier a été touché » — sert à l'affichage des écarts. Devient un horodatage, `visite_ts`, et non un statut : un horodatage ne peut pas se relire comme une clôture.
+- « cet inventaire est clôturé » — c'est `inventaires.statut`, qui existe déjà et n'a besoin de rien. C'est ce que la policy `DELETE` (§3) interroge, en remontant `comptage_lignes → comptages → inventaires` — ce qui suppose le point 1 ci-dessus.
+
+La synthèse des écarts se base alors sur la présence d'au moins une ligne de comptage, et non sur un statut. Ce découplage se fait **au début du chantier**, avant la clôture elle-même : le reste du chantier repose dessus.
 
 **Clôture** : un inventaire ne se clôture que lorsque chaque casier du périmètre porte une saisie — chiffrée ou confirmée vide — et que chaque écart restant est soit corrigé, soit justifié par un motif saisi. La clôture écrit alors un mouvement `ajustement_inventaire` par couple référence × conditionnement écarté, portant le `comptage_id`. Aucun écart, aucun mouvement.
 
@@ -392,7 +453,7 @@ Ordre dicté par l'indicateur du pilote, l'écart entre l'app et le physique :
 
 1. Automatisation du changelog — chantier isolé, sans dépendance, à sortir du chemin d'abord.
 2. **File hors ligne** et bandeau « n en attente ». C'est ce qui protège l'indicateur : un mouvement perdu le corrompt directement.
-3. **Clôture d'inventaire** : couverture dédiée à la clôture, justification des écarts, écriture des `ajustement_inventaire`. Y rattacher l'affichage « vide » face à « non enregistré » dans la Recherche (§6.2) : c'est la même notion de casier confirmé vide.
+3. **Clôture d'inventaire**, dans cet ordre interne : découplage de `comptages.statut` (§6.5) d'abord, puis policy `DELETE` conditionnée (§3), puis couverture, justification des écarts, écriture des `ajustement_inventaire`. Y rattacher l'affichage « vide » face à « non enregistré » dans la Recherche (§6.2) : c'est la même notion de casier confirmé vide.
 4. **Mouvements postérieurs au gel** listés sur l'écran des écarts — à coupler au point 3, c'est la même conversation.
 5. **Résolution des écarts compensés** en transfert (§6.5) — également couplée au point 3.
 6. **Export `.xlsx`** : l'instrument de comparaison avec l'Excel tenu en parallèle, donc de mesure de l'indicateur.
@@ -439,5 +500,9 @@ L'app s'appelle **どこどこ**. Dépôt public `dokodoko` — le nom du dépô
 - **`annule_mouvement_id` jamais posé.** `annulation` reste un motif choisi à la main, sans écran d'historique depuis lequel annuler un mouvement précis. Conséquence : les paires annulation/annulé ne sont pas reconstituables automatiquement, et les statistiques de fin de pilote comptent les annulations comme des mouvements ordinaires. Atténué par le commentaire obligatoire (§4). Se referme le jour où un écran d'historique des mouvements existe — qui n'est pas au programme.
 - **Helpers de format relatif non utilisés.** À supprimer, pas à câbler (§6.7).
 - **Suivi de l'historique casier par casier entre inventaires** : hors périmètre (§6.5).
+
+- **`comptages.inventaire_id` nullable.** Un comptage orphelin est invisible de tous les inventaires, donc ses lignes ne comptent dans aucun écart. Coût : un trou silencieux dans le calcul de l'indicateur du pilote. Se referme à la migration du chantier de clôture (§6.5).
+- **Pas de contrainte d'unicité sur `(inventaire_id, emplacement_code)`.** Coût : deux comptages possibles pour un même casier, lignes réparties entre les deux, écart faux. Vérification en lecture seule à faire tout de suite ; correction à la même migration.
+- **`comptages.statut` surchargé.** Il signifie « ce casier a été touché » et passe à `clos` dès la première saisie, alors que son nom laisse lire « inventaire clôturé ». Coût immédiat : nul, le code est cohérent avec lui-même. Coût réel : il bloque la policy `DELETE` conditionnée, et il fera lire `clos` pour une clôture à quiconque arrive sur le code sans contexte. Se referme au début du chantier de clôture (§6.5), pas avant — un refactor de `markCasierVisite` et de la boucle de fusion de `getInventaireSynthese`, sur le module que `CLAUDE.md` signale pour ses bugs subtils, n'apporte rien au démarrage du pilote.
 
 Toute dette ajoutée ici doit dire ce qu'elle coûte, pas seulement ce qui manque.
