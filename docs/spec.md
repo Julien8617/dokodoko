@@ -1,6 +1,6 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.5 — 15 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.7 — 15 septembre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -49,6 +49,16 @@ L'indicateur du pilote est unique : l'écart entre l'app et le comptage physique
 - Pour `mouvements`, c'est déjà le cas.
 - Pour `comptage_lignes`, `id` et `ts` doivent être fournis par le client. `id` existe déjà en base avec un défaut : **aucune migration n'est nécessaire**, il suffit de le renseigner et de passer en `upsert(ignoreDuplicates)`. Le défaut reste comme filet.
 - `ts` est le point critique : la correction d'une saisie fonctionne en *latest-wins*. Une insertion rejouée qui prendrait l'heure du vidage de file pourrait battre une correction plus récente et ressusciter la valeur erronée.
+
+**Contrepartie assumée : l'ordre dépend de l'horloge du téléphone.** Un appareil mal réglé peut dater une correction avant l'original qu'elle corrige, et casser le *latest-wins* par l'autre bout. Accepté pour un pilote mono-opérateur avec l'heure réseau active. Deux précisions :
+
+- Le tri secondaire sur `id` donne du **déterminisme, pas de la justesse** : un UUID v4 n'a pas d'ordre signifiant, il évite seulement un résultat qui change d'un appel à l'autre. Ne pas le lire comme un correctif.
+- Mitigation immédiate et sans DDL : au démarrage, comparer l'horloge de l'appareil à celle du serveur et avertir au-delà de quelques minutes de dérive. Le cas réaliste est un téléphone à la mauvaise date, pas un décalage de trois secondes.
+- Correctif réel, à embarquer dans la migration du chantier de clôture : un **compteur monotone par appareil**, capturé au geste et persisté localement, utilisé comme clé d'ordre. Monotone quoi qu'il arrive à l'horloge, et immunisé au rejeu puisqu'il est pris à la saisie. `ts` reste l'heure du geste, pour l'affichage et la comparaison au gel.
+
+**La création d'un casier est hors file en v1.** `getOrCreateCasier` reste synchrone : hors réseau, toucher un casier jamais visité échoue immédiatement. Conséquence à connaître avant de valider : dans un inventaire neuf, **tous** les casiers sont neufs, donc un inventaire hors ligne ne fonctionne pas du tout — ce n'est pas un cas limite. Acceptable seulement si la couverture réseau en allée est bonne, ce qui se vérifie en dix minutes avec le téléphone, pas en raisonnant.
+
+Si des zones mortes existent, le correctif ne passe pas par l'index unique et ne demande aucun DDL : **dériver `comptages.id` de façon déterministe** à partir de `(inventaire_id, emplacement_code)` — un UUID v5, ou tout hachage stable. Le même casier produit toujours le même identifiant, donc `upsert(ignoreDuplicates)` sur la clé primaire déduplique par construction, y compris au rejeu, et la création entre dans la file comme le reste.
 
 **File strictement ordonnée, vidée en FIFO.** Et lorsqu'une insertion et une suppression de la même ligne sont toutes deux en attente, les deux s'annulent et disparaissent de la file. Sans cette règle, une ligne supprimée par l'utilisateur réapparaît au rejeu de son insertion.
 
@@ -450,7 +460,6 @@ Les photos de référence restent facultatives ; si elles sont faites, elles pas
 34. Même ligne de comptage rejouée deux fois : un seul enregistrement, et son `ts` est celui de la saisie, pas du vidage.
 35. Ligne saisie puis corrigée hors ligne, les deux en file : après vidage, c'est la correction qui prévaut.
 36. Ligne saisie puis supprimée avant vidage : rien n'atteint la base.
-34
 37. `−10` sur `A-02-1` et `+10` sur `A-05-1` pour la même référence : présenté comme un déplacement probable, pas comme deux écarts.
 38. Déplacement probable confirmé par l'opérateur à la clôture : un transfert est écrit — deux mouvements, même `transfert_id`, somme nulle — et aucun `ajustement_inventaire`.
 39. Déplacement probable non confirmé : deux écarts ordinaires, à justifier séparément.
@@ -527,6 +536,47 @@ L'app s'appelle **どこどこ**. Dépôt public `dokodoko` — le nom du dépô
 
 - **`comptages.inventaire_id` nullable.** Un comptage orphelin est invisible de tous les inventaires, donc ses lignes ne comptent dans aucun écart. Coût : un trou silencieux dans le calcul de l'indicateur du pilote. Se referme à la migration du chantier de clôture (§6.5).
 - **Pas de contrainte d'unicité sur `(inventaire_id, emplacement_code)`.** Coût : deux comptages possibles pour un même casier, lignes réparties entre les deux, écart faux. Vérification en lecture seule à faire tout de suite ; correction à la même migration.
+- **Ordre des lignes de comptage dépendant de l'horloge du téléphone** (§3). Coût : sur un appareil à la mauvaise date, une correction peut être datée avant l'original et le *latest-wins* retenir la mauvaise valeur. Atténué par l'avertissement de dérive au démarrage. Se referme avec le compteur monotone par appareil, à la migration du chantier de clôture.
+- **Création de casier hors file** (§3). Coût : un inventaire neuf est impossible hors réseau, puisque tous ses casiers sont neufs. Acceptable uniquement si la couverture en allée est vérifiée bonne. Correctif sans DDL disponible si elle ne l'est pas : identifiant de casier déterministe.
 - **`comptages.statut` surchargé.** Il signifie « ce casier a été touché » et passe à `clos` dès la première saisie, alors que son nom laisse lire « inventaire clôturé ». Coût immédiat : nul, le code est cohérent avec lui-même. Coût réel : il bloque la policy `DELETE` conditionnée, et il fera lire `clos` pour une clôture à quiconque arrive sur le code sans contexte. Se referme au début du chantier de clôture (§6.5), pas avant — un refactor de `markCasierVisite` et de la boucle de fusion de `getInventaireSynthese`, sur le module que `CLAUDE.md` signale pour ses bugs subtils, n'apporte rien au démarrage du pilote.
 
 Toute dette ajoutée ici doit dire ce qu'elle coûte, pas seulement ce qui manque.
+
+## 15. Mode opératoire — découpage de la spec
+
+### Structure cible
+
+```
+docs/
+  spec.md                      ← invariants + index, toujours chargé
+  spec/01-cadre.md             ← pilote, périmètre, indicateur
+  spec/02-architecture.md      ← hébergement, sécurité, file hors ligne
+  spec/03-modele.md            ← schéma, unités, conditionnements, motifs
+  spec/04-ecrans.md            ← accueil, recherche, mouvement, inventaire, réglages, langue
+  spec/05-imports-exports.md
+  spec/06-emplacements.md      ← codes, tri, saisie abrégée, feuille A4
+  spec/07-livraison.md         ← calendrier, hors périmètre, dettes assumées
+```
+
+`docs/spec.md` ne garde que ce qui s'applique à **toutes** les sessions : la règle d'autorité, les invariants de modèle, la liste de priorités en cours, et la carte indiquant quel module couvre quoi. Une page, pas plus.
+
+### Règles du découpage
+
+- **Une règle vit dans un seul fichier.** Aucune duplication entre modules ; on renvoie au module par son nom. La duplication est exactement la façon dont deux specs commencent à se contredire.
+- **Les critères d'acceptation migrent auprès de la règle qu'ils testent**, dans leur module. C'est le vrai gain : la liste globale actuelle oblige à tout charger pour vérifier un seul point.
+- **Chaque module porte sa propre version et sa date** en en-tête.
+- **Un module est lu en entier ou pas du tout.** Si un module devient trop gros pour ça, il se scinde — mais c'est une décision d'architecture, pas de session.
+
+### Règles de session
+
+- Au démarrage d'une session : lire `docs/spec.md`, plus le ou les modules que la liste de priorités associe au chantier en cours. Rien d'autre.
+- Un écart assumé se répercute **dans le module concerné, au même commit**, avec sa raison en une phrase et un incrément de la version du module.
+- **Claude Code modifie le contenu d'un module, jamais la répartition entre modules.** Déplacer une règle d'un fichier à l'autre est une opération d'architecture : sinon la carte pourrit et plus personne ne sait où chercher.
+
+### Quand
+
+Au **changement de chantier**, jamais au milieu. Découper pendant que la file hors ligne est en cours ferait bouger ses règles de fichier sous elle. Le découpage se fait donc entre la fin de la file hors ligne et le début du chantier de clôture — qui est le plus gros des deux et celui qui en profitera le plus.
+
+### Ce que ça économise, et ce que ça n'économise pas
+
+Ce document pèse quelques milliers de tokens : ce n'est pas lui qui remplit une session. Le contexte part dans la lecture des sources, les sorties de build et les transcriptions d'outils. Le découpage se justifie par la **focalisation** — une session qui travaille sur la file hors ligne n'a pas les règles de clôture sous les yeux, donc moins d'occasions de pas de côté — et par la propreté des diffs. Pas par le budget de tokens.
