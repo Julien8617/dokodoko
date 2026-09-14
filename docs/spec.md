@@ -1,6 +1,6 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.4 — 15 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.5 — 15 septembre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -39,6 +39,26 @@ L'indicateur du pilote est unique : l'écart entre l'app et le comptage physique
 - Lectures : cache local (IndexedDB) rafraîchi à l'ouverture et après chaque écriture, pour que la consultation reste instantanée dans les allées.
 - Écritures : envoyées à Supabase ; en cas d'échec réseau, mises en file dans IndexedDB et rejouées automatiquement. L'`id` UUID généré côté client rend le rejeu idempotent — c'est ce qui permet de rejouer sans jamais compter deux fois.
 - L'état de la file hors ligne est **visible en permanence** : un bandeau « 3 mouvements en attente » tant que la file n'est pas vide. Un mouvement non remonté qu'on croit enregistré est le pire défaut possible pour ce genre d'outil.
+
+### File hors ligne
+
+Écritures uniquement — jamais les lectures. Règles non négociables, parce qu'une file mal faite corrompt le stock plus sûrement qu'une absence de file.
+
+**Tout est daté et identifié au moment du geste, jamais au moment de l'écriture.** Chaque opération mise en file porte un `id` UUID et un `ts` générés côté client, à la saisie. Aucun `default now()` du serveur ne doit intervenir sur une écriture rejouable.
+
+- Pour `mouvements`, c'est déjà le cas.
+- Pour `comptage_lignes`, `id` et `ts` doivent être fournis par le client. `id` existe déjà en base avec un défaut : **aucune migration n'est nécessaire**, il suffit de le renseigner et de passer en `upsert(ignoreDuplicates)`. Le défaut reste comme filet.
+- `ts` est le point critique : la correction d'une saisie fonctionne en *latest-wins*. Une insertion rejouée qui prendrait l'heure du vidage de file pourrait battre une correction plus récente et ressusciter la valeur erronée.
+
+**File strictement ordonnée, vidée en FIFO.** Et lorsqu'une insertion et une suppression de la même ligne sont toutes deux en attente, les deux s'annulent et disparaissent de la file. Sans cette règle, une ligne supprimée par l'utilisateur réapparaît au rejeu de son insertion.
+
+**Un rejet métier n'entre jamais en file.** Stock insuffisant, refus de policy, violation de contrainte : ce sont des réponses structurées du serveur, elles s'affichent immédiatement comme aujourd'hui. Seul l'échec réseau brut est mis en file. Le critère est la forme de l'erreur, pas son code.
+
+**Un rejet survenant au vidage de la file ne disparaît jamais.** Une sortie mise en file hors ligne peut être refusée une heure plus tard, alors que la marchandise est physiquement partie. Ces opérations vont dans une liste « en échec », persistante et visible, avec le motif renvoyé par le serveur. Jamais rejouées indéfiniment, jamais écartées en silence, résolues à la main par l'utilisateur.
+
+**Le bandeau affiche le nombre et l'âge.** « 3 en attente depuis 2 h » est actionnable ; « 3 en attente » devient du décor en deux jours.
+
+**L'écran des écarts doit dire quand la file n'est pas vide.** Un écart calculé alors que des lignes de comptage n'ont pas atteint la base est faux, et c'est l'indicateur du pilote.
 
 ### Sur la « synchronisation Excel »
 
@@ -427,10 +447,14 @@ Les photos de référence restent facultatives ; si elles sont faites, elles pas
 31. Casier confirmé vide : une ligne de comptage à zéro existe, et la clôture devient possible.
 32. Écart restant sans justification ni correction : clôture impossible.
 33. Mouvement écrit après le gel sur le périmètre : listé sur l'écran des écarts comme explication possible.
-34. `−10` sur `A-02-1` et `+10` sur `A-05-1` pour la même référence : présenté comme un déplacement probable, pas comme deux écarts.
-35. Déplacement probable confirmé par l'opérateur à la clôture : un transfert est écrit — deux mouvements, même `transfert_id`, somme nulle — et aucun `ajustement_inventaire`.
-36. Déplacement probable non confirmé : deux écarts ordinaires, à justifier séparément.
-35. `a11` saisi : interprété en `A-01-1`, et le code canonique s'affiche après validation.
+34. Même ligne de comptage rejouée deux fois : un seul enregistrement, et son `ts` est celui de la saisie, pas du vidage.
+35. Ligne saisie puis corrigée hors ligne, les deux en file : après vidage, c'est la correction qui prévaut.
+36. Ligne saisie puis supprimée avant vidage : rien n'atteint la base.
+34
+37. `−10` sur `A-02-1` et `+10` sur `A-05-1` pour la même référence : présenté comme un déplacement probable, pas comme deux écarts.
+38. Déplacement probable confirmé par l'opérateur à la clôture : un transfert est écrit — deux mouvements, même `transfert_id`, somme nulle — et aucun `ajustement_inventaire`.
+39. Déplacement probable non confirmé : deux écarts ordinaires, à justifier séparément.
+40. `a11` saisi : interprété en `A-01-1`, et le code canonique s'affiche après validation.
 
 ## 12. Ordre de livraison
 
