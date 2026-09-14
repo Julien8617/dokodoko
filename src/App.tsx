@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Locale } from './i18n'
 import { useI18n } from './i18n'
 import UpdatePrompt from './UpdatePrompt'
+import ClockDriftWarning from './ClockDriftWarning'
 import { supabase } from './lib/supabase'
 import Settings from './screens/Settings'
 import Movement from './screens/Movement'
@@ -33,6 +34,7 @@ function Home({ onNavigate }: { onNavigate: (screen: Screen) => void }) {
   return (
     <main className="home">
       <UpdatePrompt />
+      <ClockDriftWarning />
 
       <h1>{t.app.name}</h1>
 

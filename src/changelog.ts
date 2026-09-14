@@ -10,6 +10,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.5',
+    date: '2026-09-15',
+    items: [
+      'Accueil : avertissement si l’horloge du téléphone est décalée de plus de quelques minutes par rapport au serveur — un décalage important peut faire perdre une correction de comptage face à l’ancienne valeur qu’elle corrige',
+    ],
+  },
+  {
     version: '0.9.4',
     date: '2026-09-15',
     items: [

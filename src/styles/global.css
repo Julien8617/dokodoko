@@ -137,6 +137,16 @@ body {
   font-weight: 600;
 }
 
+.clock-drift-banner {
+  width: 100%;
+  padding: 0.75rem;
+  margin: 0;
+  border-radius: 0.5rem;
+  background: #ffe0b2;
+  color: #111;
+  font-size: 0.9rem;
+}
+
 /* Écrans internes (Réglages, Mouvement, Inventaire) */
 
 .settings,

@@ -16,6 +16,10 @@ const fr: Dictionary = {
     lastExport: 'Dernier export : {date}',
     movementsToday: '{count} mouvements aujourd’hui',
   },
+  clockDrift: {
+    warning:
+      'Horloge de l’appareil décalée d’environ {hours} h par rapport au serveur — corriger dans Réglages > Général > Date et heure (réglage automatique), sinon les corrections de saisie risquent de ne pas s’appliquer dans le bon ordre.',
+  },
   common: {
     cancel: 'Annuler',
     confirm: 'Confirmer',

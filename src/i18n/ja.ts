@@ -16,6 +16,10 @@ const ja: Dictionary = {
     lastExport: '前回のエクスポート：{date}',
     movementsToday: '本日の移動 {count} 件',
   },
+  clockDrift: {
+    warning:
+      '端末の時計がサーバーと約{hours}時間ずれています — 設定 > 一般 > 日付と時刻（自動設定）で修正してください。ずれたままだと、修正の反映順序が入れ替わるおそれがあります。',
+  },
   common: {
     cancel: 'キャンセル',
     confirm: '確認',

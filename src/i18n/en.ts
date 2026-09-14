@@ -16,6 +16,10 @@ const en: Dictionary = {
     lastExport: 'Last export: {date}',
     movementsToday: '{count} movements today',
   },
+  clockDrift: {
+    warning:
+      'Device clock is off by about {hours} h from the server — fix it in Settings > General > Date & Time (set automatically), otherwise entry corrections may not apply in the right order.',
+  },
   common: {
     cancel: 'Cancel',
     confirm: 'Confirm',

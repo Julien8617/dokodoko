@@ -36,6 +36,12 @@ export interface Dictionary {
     lastExport: string
     movementsToday: string
   }
+  clockDrift: {
+    // {hours} remplacé via interpolate() — horloge de l'appareil trop
+    // éloignée de celle du serveur (spec v2 §3.1, mitigation en attendant
+    // le compteur monotone par appareil du chantier de clôture)
+    warning: string
+  }
   common: {
     cancel: string
     confirm: string

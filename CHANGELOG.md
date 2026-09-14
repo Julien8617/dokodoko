@@ -5,6 +5,10 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.5 — 2026-09-15
+
+- Accueil : avertissement si l’horloge du téléphone est décalée de plus de quelques minutes par rapport au serveur — un décalage important peut faire perdre une correction de comptage face à l’ancienne valeur qu’elle corrige
+
 ## 0.9.4 — 2026-09-15
 
 - Nettoyage interne : la saisie d’un comptage devient rejouable sans risque de doublon ni de résurrection d’une valeur corrigée (identifiant et horodatage pris au moment de la saisie, plus à l’enregistrement) — prépare la file d’attente hors ligne, aucun changement visible
