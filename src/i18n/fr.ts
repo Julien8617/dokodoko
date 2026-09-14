@@ -84,6 +84,7 @@ const fr: Dictionary = {
     motif: 'Motif',
     motifPlaceholder: 'Choisir un motif',
     comment: 'Commentaire (facultatif)',
+    commentRequiredAnnulation: 'Commentaire (obligatoire pour une annulation — précisez ce qui est corrigé)',
     confirmArmed: 'Appuyer à nouveau pour confirmer',
     insufficientStock: 'Stock insuffisant — disponible : {available} pièces',
     success: 'Mouvement enregistré.',

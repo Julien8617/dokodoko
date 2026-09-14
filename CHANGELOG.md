@@ -5,6 +5,11 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.2 — 2026-09-15
+
+- Accueil : retrait des deux indicateurs qui n’affichaient jamais que « tout est synchronisé » et « 0 mouvement aujourd’hui », sans lien avec la réalité — ils reviendront une fois branchés sur la vraie file hors ligne
+- Mouvement : le commentaire devient obligatoire pour une annulation, pour garder une trace lisible de ce qui est corrigé
+
 ## 0.9.1 — 2026-09-15
 
 - Correction : en Réglages, un échec d’enregistrement (référence, client ou emplacement) affichait parfois un message sans rapport (« code invalide ou expiré », copié du formulaire de connexion) au lieu de la vraie erreur

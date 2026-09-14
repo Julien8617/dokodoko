@@ -10,6 +10,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.2',
+    date: '2026-09-15',
+    items: [
+      'Accueil : retrait des deux indicateurs qui n’affichaient jamais que « tout est synchronisé » et « 0 mouvement aujourd’hui », sans lien avec la réalité — ils reviendront une fois branchés sur la vraie file hors ligne',
+      'Mouvement : le commentaire devient obligatoire pour une annulation, pour garder une trace lisible de ce qui est corrigé',
+    ],
+  },
+  {
     version: '0.9.1',
     date: '2026-09-15',
     items: [

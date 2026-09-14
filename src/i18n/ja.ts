@@ -84,6 +84,7 @@ const ja: Dictionary = {
     motif: '理由',
     motifPlaceholder: '理由を選択',
     comment: 'コメント（任意）',
+    commentRequiredAnnulation: 'コメント（取消の場合は必須 — 何を訂正するか記入）',
     confirmArmed: 'もう一度タップして確定',
     insufficientStock: '在庫不足 — 利用可能：{available} ピース',
     success: '移動を記録しました。',

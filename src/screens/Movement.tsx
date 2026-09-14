@@ -106,11 +106,18 @@ export default function Movement({ onBack }: { onBack: () => void }) {
     [emplacements],
   )
 
+  // Sans lien tracé vers le mouvement annulé (annule_mouvement_id non posé,
+  // dette assumée — spec v2 §14), le commentaire est la seule trace lisible
+  // reliant une annulation à ce qu'elle corrige : rendu obligatoire pour ce
+  // motif précis (spec v2 §12, "18 septembre").
+  const commentRequired = motif === 'annulation' && commentaire.trim() === ''
+
   const canSubmit =
     Boolean(refCode) &&
     Boolean(emplacementCode) &&
     Boolean(conditionnementId) &&
     totalPieces > 0 &&
+    !commentRequired &&
     (sens === 'transfert' ? Boolean(destinationCode) && destinationCode !== emplacementCode : Boolean(motif))
 
   function handleArm() {
@@ -310,8 +317,12 @@ export default function Movement({ onBack }: { onBack: () => void }) {
       )}
 
       <label className="field-label">
-        {t.movement.comment}
-        <input value={commentaire} onChange={(e) => setCommentaire(e.target.value)} />
+        {motif === 'annulation' ? t.movement.commentRequiredAnnulation : t.movement.comment}
+        <input
+          value={commentaire}
+          onChange={(e) => setCommentaire(e.target.value)}
+          required={motif === 'annulation'}
+        />
       </label>
 
       <button

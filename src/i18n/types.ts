@@ -93,6 +93,7 @@ export interface Dictionary {
     motif: string
     motifPlaceholder: string
     comment: string
+    commentRequiredAnnulation: string
     confirmArmed: string
     insufficientStock: string
     success: string

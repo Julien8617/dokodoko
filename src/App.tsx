@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Locale } from './i18n'
-import { useI18n, interpolate } from './i18n'
+import { useI18n } from './i18n'
 import UpdatePrompt from './UpdatePrompt'
 import { supabase } from './lib/supabase'
 import Settings from './screens/Settings'
@@ -63,8 +63,10 @@ function Home({ onNavigate }: { onNavigate: (screen: Screen) => void }) {
         </button>
       </div>
 
-      <p className="home-status">{t.home.offlineQueueEmpty}</p>
-      <p className="home-status">{interpolate(t.home.movementsToday, { count: 0 })}</p>
+      {/* File hors ligne et compteur de mouvements du jour : retirés (spec
+          v2 §12) tant qu'ils ne sont pas branchés sur une vraie donnée — un
+          texte fixe rassurant est un mensonge en attente. Reviennent avec
+          le chantier de file hors ligne. */}
 
       <button className="sign-out" onClick={() => supabase.auth.signOut()}>
         {t.auth.signOut}

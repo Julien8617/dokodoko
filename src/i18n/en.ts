@@ -84,6 +84,7 @@ const en: Dictionary = {
     motif: 'Reason',
     motifPlaceholder: 'Choose a reason',
     comment: 'Comment (optional)',
+    commentRequiredAnnulation: 'Comment (required for a reversal — say what it corrects)',
     confirmArmed: 'Tap again to confirm',
     insufficientStock: 'Insufficient stock — available: {available} pieces',
     success: 'Movement recorded.',
