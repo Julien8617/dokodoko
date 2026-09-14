@@ -10,6 +10,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.4',
+    date: '2026-09-15',
+    items: [
+      'Nettoyage interne : la saisie d’un comptage devient rejouable sans risque de doublon ni de résurrection d’une valeur corrigée (identifiant et horodatage pris au moment de la saisie, plus à l’enregistrement) — prépare la file d’attente hors ligne, aucun changement visible',
+    ],
+  },
+  {
     version: '0.9.3',
     date: '2026-09-15',
     items: [

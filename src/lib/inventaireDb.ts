@@ -133,7 +133,13 @@ export async function listLatestCasierLignes(comptageId: string): Promise<Compta
     .from('comptage_lignes')
     .select('id, comptage_id, ref_code, conditionnement_id, cartons, pieces, ts, auteur')
     .eq('comptage_id', comptageId)
+    // `ts` vient maintenant de l'horloge du téléphone (geste), plus de
+    // `default now()` côté serveur : deux lignes peuvent partager le même
+    // `ts` (double correction rapide, ou rejeu). Le tri secondaire sur `id`
+    // rend le choix "dernière ligne" déterministe au lieu de dépendre de
+    // l'ordre de retour, non garanti, de la requête.
     .order('ts', { ascending: true })
+    .order('id', { ascending: true })
   if (error) throw error
 
   const latest = new Map<string, ComptageLigne>()
@@ -141,28 +147,43 @@ export async function listLatestCasierLignes(comptageId: string): Promise<Compta
   return [...latest.values()]
 }
 
+// `id` et `ts` sont générés par l'appelant, au moment du geste — jamais ici,
+// jamais par un défaut de la base. Deux raisons, la seconde étant celle qui
+// compte pour la file hors ligne à venir (spec v2 §3) :
+//   1. upsert(ignoreDuplicates) sur `id` rend l'appel rejouable sans
+//      créer de doublon si l'accusé de réception d'un envoi réussi se perd ;
+//   2. un `ts` pris au moment de l'écriture (plutôt qu'au moment de la
+//      saisie) daterait une saisie mise en file, hors ligne, de l'heure de
+//      son vidage — pas de son geste. Comme la lecture est "dernière ligne
+//      par (ref, conditionnement)", une saisie originale rejouée après une
+//      correction faite entre-temps prendrait alors un `ts` postérieur à
+//      celui de la correction et la remplacerait : la valeur corrigée
+//      redeviendrait l'ancienne, fausse, valeur. Dater au geste élimine ce
+//      cas plutôt que de le déplacer.
 export async function saveCasierLigne(
+  id: string,
+  ts: string,
   comptageId: string,
   refCode: string,
   conditionnementId: string,
   cartons: number,
   pieces: number,
   auteur: string,
-): Promise<string> {
-  const { data, error } = await supabase
-    .from('comptage_lignes')
-    .insert({
+): Promise<void> {
+  const { error } = await supabase.from('comptage_lignes').upsert(
+    {
+      id,
+      ts,
       comptage_id: comptageId,
       ref_code: refCode,
       conditionnement_id: conditionnementId,
       cartons,
       pieces,
       auteur,
-    })
-    .select('id')
-    .single()
+    },
+    { onConflict: 'id', ignoreDuplicates: true },
+  )
   if (error) throw error
-  return data.id
 }
 
 // "Retirer une référence ajoutée par erreur de saisie" (2026-09-14) : une

@@ -5,6 +5,10 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.4 — 2026-09-15
+
+- Nettoyage interne : la saisie d’un comptage devient rejouable sans risque de doublon ni de résurrection d’une valeur corrigée (identifiant et horodatage pris au moment de la saisie, plus à l’enregistrement) — prépare la file d’attente hors ligne, aucun changement visible
+
 ## 0.9.3 — 2026-09-15
 
 - Nettoyage interne : suppression du comptage à l’aveugle pré-refonte (getOrCreateComptage/markAttenduConsulte/closeComptage), remplacé depuis par l’Inventaire en marche libre — aucun changement visible

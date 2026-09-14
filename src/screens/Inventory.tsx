@@ -357,6 +357,12 @@ function Walk({
       return
     }
 
+    // Capturés au moment du geste (l'appui sur Enregistrer), jamais plus
+    // tard : voir le commentaire sur saveCasierLigne pour la raison exacte
+    // (file hors ligne, spec v2 §3).
+    const ligneId = crypto.randomUUID()
+    const ligneTs = new Date().toISOString()
+
     setStatus({ kind: 'saving' })
     try {
       // Toujours relire les conditionnements ici, jamais se fier à l'état
@@ -377,7 +383,7 @@ function Walk({
       const { comptage } = await getOrCreateCasier(inventaire.id, empl)
       const cartonsValue = Number(cartons) || 0
       const piecesValue = Number(pieces) || 0
-      const ligneId = await saveCasierLigne(comptage.id, code, condId, cartonsValue, piecesValue, auteur)
+      await saveCasierLigne(ligneId, ligneTs, comptage.id, code, condId, cartonsValue, piecesValue, auteur)
       await markCasierVisite(comptage.id) // "touché" = compté, dans ce modèle il n'y a pas d'état intermédiaire
 
       setEmplacementCode(empl) // affiche la forme canonique réellement enregistrée (ex. "A11" tapé -> "A-01-1")
@@ -566,9 +572,15 @@ function Ecarts({
   // regarder l'écart, c'est le bon moment pour le corriger.
   async function saveEdit(ref: SyntheseReference, l: SyntheseLigneEmplacement) {
     if (!auteur || !l.comptageId) return
+    // Nouvelle ligne (latest-wins), donc nouvel id — capturé ici, au geste,
+    // pas dans saveCasierLigne (voir son commentaire).
+    const ligneId = crypto.randomUUID()
+    const ligneTs = new Date().toISOString()
     setEditStatus({ kind: 'saving' })
     try {
       await saveCasierLigne(
+        ligneId,
+        ligneTs,
         l.comptageId,
         ref.refCode,
         ref.conditionnementId,
