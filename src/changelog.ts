@@ -10,6 +10,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.16',
+    date: '2026-09-16',
+    items: [
+      'Correction : les flèches de navigation entre casiers suivaient l’ordre dans lequel les emplacements avaient été créés (utile seulement quand une zone est générée en un seul lot) plutôt que le parcours zone/baie/niveau (A-01-0, A-01-1, A-01-2, A-02-0…) — suivent maintenant toujours ce parcours',
+    ],
+  },
+  {
     version: '0.9.15',
     date: '2026-09-16',
     items: [

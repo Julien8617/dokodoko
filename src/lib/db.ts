@@ -33,10 +33,9 @@ export async function insertClient(code: string, nom: string): Promise<void> {
   if (error) throw error
 }
 
-// L'ordre de parcours physique (`ordre`) prime quand il est renseigné —
-// c'est tout son rôle (brief Inventaire du 2026-09-14, écran "liste des
-// casiers") ; zone/baie/niveau reste le repli pour les emplacements sans
-// ordre défini.
+// Tri : zone/baie/niveau par défaut (spec §8), `ordre` en simple
+// tiebreaker — voir le commentaire dans referentielCache.ts pour la
+// raison du changement (2026-09-16).
 export async function listEmplacements(): Promise<Emplacement[]> {
   return getEmplacements()
 }

@@ -43,7 +43,12 @@ interface Referentiel {
   fetchedAt: number | null
 }
 
-const STORAGE_KEY = 'dokodoko:referentiel-cache:v1'
+// v2 (2026-09-16) : le tri des emplacements a changé (zone/baie/niveau
+// prime sur `ordre`, voir refreshReferentielCache) — un blob v1 en
+// localStorage porterait l'ancien ordre jusqu'au prochain rafraîchissement
+// réseau réussi, qui peut tarder en entrepôt. La clé change pour l'ignorer
+// d'emblée plutôt que servir un ordre faux en silence.
+const STORAGE_KEY = 'dokodoko:referentiel-cache:v2'
 
 function emptyReferentiel(): Referentiel {
   return { references: [], emplacements: [], clients: [], conditionnements: [], stock: [], fetchedAt: null }
@@ -96,12 +101,22 @@ export async function refreshReferentielCache(): Promise<boolean> {
 
     cache = {
       references: (references.data as Reference[]).sort((a, b) => a.code.localeCompare(b.code)),
+      // Ordre de tournée par défaut, spec §8 : zone en texte, puis baie en
+      // nombre, puis niveau en nombre (a-01-0, a-01-1, a-01-2, a-02-0…).
+      // `ordre` ne prime que pour un import qui impose délibérément un autre
+      // parcours (§8, encore hors périmètre — imports en masse repoussés) ;
+      // aujourd'hui il ne sert qu'au générateur en lot pour ne jamais
+      // renuméroter une ligne déjà en base, pas à définir un parcours — le
+      // laisser primer faisait suivre l'ordre de CRÉATION plutôt que le
+      // parcours physique dès que la zone était générée en plusieurs appels
+      // (retour terrain 2026-09-16). D'où le tiebreaker en dernier, jamais
+      // en premier.
       emplacements: (emplacements.data as Emplacement[]).sort(
         (a, b) =>
-          (a.ordre ?? Infinity) - (b.ordre ?? Infinity) ||
           a.zone.localeCompare(b.zone) ||
           a.baie - b.baie ||
-          a.niveau - b.niveau,
+          a.niveau - b.niveau ||
+          (a.ordre ?? Infinity) - (b.ordre ?? Infinity),
       ),
       clients: (clients.data as Client[]).sort((a, b) => a.nom.localeCompare(b.nom)),
       conditionnements: conditionnements.data as Conditionnement[],

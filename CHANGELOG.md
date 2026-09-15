@@ -5,6 +5,10 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.16 — 2026-09-16
+
+- Correction : les flèches de navigation entre casiers suivaient l’ordre dans lequel les emplacements avaient été créés (utile seulement quand une zone est générée en un seul lot) plutôt que le parcours zone/baie/niveau (A-01-0, A-01-1, A-01-2, A-02-0…) — suivent maintenant toujours ce parcours
+
 ## 0.9.15 — 2026-09-16
 
 - Inventaire, saisie en marchant : flèches à côté du champ casier pour avancer ou reculer d’un casier dans l’ordre de tournée (niveau suivant dans la baie, puis baie suivante, puis zone suivante) — retaper le code à chaque casier n’est plus nécessaire
