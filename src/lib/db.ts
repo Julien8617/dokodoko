@@ -181,6 +181,62 @@ export async function insertEmplacement(code: string, ordre?: number): Promise<v
   if (error) throw error
 }
 
+// Générateur en lot (spec v2 §7/§8, remplace l'import CSV d'emplacements,
+// qui n'a jamais été construit — substitution sans rien à retirer) : zone,
+// plage de baies, niveaux. `ordre` est calculé selon le tri par défaut
+// (zone texte, baie nombre, niveau nombre, une baie parcourue du sol vers
+// le haut avant d'avancer) plutôt que saisi à la main, et posé au-delà du
+// maximum existant pour ne jamais réordonner les emplacements déjà en
+// base. `upsert(ignoreDuplicates)` rend l'appel rejouable : relancer le
+// générateur sur une plage qui recoupe une plage déjà créée ne duplique
+// rien et ne touche pas l'ordre déjà posé sur ces lignes-là.
+export interface GenerateEmplacementsResult {
+  created: number
+  skipped: number
+  invalid: string[]
+}
+
+export async function generateEmplacements(
+  zone: string,
+  baieFrom: number,
+  baieTo: number,
+  niveaux: number[],
+): Promise<GenerateEmplacementsResult> {
+  const zoneUpper = zone.trim().toUpperCase()
+  const { data: maxRow, error: maxError } = await supabase
+    .from('emplacements')
+    .select('ordre')
+    .order('ordre', { ascending: false, nullsFirst: false })
+    .limit(1)
+    .maybeSingle()
+  if (maxError) throw maxError
+  let nextOrdre = (maxRow?.ordre ?? 0) + 1
+
+  const rows: { code: string; zone: string; baie: number; niveau: number; ordre: number }[] = []
+  const invalid: string[] = []
+
+  for (let baie = baieFrom; baie <= baieTo; baie++) {
+    for (const niveau of [...niveaux].sort((a, b) => a - b)) {
+      const code = `${zoneUpper}-${String(baie).padStart(2, '0')}-${niveau}`
+      if (!parseEmplacementCode(code)) {
+        invalid.push(code)
+        continue
+      }
+      rows.push({ code, zone: zoneUpper, baie, niveau, ordre: nextOrdre })
+      nextOrdre += 1
+    }
+  }
+  if (rows.length === 0) return { created: 0, skipped: 0, invalid }
+
+  const { data, error } = await supabase
+    .from('emplacements')
+    .upsert(rows, { onConflict: 'code', ignoreDuplicates: true })
+    .select('code')
+  if (error) throw error
+
+  return { created: data.length, skipped: rows.length - data.length, invalid }
+}
+
 // Enregistre un emplacement à la volée s'il n'existe pas encore — une
 // palette peut avoir été déplacée sans que personne ne le signale, et
 // l'Inventaire (2026-09-14) doit pouvoir compter n'importe quel casier

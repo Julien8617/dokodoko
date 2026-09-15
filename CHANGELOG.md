@@ -5,6 +5,10 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.6 — 2026-09-16
+
+- Réglages : générateur d’emplacements en lot (zone, plage de baies, niveaux) — remplace la saisie un par un pour peupler le référentiel avant le démarrage
+
 ## 0.9.5 — 2026-09-15
 
 - Accueil : avertissement si l’horloge du téléphone est décalée de plus de quelques minutes par rapport au serveur — un décalage important peut faire perdre une correction de comptage face à l’ancienne valeur qu’elle corrige

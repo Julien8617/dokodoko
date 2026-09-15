@@ -80,6 +80,14 @@ export interface Dictionary {
     ordreOptional: string
     saved: string
     saveError: string
+    generateEmplacements: string
+    zone: string
+    baieFrom: string
+    baieTo: string
+    niveaux: string
+    generate: string
+    // {created} et {skipped} remplacés via interpolate()
+    generated: string
   }
   movement: {
     title: string

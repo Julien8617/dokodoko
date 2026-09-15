@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useI18n } from '../i18n'
-import { insertClient, insertEmplacement, listClients, upsertReferenceWithConditionnement } from '../lib/db'
+import { interpolate } from '../i18n/format'
+import {
+  generateEmplacements,
+  insertClient,
+  insertEmplacement,
+  listClients,
+  upsertReferenceWithConditionnement,
+} from '../lib/db'
 import type { Client } from '../lib/types'
 import VersionFooter from '../components/VersionFooter'
 import SearchSelect from '../components/SearchSelect'
@@ -18,6 +25,7 @@ export default function Settings({ onBack }: { onBack: () => void }) {
       </button>
       <h1>{t.settings.title}</h1>
       <ReferenceForm />
+      <EmplacementGeneratorForm />
       <EmplacementForm />
       <ClientForm />
       <VersionFooter />
@@ -135,6 +143,90 @@ function ClientForm() {
         {t.common.save}
       </button>
       {status.kind === 'saved' && <p className="form-status">{t.settings.saved}</p>}
+      {status.kind === 'error' && <p className="form-status form-error">{status.message}</p>}
+    </form>
+  )
+}
+
+// Création en lot (spec v2 §7/§8) : remplace l'import CSV d'emplacements
+// (jamais construit) pour peupler un référentiel avant le démarrage du
+// pilote. Le formulaire unitaire ci-dessous reste utile pour un ajout
+// isolé ensuite (palette rangée dans un casier jamais prévu).
+function EmplacementGeneratorForm() {
+  const { t } = useI18n()
+  const [zone, setZone] = useState('')
+  const [baieFrom, setBaieFrom] = useState('')
+  const [baieTo, setBaieTo] = useState('')
+  const [niveaux, setNiveaux] = useState('')
+  const [status, setStatus] = useState<
+    | { kind: 'idle' }
+    | { kind: 'saving' }
+    | { kind: 'done'; created: number; skipped: number; invalid: string[] }
+    | { kind: 'error'; message: string }
+  >({ kind: 'idle' })
+
+  const niveauxList = niveaux
+    .split(',')
+    .map((n) => n.trim())
+    .filter((n) => n !== '')
+    .map(Number)
+
+  const canGenerate =
+    zone.trim() !== '' &&
+    baieFrom !== '' &&
+    baieTo !== '' &&
+    Number(baieFrom) <= Number(baieTo) &&
+    niveauxList.length > 0 &&
+    niveauxList.every((n) => Number.isInteger(n) && n >= 0 && n <= 9)
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    if (!canGenerate) return
+    setStatus({ kind: 'saving' })
+    try {
+      const result = await generateEmplacements(zone, Number(baieFrom), Number(baieTo), niveauxList)
+      setStatus({ kind: 'done', ...result })
+    } catch (err) {
+      setStatus({ kind: 'error', message: err instanceof Error ? err.message : t.settings.saveError })
+    }
+  }
+
+  return (
+    <form className="settings-form" onSubmit={handleSubmit}>
+      <h2>{t.settings.generateEmplacements}</h2>
+      <label>
+        {t.settings.zone}
+        <input value={zone} onChange={(e) => setZone(e.target.value)} placeholder="A" maxLength={2} required />
+      </label>
+      <div className="quantity-row">
+        <label className="field-label">
+          {t.settings.baieFrom}
+          <input
+            type="number"
+            min={1}
+            value={baieFrom}
+            onChange={(e) => setBaieFrom(e.target.value)}
+            required
+          />
+        </label>
+        <label className="field-label">
+          {t.settings.baieTo}
+          <input type="number" min={1} value={baieTo} onChange={(e) => setBaieTo(e.target.value)} required />
+        </label>
+      </div>
+      <label>
+        {t.settings.niveaux}
+        <input value={niveaux} onChange={(e) => setNiveaux(e.target.value)} placeholder="0,1" required />
+      </label>
+      <button type="submit" disabled={!canGenerate || status.kind === 'saving'}>
+        {t.settings.generate}
+      </button>
+      {status.kind === 'done' && (
+        <p className="form-status">
+          {interpolate(t.settings.generated, { created: status.created, skipped: status.skipped })}
+          {status.invalid.length > 0 && ` — ${status.invalid.length} code(s) invalide(s) : ${status.invalid.join(', ')}`}
+        </p>
+      )}
       {status.kind === 'error' && <p className="form-status form-error">{status.message}</p>}
     </form>
   )

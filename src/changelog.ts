@@ -10,6 +10,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.6',
+    date: '2026-09-16',
+    items: [
+      'Réglages : générateur d’emplacements en lot (zone, plage de baies, niveaux) — remplace la saisie un par un pour peupler le référentiel avant le démarrage',
+    ],
+  },
+  {
     version: '0.9.5',
     date: '2026-09-15',
     items: [

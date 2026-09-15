@@ -69,6 +69,13 @@ const en: Dictionary = {
     ordreOptional: 'Order (optional)',
     saved: 'Saved.',
     saveError: 'Failed to save. Check your connection and try again.',
+    generateEmplacements: 'Generate locations',
+    zone: 'Zone',
+    baieFrom: 'Bay from',
+    baieTo: 'Bay to',
+    niveaux: 'Levels (e.g. 0,1)',
+    generate: 'Generate',
+    generated: '{created} created, {skipped} already existed.',
   },
   movement: {
     title: 'Movement',

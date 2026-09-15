@@ -69,6 +69,13 @@ const fr: Dictionary = {
     ordreOptional: 'Ordre (facultatif)',
     saved: 'Enregistré.',
     saveError: 'Échec de l’enregistrement. Vérifiez la connexion et réessayez.',
+    generateEmplacements: 'Générer des emplacements',
+    zone: 'Zone',
+    baieFrom: 'Baie de',
+    baieTo: 'Baie à',
+    niveaux: 'Niveaux (ex : 0,1)',
+    generate: 'Générer',
+    generated: '{created} créé(s), {skipped} déjà existant(s).',
   },
   movement: {
     title: 'Mouvement',

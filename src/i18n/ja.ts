@@ -69,6 +69,13 @@ const ja: Dictionary = {
     ordreOptional: '順序（任意）',
     saved: '保存しました。',
     saveError: '保存に失敗しました。接続を確認してもう一度お試しください。',
+    generateEmplacements: 'ロケーション一括生成',
+    zone: 'ゾーン',
+    baieFrom: '開始ベイ',
+    baieTo: '終了ベイ',
+    niveaux: '段（例：0,1）',
+    generate: '生成',
+    generated: '{created} 件作成、{skipped} 件は既存。',
   },
   movement: {
     title: '入出庫',
