@@ -10,6 +10,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.15',
+    date: '2026-09-16',
+    items: [
+      'Inventaire, saisie en marchant : flèches à côté du champ casier pour avancer ou reculer d’un casier dans l’ordre de tournée (niveau suivant dans la baie, puis baie suivante, puis zone suivante) — retaper le code à chaque casier n’est plus nécessaire',
+      'Le champ casier se sélectionne entièrement au lieu de s’effacer quand on y retape — un appui involontaire ne perd rien, mais retaper remplace bien d’un coup',
+    ],
+  },
+  {
     version: '0.9.14',
     date: '2026-09-16',
     items: [

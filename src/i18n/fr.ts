@@ -135,6 +135,8 @@ const fr: Dictionary = {
     viewEcarts: 'Voir les écarts',
     casier: 'Casier',
     casierPlaceholder: 'A-03-1',
+    previousCasier: 'Casier précédent',
+    nextCasier: 'Casier suivant',
     reference: 'Référence',
     referencePlaceholder: 'REU001',
     conditionnement: 'Conditionnement',

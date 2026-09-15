@@ -13,6 +13,13 @@ interface ComboInputProps {
   suggestions: ComboSuggestion[]
   placeholder?: string
   disabled?: boolean
+  // Sélectionne tout le texte au focus au lieu de placer juste le curseur —
+  // opt-in (défaut inchangé) pour ne pas modifier le comportement des
+  // appelants existants. Sert le champ casier de la marche (spec 2.25,
+  // §6.5) : un appui involontaire ne doit rien effacer, mais retaper doit
+  // remplacer d'un coup, utile à une main sur un casier qui vient de
+  // changer via les flèches de navigation.
+  selectOnFocus?: boolean
 }
 
 // Zone de texte libre avec suggestions déroulantes. Contrairement à
@@ -30,6 +37,7 @@ export default function ComboInput({
   suggestions,
   placeholder,
   disabled,
+  selectOnFocus,
 }: ComboInputProps) {
   const [open, setOpen] = useState(false)
 
@@ -40,7 +48,10 @@ export default function ComboInput({
         value={value}
         placeholder={placeholder}
         disabled={disabled}
-        onFocus={() => setOpen(true)}
+        onFocus={(e) => {
+          setOpen(true)
+          if (selectOnFocus) e.target.select()
+        }}
         onChange={(e) => {
           onChange(e.target.value)
           setOpen(true)

@@ -392,6 +392,42 @@ function Walk({
     setConditionnementId(list[0]?.id ?? null)
   }
 
+  // Flèches de navigation (spec 2.25, §6.5, ordre défini au §8) : on avance
+  // dans la séquence RÉELLE de `knownEmplacements` (déjà triée par
+  // `ordre`/zone/baie/niveau via listEmplacements), jamais par calcul
+  // arithmétique du code — une inter-allée n'a qu'un niveau 0, une baie
+  // peut s'arrêter avant le niveau le plus haut, composer un code produirait
+  // un casier fantôme ou un cul-de-sac. Casier vide ou non résolu : la
+  // flèche avant part du premier de la liste, l'arrière du dernier. En
+  // bout de liste, la flèche ne fait rien (pas de bouclage inventé).
+  function stepEmplacement(direction: 1 | -1) {
+    if (knownEmplacements.length === 0) return
+    const currentIndex = resolvedEmplacement ? knownEmplacements.indexOf(resolvedEmplacement) : -1
+    if (currentIndex === -1) {
+      goToEmplacement(knownEmplacements[direction === 1 ? 0 : knownEmplacements.length - 1])
+      return
+    }
+    const nextIndex = currentIndex + direction
+    if (nextIndex < 0 || nextIndex >= knownEmplacements.length) return
+    goToEmplacement(knownEmplacements[nextIndex])
+  }
+
+  // Changer de casier change ce qui est compté : seul le casier reste
+  // (spec 2.25, §6.5 — "on saisit plusieurs références au même casier"
+  // n'implique pas l'inverse). Une quantité ou une édition en cours
+  // laissée dans le formulaire écrirait un comptage fabriqué au nouveau
+  // casier si l'opérateur enregistre sans y avoir touché.
+  function goToEmplacement(code: string) {
+    setEmplacementCode(code)
+    setRefCode('')
+    setConditionnements([])
+    setConditionnementId(null)
+    setCartons('')
+    setPieces('')
+    setEditingKey(null)
+    setPendingDuplicate(null)
+  }
+
   const selectedConditionnement = conditionnements.find((c) => c.id === conditionnementId) ?? null
   const totalPieces = selectedConditionnement
     ? (Number(cartons) || 0) * selectedConditionnement.pieces_par_carton + (Number(pieces) || 0)
@@ -583,13 +619,34 @@ function Walk({
       <form className="settings-form" onSubmit={handleSave}>
         <label className="field-label">
           {t.inventory.casier}
-          <ComboInput
-            value={emplacementCode}
-            onChange={setEmplacementCode}
-            suggestions={emplacementSuggestions}
-            placeholder={t.inventory.casierPlaceholder}
-            disabled={status.kind === 'saving' || pendingDuplicate !== null}
-          />
+          <div className="casier-nav">
+            <button
+              type="button"
+              className="step-button"
+              onClick={() => stepEmplacement(-1)}
+              disabled={status.kind === 'saving' || pendingDuplicate !== null}
+              aria-label={t.inventory.previousCasier}
+            >
+              ←
+            </button>
+            <ComboInput
+              value={emplacementCode}
+              onChange={setEmplacementCode}
+              suggestions={emplacementSuggestions}
+              placeholder={t.inventory.casierPlaceholder}
+              disabled={status.kind === 'saving' || pendingDuplicate !== null}
+              selectOnFocus
+            />
+            <button
+              type="button"
+              className="step-button"
+              onClick={() => stepEmplacement(1)}
+              disabled={status.kind === 'saving' || pendingDuplicate !== null}
+              aria-label={t.inventory.nextCasier}
+            >
+              →
+            </button>
+          </div>
         </label>
         <label className="field-label">
           {t.inventory.reference}

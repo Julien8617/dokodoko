@@ -153,6 +153,8 @@ export interface Dictionary {
     // Saisie en marchant
     casier: string
     casierPlaceholder: string
+    previousCasier: string
+    nextCasier: string
     reference: string
     referencePlaceholder: string
     conditionnement: string

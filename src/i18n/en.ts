@@ -135,6 +135,8 @@ const en: Dictionary = {
     viewEcarts: 'View differences',
     casier: 'Location',
     casierPlaceholder: 'A-03-1',
+    previousCasier: 'Previous location',
+    nextCasier: 'Next location',
     reference: 'Reference',
     referencePlaceholder: 'REU001',
     conditionnement: 'Packaging',

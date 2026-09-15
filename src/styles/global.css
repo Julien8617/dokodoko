@@ -303,6 +303,31 @@ body {
   border-color: #111;
 }
 
+.casier-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.casier-nav .search-select {
+  flex: 1;
+  min-width: 0;
+}
+
+.step-button {
+  flex-shrink: 0;
+  padding: 0.8rem 0.9rem;
+  font-size: 1.1rem;
+  border: 1px solid #ccc;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: #111;
+}
+
+.step-button:disabled {
+  opacity: 0.5;
+}
+
 .search-select {
   position: relative;
 }

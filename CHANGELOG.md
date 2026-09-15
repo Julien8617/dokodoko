@@ -5,6 +5,11 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.15 — 2026-09-16
+
+- Inventaire, saisie en marchant : flèches à côté du champ casier pour avancer ou reculer d’un casier dans l’ordre de tournée (niveau suivant dans la baie, puis baie suivante, puis zone suivante) — retaper le code à chaque casier n’est plus nécessaire
+- Le champ casier se sélectionne entièrement au lieu de s’effacer quand on y retape — un appui involontaire ne perd rien, mais retaper remplace bien d’un coup
+
 ## 0.9.14 — 2026-09-16
 
 - Inventaire, écran des écarts : le libellé de la référence (le nom de l’article) s’affiche enfin à côté de son code — il n’y avait jusqu’ici que le libellé du conditionnement (« carton de 12 »), qui décrit l’emballage, pas le produit

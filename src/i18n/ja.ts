@@ -135,6 +135,8 @@ const ja: Dictionary = {
     viewEcarts: '差異を見る',
     casier: 'ロケーション',
     casierPlaceholder: 'A-03-1',
+    previousCasier: '前のロケーション',
+    nextCasier: '次のロケーション',
     reference: '品番',
     referencePlaceholder: 'REU001',
     conditionnement: '荷姿',
