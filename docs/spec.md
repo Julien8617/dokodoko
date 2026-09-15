@@ -1,6 +1,6 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.24 — 16 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.25 — 16 septembre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -362,6 +362,15 @@ Autrement dit : le zéro implicite est bon pour regarder, mauvais pour signer.
 **Écarts compensés** : la détection existe — écarts de somme nette nulle sur une même référence entre casiers différents, présentés comme déplacement probable. Elle est acquise et ne se refait pas.
 
 Ce qui reste à construire est la **résolution**, à la clôture : sur une paire détectée, l'opérateur confirme le déplacement, et la clôture écrit alors **un transfert** — une sortie du casier source, une entrée sur le casier destination, même `transfert_id` — et non deux `ajustement_inventaire`. Physiquement, rien n'a disparu ni apparu : une palette a bougé. Écrire deux ajustements gonflerait artificiellement les statistiques d'écart de fin de pilote, qui sont l'indicateur du pilote. Si l'opérateur ne confirme pas, on retombe sur deux écarts ordinaires à justifier séparément.
+
+**Navigation par flèches sur le champ casier, et casier persistant.** C'est le principal frottement de la marche : retaper un code à chaque casier.
+
+- Une flèche avant et une flèche arrière à côté du champ, qui avancent d'un casier dans l'ordre de tournée défini au §8 — niveau suivant dans la même baie, puis baie suivante au niveau le plus bas, puis zone suivante. C'est exactement l'ordre par défaut, il n'y a pas de second ordre à inventer.
+- **La navigation parcourt la liste des emplacements existants, elle ne calcule pas un code.** Une inter-allée n'a qu'un niveau 0, et une baie peut n'avoir que trois niveaux : composer `A-03-3` par arithmétique produirait un cul-de-sac ou un casier fantôme. On avance dans la séquence réelle, celle du champ `ordre`.
+- **Le casier reste inscrit après enregistrement.** On enregistre plusieurs références au même casier avant de passer au suivant ; le vider à chaque validation impose de le retaper.
+- Au retour dans le champ, **le contenu est sélectionné plutôt qu'effacé**. Taper le remplace, comme un effacement ; mais un appui involontaire ne perd rien. Sur un téléphone tenu à une main, l'effacement franc coûte plus qu'il ne rapporte.
+
+Ces flèches sont le retour, à leur bonne place, de la navigation prévue par la v1 pour l'écran Emplacement — écran retiré du périmètre (§6.3), dont c'était le seul usage qui manquait.
 
 **Liste des saisies pendant la marche.** Sous le formulaire, la liste de ce qui a déjà été saisi dans cet inventaire, la plus récente en haut, modifiable au clic.
 
