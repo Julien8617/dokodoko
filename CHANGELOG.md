@@ -5,6 +5,11 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.13 — 2026-09-16
+
+- Inventaire, saisie en marchant : le libellé de la référence choisie s’affiche en confirmation sous le champ (le champ lui-même revient au code seul une fois la suggestion sélectionnée) — compter la mauvaise référence par erreur de frappe se voit maintenant avant d’enregistrer
+- La liste des saisies affiche aussi le libellé de chaque référence, pas seulement son code
+
 ## 0.9.12 — 2026-09-16
 
 - Recherche : le résultat affiche maintenant le libellé de la référence trouvée, pas seulement son code — utile en particulier après une recherche par nom

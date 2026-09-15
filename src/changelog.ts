@@ -10,6 +10,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.13',
+    date: '2026-09-16',
+    items: [
+      'Inventaire, saisie en marchant : le libellé de la référence choisie s’affiche en confirmation sous le champ (le champ lui-même revient au code seul une fois la suggestion sélectionnée) — compter la mauvaise référence par erreur de frappe se voit maintenant avant d’enregistrer',
+      'La liste des saisies affiche aussi le libellé de chaque référence, pas seulement son code',
+    ],
+  },
+  {
     version: '0.9.12',
     date: '2026-09-16',
     items: [

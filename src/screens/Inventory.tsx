@@ -396,6 +396,7 @@ function Walk({
   const totalPieces = selectedConditionnement
     ? (Number(cartons) || 0) * selectedConditionnement.pieces_par_carton + (Number(pieces) || 0)
     : null
+  const matchedReference = allReferences.find((r) => r.code === refCode.trim().toUpperCase()) ?? null
 
   async function handleSave(e: FormEvent) {
     e.preventDefault()
@@ -602,6 +603,18 @@ function Walk({
             disabled={status.kind === 'saving' || pendingDuplicate !== null}
           />
         </label>
+        {/* Confirmation avant écriture (§6.2, spec 2.23) : ComboInput se
+            réduit au code une fois une suggestion choisie (conception du
+            composant, contrat partagé jamais modifié pour ce seul écran) —
+            cette ligne en lecture seule affiche le libellé pour confirmer
+            qu'on compte la bonne référence, sans quoi une faute de frappe
+            sur un code voisin fabrique un faux écart. */}
+        {matchedReference && (
+          <p className="quantity-formula">
+            {matchedReference.code}
+            {matchedReference.libelle ? ` — ${matchedReference.libelle}` : ''}
+          </p>
+        )}
         {conditionnements.length > 1 && (
           <label className="field-label">
             {t.inventory.conditionnement}
@@ -654,27 +667,35 @@ function Walk({
 
       {saisies.length > 0 && (
         <ul className="casier-list">
-          {(showAllSaisies ? saisies : saisies.slice(0, 20)).map((entry) => (
-            <li key={entry.ligneId}>
-              <div className="casier-row">
-                <span>
-                  {entry.emplacementCode} — {entry.refCode}
-                  {conditionnementLabels.has(entry.conditionnementId)
-                    ? ` (${conditionnementLabels.get(entry.conditionnementId)})`
-                    : ''}{' '}
-                  : {entry.cartons}c + {entry.pieces}p
-                </span>
-                <span className="recent-entry-actions">
-                  <button type="button" className="back-link" onClick={() => editEntry(entry)}>
-                    {t.inventory.editLine}
-                  </button>
-                  <button type="button" className="back-link" onClick={() => undo(entry)}>
-                    {t.inventory.removeLine}
-                  </button>
-                </span>
-              </div>
-            </li>
-          ))}
+          {(showAllSaisies ? saisies : saisies.slice(0, 20)).map((entry) => {
+            // Libellé de la référence, pas seulement du conditionnement
+            // (§6.2/§6.5, spec 2.23) : confirme après coup qu'on a compté
+            // la bonne référence, comme la ligne sous le champ le confirme
+            // avant.
+            const refLibelle = allReferences.find((r) => r.code === entry.refCode)?.libelle
+            return (
+              <li key={entry.ligneId}>
+                <div className="casier-row">
+                  <span>
+                    {entry.emplacementCode} — {entry.refCode}
+                    {refLibelle ? ` — ${refLibelle}` : ''}
+                    {conditionnementLabels.has(entry.conditionnementId)
+                      ? ` (${conditionnementLabels.get(entry.conditionnementId)})`
+                      : ''}{' '}
+                    : {entry.cartons}c + {entry.pieces}p
+                  </span>
+                  <span className="recent-entry-actions">
+                    <button type="button" className="back-link" onClick={() => editEntry(entry)}>
+                      {t.inventory.editLine}
+                    </button>
+                    <button type="button" className="back-link" onClick={() => undo(entry)}>
+                      {t.inventory.removeLine}
+                    </button>
+                  </span>
+                </div>
+              </li>
+            )
+          })}
           {!showAllSaisies && saisies.length > 20 && (
             <li>
               <button type="button" className="back-link" onClick={() => setShowAllSaisies(true)}>
