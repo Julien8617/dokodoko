@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { listConditionnements } from './db'
+import { listConditionnements, listReferences } from './db'
 import type { Comptage, ComptageLigne, Conditionnement, Inventaire, ScopeKind } from './types'
 
 // Séparateur de clé composite pour les Map ci-dessous — un caractère qui ne
@@ -275,9 +275,14 @@ export interface SyntheseLigneEmplacement {
 
 export interface SyntheseReference {
   refCode: string
+  refLibelle: string | null
   conditionnementId: string
   piecesParCarton: number
-  libelleCourt: string | null
+  // Libellé du CONDITIONNEMENT ("carton de 12"), jamais celui du produit —
+  // voir spec §6.2 v2.24 : déjà confondu avec le nom de l'article sur deux
+  // écrans à cause d'un nom de champ ambigu (`libelleCourt`). À afficher
+  // uniquement en suffixe de `refLibelle`, jamais seul à sa place.
+  conditionnementLabel: string | null
   theoriqueTotal: number
   // Jamais null : un casier théorique jamais visité compte pour 0 — retour
   // terrain du 2026-09-14, "je compte ce que je compte, si ce n'est pas
@@ -299,6 +304,9 @@ export async function getInventaireSynthese(inventaire: Inventaire): Promise<{
 }> {
   const refCodes = await scopeRefCodes(inventaire)
   const theorique = await stockAsOf(inventaire.frozen_ts, refCodes)
+  // Libellé du produit, pour affichage seulement — n'entre dans aucune clé
+  // ni aucun regroupement de la fusion théorique/compté ci-dessous.
+  const refLibelleByCode = new Map((await listReferences()).map((r) => [r.code, r.libelle]))
 
   const { data: comptages, error: comptagesError } = await supabase
     .from('comptages')
@@ -395,9 +403,10 @@ export async function getInventaireSynthese(inventaire: Inventaire): Promise<{
 
     references.push({
       refCode,
+      refLibelle: refLibelleByCode.get(refCode) ?? null,
       conditionnementId,
       piecesParCarton: cond?.pieces_par_carton ?? 0,
-      libelleCourt: cond?.libelle_court ?? null,
+      conditionnementLabel: cond?.libelle_court ?? null,
       theoriqueTotal,
       compteTotal,
       ecartTotal,

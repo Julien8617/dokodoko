@@ -10,6 +10,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.14',
+    date: '2026-09-16',
+    items: [
+      'Inventaire, écran des écarts : le libellé de la référence (le nom de l’article) s’affiche enfin à côté de son code — il n’y avait jusqu’ici que le libellé du conditionnement (« carton de 12 »), qui décrit l’emballage, pas le produit',
+    ],
+  },
+  {
     version: '0.9.13',
     date: '2026-09-16',
     items: [

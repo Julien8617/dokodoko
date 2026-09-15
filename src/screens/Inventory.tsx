@@ -825,7 +825,10 @@ function Ecarts({
         >
           <span>
             {ref.refCode}
-            {ref.libelleCourt ? ` — ${ref.libelleCourt}` : ''}
+            {(() => {
+              const suffix = [ref.refLibelle, ref.conditionnementLabel].filter(Boolean).join(' · ')
+              return suffix ? ` — ${suffix}` : ''
+            })()}
           </span>
           <span className="casier-status">
             {ref.theoriqueTotal} → {ref.compteTotal} ({ref.ecartTotal > 0 ? '+' : ''}
