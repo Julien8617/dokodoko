@@ -1,6 +1,6 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.7 — 15 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.17 — 16 septembre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -40,6 +40,21 @@ L'indicateur du pilote est unique : l'écart entre l'app et le comptage physique
 - Écritures : envoyées à Supabase ; en cas d'échec réseau, mises en file dans IndexedDB et rejouées automatiquement. L'`id` UUID généré côté client rend le rejeu idempotent — c'est ce qui permet de rejouer sans jamais compter deux fois.
 - L'état de la file hors ligne est **visible en permanence** : un bandeau « 3 mouvements en attente » tant que la file n'est pas vide. Un mouvement non remonté qu'on croit enregistré est le pire défaut possible pour ce genre d'outil.
 
+### Cache de lecture — prérequis de tout le reste
+
+Constat de terrain : hors réseau, l'app perd l'accès aux références et aux emplacements, donc **on ne peut rien saisir du tout**. Une file d'écriture sans cache de lecture ne sert à rien : il n'y a rien à mettre dedans.
+
+Le cache passe donc **avant** la file, et les deux forment un seul chantier.
+
+Ce qui se met en cache, et c'est petit — quelques centaines de kilo-octets en tout :
+
+- les référentiels : `references`, `emplacements`, `conditionnements`, `clients`, et les familles ;
+- un **instantané du stock** par emplacement × référence × conditionnement — quelques centaines de lignes — et non le journal des mouvements, qui n'a pas à descendre sur le téléphone.
+
+Rafraîchi à l'ouverture de l'app, après chaque écriture réussie, et au retour du réseau. **L'âge du cache est affiché** au même titre que celui de la file : « référentiel à jour il y a 2 h ». Un cache silencieusement périmé est le même piège qu'un « tout est synchronisé » codé en dur.
+
+L'instantané de stock est forcément décalé hors ligne, donc l'avertissement « sortie supérieure au stock » peut se tromper dans les deux sens. C'est sans gravité **parce qu'il avertit au lieu de bloquer** (§4) : les deux décisions se tiennent l'une l'autre. Avec un blocage, un cache périmé aurait interdit des sorties légitimes en allée.
+
 ### File hors ligne
 
 Écritures uniquement — jamais les lectures. Règles non négociables, parce qu'une file mal faite corrompt le stock plus sûrement qu'une absence de file.
@@ -59,6 +74,8 @@ L'indicateur du pilote est unique : l'écart entre l'app et le comptage physique
 **La création d'un casier est hors file en v1.** `getOrCreateCasier` reste synchrone : hors réseau, toucher un casier jamais visité échoue immédiatement. Conséquence à connaître avant de valider : dans un inventaire neuf, **tous** les casiers sont neufs, donc un inventaire hors ligne ne fonctionne pas du tout — ce n'est pas un cas limite. Acceptable seulement si la couverture réseau en allée est bonne, ce qui se vérifie en dix minutes avec le téléphone, pas en raisonnant.
 
 Si des zones mortes existent, le correctif ne passe pas par l'index unique et ne demande aucun DDL : **dériver `comptages.id` de façon déterministe** à partir de `(inventaire_id, emplacement_code)` — un UUID v5, ou tout hachage stable. Le même casier produit toujours le même identifiant, donc `upsert(ignoreDuplicates)` sur la clé primaire déduplique par construction, y compris au rejeu, et la création entre dans la file comme le reste.
+
+**Une référence ou un emplacement créé hors ligne doit partir avant le mouvement qui s'en sert.** Le FIFO l'assure, mais la conséquence sur le classement des erreurs est à traiter : une violation de clé étrangère au vidage n'est pas un rejet métier, c'est un problème d'ordre. Elle se réessaie après le vidage des éléments antérieurs, elle ne part pas dans la liste « en échec ».
 
 **File strictement ordonnée, vidée en FIFO.** Et lorsqu'une insertion et une suppression de la même ligne sont toutes deux en attente, les deux s'annulent et disparaissent de la file. Sans cette règle, une ligne supprimée par l'utilisateur réapparaît au rejeu de son insertion.
 
@@ -211,6 +228,16 @@ Votre règle — les deux coexistent jusqu'à rupture du premier — est une rè
 - rien n'est imposé : s'il n'y en a plus à l'emplacement d'où l'on prélève, on prend l'autre ;
 - quand le stock d'un conditionnement `a_ecouler` tombe à zéro partout, l'app le signale une fois. Il reste en base pour l'historique, mais disparaît des sélecteurs.
 
+### L'app ne refuse jamais un fait physique
+
+Elle ne refuse jamais un placement, une cohabitation ou un rangement jugé peu orthodoxe, parce que la palette, elle, est déjà posée.
+
+**Ni une sortie qui rendrait le stock négatif** — révision de la règle antérieure, qui justifiait ce refus comme « de l'arithmétique sur la réalité ». Ce n'est vrai que si le théorique est juste. Après une faute de frappe — 100 saisi au lieu de 10 sur un stock de 110 — le théorique dit 10 et la palette en porte 100 : bloquer la sortie suivante revient à refuser un fait physique, au pire moment, en allée.
+
+Pire, le blocage ne prévient pas l'erreur, il la cache. L'opérateur bloqué ne corrige pas la saisie d'il y a trois jours : il contourne, et la position négative — qui est la **preuve** qu'une erreur antérieure existe — n'apparaît jamais. C'est le signal le plus fiable dont dispose un système de stock, et le blocage le détruit.
+
+Un système qui interdit ce que l'entrepôt fait quand même ne corrige pas l'entrepôt : il se fait contourner, et à partir de là il ment. Toute règle d'organisation — familles de mélange, plafond de références, affectation par niveau — est donc **indicative** : elle alimente une suggestion et un signal sur la carte, jamais une validation.
+
 ### Aucune modification, aucune suppression
 
 Une erreur se corrige par un mouvement inverse, de motif `annulation`, portant l'`id` du mouvement annulé dans `annule_mouvement_id`. L'historique conserve l'erreur et sa correction.
@@ -282,9 +309,22 @@ Un seul écran pour les trois sens, la différence tenant au sens et à la liste
 - motif : liste, obligatoire, sans valeur par défaut ;
 - commentaire, facultatif ;
 - pour un transfert : emplacement destination ;
-- validation en **double appui**, comme en v1 : premier appui pour armer avec changement de couleur et de libellé, second pour écrire, retombée automatique après 3 secondes.
+- validation en **double appui** : premier appui pour armer avec changement de couleur et de libellé, second pour écrire, retombée automatique après 3 secondes.
 
-Une sortie qui rendrait le stock négatif est **refusée**, avec le stock disponible affiché. Pas de stock négatif silencieux : c'est le symptôme d'un mouvement manquant, et on veut le voir au moment où il se produit.
+**Confirmation proportionnée au risque.** Une boîte de confirmation systématique devient invisible en une semaine — on la ferme sans la lire, et elle ne protège plus de rien. Deux régimes :
+
+- **Mouvement ordinaire** : le double appui ci-dessus, rapide.
+- **Mouvement inhabituel** : un récapitulatif en toutes lettres, à lire avant de confirmer — « Sortie de 2 cartons de REU003 depuis A-03-2 », « Transfert de A-03-2 vers B-01-0 : 3 cartons de REU003 ». Une phrase attrape la faute de frappe qu'un changement de couleur laisse passer, parce qu'on la lit au lieu de ré-appuyer.
+
+Est inhabituel : une quantité supérieure au stock théorique, une quantité qui vide entièrement le casier, ou une quantité très supérieure à l'ordre de grandeur habituel des sorties de cette référence — calculable sur l'historique des `mouvements`. Cas particulier à traiter explicitement parce qu'il est fréquent et détectable : une quantité valant exactement dix ou cent fois une valeur plausible déclenche la question directe, « vouliez-vous dire 10 ? ».
+
+Ainsi la grande majorité des mouvements reste à deux appuis, et seuls ceux qui pourraient être une faute demandent une phrase.
+
+**Correction en un geste.** L'écran Mouvement affiche les derniers mouvements de la session avec un bouton « corriger » qui écrit l'inverse et renseigne `annule_mouvement_id`. La plupart des fautes de frappe sont vues dans les secondes qui suivent ; ce qui empêche de les corriger aujourd'hui, c'est qu'il faut choisir le motif `annulation` à la main et tout ressaisir. C'est aussi ce qui referme la dette du lien d'annulation (§14).
+
+**Sortie supérieure au stock théorique : avertie, jamais bloquée.** Le stock disponible est affiché, la sortie est confirmée par récapitulatif, puis enregistrée. La position négative qui en résulte entre dans une liste d'anomalies visible jusqu'à résolution — c'est le signal le plus fiable qu'une erreur de saisie antérieure existe.
+
+Pas de stock négatif **silencieux** : il est signalé, confirmé, et suivi dans la liste d'anomalies. Mais pas interdit — voir « L'app ne refuse jamais un fait physique » (§4).
 
 ### 6.5 Inventaire
 
@@ -307,6 +347,15 @@ Autrement dit : le zéro implicite est bon pour regarder, mauvais pour signer.
 **Écarts compensés** : la détection existe — écarts de somme nette nulle sur une même référence entre casiers différents, présentés comme déplacement probable. Elle est acquise et ne se refait pas.
 
 Ce qui reste à construire est la **résolution**, à la clôture : sur une paire détectée, l'opérateur confirme le déplacement, et la clôture écrit alors **un transfert** — une sortie du casier source, une entrée sur le casier destination, même `transfert_id` — et non deux `ajustement_inventaire`. Physiquement, rien n'a disparu ni apparu : une palette a bougé. Écrire deux ajustements gonflerait artificiellement les statistiques d'écart de fin de pilote, qui sont l'indicateur du pilote. Si l'opérateur ne confirme pas, on retombe sur deux écarts ordinaires à justifier séparément.
+
+**Liste des saisies pendant la marche.** Sous le formulaire, la liste de ce qui a déjà été saisi dans cet inventaire, la plus récente en haut, modifiable au clic.
+
+- Chaque ligne porte **le casier, la référence, le conditionnement et la quantité**. Le casier est indispensable : sans lui, la même référence comptée à deux endroits ressemble à un doublon.
+- La liste montre **l'état effectif**, une ligne par couple casier × référence × conditionnement avec sa dernière valeur — pas le journal brut, sinon une correction apparaît comme une seconde saisie.
+- **Aucun théorique, aucun écart dans cette liste.** C'est le relevé de ce qu'on a tapé, pas un tableau de bord. Y afficher l'attendu transformerait la marche en comptage vers une cible, ce que la saisie à l'aveugle cherche justement à éviter.
+- Saisir une référence déjà relevée au même casier déclenche la question : « déjà saisi, 4 cartons — remplacer ou ajouter ? ». C'est le vrai gain de la fonction, et la double saisie est l'erreur qu'elle supprime.
+- Vingt dernières lignes affichées, le reste derrière un lien. Sur un écran de téléphone, une liste sans plafond devient un mur.
+- **Le clic réutilise le chemin de modification existant de l'écran des écarts**, jamais un second chemin d'édition : deux chemins pour la même action finissent par diverger.
 
 **Correction** : une saisie se modifie ou se retire depuis l'écran des écarts, sans repasser par la saisie.
 
@@ -358,8 +407,7 @@ Trois fichiers distincts, chacun son bouton. Ne pas fusionner en un seul fichier
 **Références** — `reference, libelle, pieces_par_carton`
 Crée la référence et son premier conditionnement. Référence connue : le libellé est mis à jour. Si `pieces_par_carton` diffère d'un conditionnement existant, un **nouveau** conditionnement est créé et l'ancien marqué `a_ecouler` — jamais de modification de l'existant. L'aperçu d'import signale explicitement ces créations. Aucun mouvement.
 
-**Emplacements** — `emplacement, ordre`
-`ordre` facultatif. Aucun mouvement créé. Un emplacement sans stock est vide, pas inconnu.
+**Emplacements** — remplacé par le **générateur** : zone, plage de baies, niveaux, création en lot, avec `ordre` calculé par le tri par défaut (§8). L'import CSV d'emplacements n'est plus au périmètre. Aucun mouvement créé. Un emplacement sans stock est vide, pas inconnu.
 
 **Stock initial** — `reference, emplacement, pieces_par_carton, cartons, pieces`
 Génère un mouvement d'entrée de motif `stock_initial` par ligne. `pieces_par_carton` désigne le conditionnement concerné ; facultatif si la référence n'en a qu'un, obligatoire sinon. Refusé si le triplet référence/emplacement/conditionnement porte déjà du stock, avec la liste des lignes en conflit : le stock initial se charge une fois.
@@ -415,6 +463,100 @@ Supabase assure la durabilité, donc l'export n'est plus la seule barrière cont
 ## 10. Hors périmètre v2
 
 Le **client** est entré dans le périmètre depuis, mais au sens strict d'un rattachement sur la référence, servant à filtrer un périmètre d'inventaire et une recherche. Pas de séparation multi-locataire, pas de facturation, pas de policies RLS par client.
+
+### Après le pilote — carte thermique de l'entrepôt (version bureau)
+
+Consignée ici pour ne pas être perdue, et parce que deux prérequis se décident tôt. Hors périmètre du pilote : elle ne sert pas son indicateur.
+
+Page bureau représentant les zones, baies et niveaux en grille, avec un code couleur par casier pour cibler visuellement les casiers prioritaires. C'est exactement la couche analytique en lecture seule évoquée depuis le début : si elle tombe, l'entrepôt tourne.
+
+Trois décisions à retenir maintenant :
+
+- **Rotation avant revenu.** La rotation se calcule aujourd'hui avec les seuls `mouvements` : pièces sorties du casier par mois. C'est le bon indicateur de « ce casier mérite-t-il sa place », et l'entrée directe du travail de slotting.
+- **Le code tarifaire est la bonne structure** — un code rattaché à plusieurs articles, pour en changer un lot d'un coup. Trois exigences pour qu'il ne se retourne pas contre vous :
+  - **Un tarif est daté et immuable**, comme un conditionnement. `tarifs (code_tarifaire, valeur, devise, unite, valide_a_partir_de)`, en ajout seul, et le calcul retient le tarif en vigueur à la date du mouvement. Sans ça, changer un prix réécrit silencieusement le revenu des mois passés, et la carte de septembre ne sera plus la même en novembre.
+  - **L'unité est explicite** sur la ligne de tarif — à la pièce ou au carton — puisque les conditionnements diffèrent.
+  - **La nature est explicite aussi** : prix de vente du client, ou prestation facturée par l'entrepôt. Ce ne sont pas les mêmes chiffres et ils ne désignent pas les mêmes casiers comme prioritaires. Les garder séparés permet d'afficher l'un ou l'autre ; les mélanger ne produit rien d'interprétable.
+- **Le taux d'occupation se dérive de la palettisation**, pas d'une capacité saisie casier par casier : `cartons présents / max_cartons_par_palette`, cumulé sur les références du casier. Cinq cents saisies évitées. Trois précisions :
+  - `max_cartons_par_palette` se porte sur le **conditionnement**, pas sur la référence : des cartons de 6 et de 12 pièces n'ont pas les mêmes dimensions, donc pas le même nombre par palette.
+  - Un casier vaut **une palette, partout** — palettier, sol et inter-allée. Donc aucun champ de capacité sur `emplacements` : le besoin que j'avais anticipé n'existe pas, et un champ valant toujours 1 est un champ à supprimer.
+  - Cette donnée sort gratuitement de la séance de mesure des cartons prévue pour le dossier transport.
+
+- **L'inter-allée ne se mesure pas en volume mais en encombrement**, et la métrique change de grain. Ce qui compte dans une allée n'est pas qu'une palette soit pleine, c'est que le passage soit pris. Une référence y valant en règle générale une palette, l'indicateur est le nombre de positions occupées sur le nombre de positions de la travée — donc un indicateur **par zone**, pas par casier, alors que le palettier se lit casier par casier.
+
+  Conséquence sur les couleurs, et elle est contre-intuitive : **le sens s'inverse.** Un palettier plein est une bonne nouvelle, une inter-allée pleine est un problème de circulation. Deux échelles, deux orientations, à ne surtout pas unifier au nom de la cohérence graphique.
+
+- **Table `cartons`, entité à part.** Le carton physique est référencé par le conditionnement, pas décrit dans celui-ci : le même carton sert souvent plusieurs références.
+
+  ```sql
+  cartons (
+    id              uuid primary key,
+    libelle         text,
+    longueur_mm     int not null,
+    largeur_mm      int not null,
+    hauteur_mm      int not null,
+    poids_g         int,
+    max_par_palette int not null   -- mesuré, pas calculé
+  )
+  -- conditionnements.carton_id → cartons(id)
+  ```
+
+  ```sql
+  -- colonnes complémentaires sur cartons
+  debord_mm    int  not null default 0   -- dépassement hors emprise palette
+  melangeable  bool not null default true
+  gerbable     bool not null default true -- peut-on poser quelque chose dessus
+  ```
+
+  **Le volume ne sert pas à mesurer l'occupation.** L'occupation d'un casier est `cartons présents / max_par_palette`, cumulé sur les références présentes. Aucune donnée volumétrique n'y entre, et c'est ce qui la rend valable aussi pour les cartons qui débordent.
+
+  **Un carton en débord n'a pas un mauvais taux de remplissage : il a un problème d'emprise.** Le rapporter au volume de la palette donnerait un pourcentage supérieur à 100, ou un chiffre qui ne veut rien dire. Le débord ne gaspille pas du volume, il prend celui du voisin ou celui de l'allée. Il se signale donc comme un **drapeau et un dépassement en millimètres**, jamais comme un pourcentage — et sur la carte, comme un marqueur sur les casiers adjacents, puisque c'est eux qu'il pénalise.
+
+  L'efficacité structurelle d'un emballage — combien de place une référence gâche quand son casier est plein — est une analyse distincte de l'occupation, et son dénominateur est le **volume utile de l'alvéole**, pas celui de la palette. Cela suppose la hauteur libre par niveau, qui varie sur des palettiers non modulaires. À traiter le jour où cette analyse sera demandée, pas avant.
+
+  `max_par_palette` reste **mesuré** et non calculé : il dépend du schéma de gerbage et de la hauteur disponible, pas seulement du volume.
+
+- **Le mélange se gouverne par familles, pas par paires ni par booléen.** Les exemples réels — matelas entre eux, parcs entre eux mais pas avec les matelas, Reuzel seulement avec Reuzel — décrivent tous la même forme : des groupes fermés. La règle tient en une phrase : **deux références peuvent partager une palette si et seulement si elles appartiennent à la même famille de mélange.**
+
+  ```sql
+  familles_melange (
+    code    text primary key,   -- 'matelas', 'parcs', 'reuzel'
+    libelle text not null
+  )
+  -- references.famille_melange_code → familles_melange(code)
+  ```
+
+  **Cette règle n'interdit rien.** Elle oriente une suggestion de rangement et colore la carte ; elle ne bloque aucune saisie. Un casier de reliquats ou un coin de retours clients contient légitimement un peu de tout, et l'app doit l'enregistrer sans discuter — voir « L'app ne refuse jamais un fait physique ».
+
+  Un seul champ, assigné en lot — par client ou par famille de produits — exactement comme le code tarifaire. Trois cents références se rangent en une poignée de familles, et l'entretien reste linéaire.
+
+  **La famille se porte sur la référence, pas sur le carton.** Les attributs physiques — `debord_mm`, `gerbable`, `melangeable` — décrivent l'objet et restent sur `cartons`. La famille, elle, exprime une règle de cohabitation dont le motif peut être physique (un matelas et un parc ne s'empilent pas) ou commercial (on ne mêle pas le stock d'un client à celui d'un autre). Deux motifs, une seule mécanique.
+
+  `melangeable = false` reste utile à côté : il dit « seul sur la palette », ce qu'une famille d'un seul membre exprimerait mal — elle redeviendrait mélangeable le jour où une deuxième référence la rejoint.
+
+  **La limite du modèle, à connaître.** Il suppose que la compatibilité est une relation d'équivalence : si A va avec B et B avec C, alors A va avec C. Tous les cas cités le respectent. Si un jour A et B sont incompatibles alors que chacun se mélange avec le reste, la réponse est de **scinder en familles plus fines**, pas de construire une matrice — trois cents références en produiraient quarante-cinq mille paires, impossibles à tenir à jour.
+
+  « Mélangeables dans la mesure du raisonnable » n'est pas une donnée : c'est le plafond de quatre références, plus le jugement de l'opérateur. Trois couches qui font chacune un seul travail — la famille dit **avec qui**, le plafond dit **combien**, l'opérateur tranche le reste.
+
+  **Certains casiers sont mixtes par vocation**, et un signal permanent sur eux est un signal qu'on apprend à ignorer — ce qui finit par masquer les vrais. D'où une vocation sur l'emplacement, `standard` par défaut, renseignée pour la poignée d'exceptions :
+
+  ```sql
+  -- sur emplacements
+  vocation text not null default 'standard'
+           check (vocation in ('standard','reliquats','retours'))
+  ```
+
+  Sur un casier `reliquats` ou `retours`, le mélange est attendu : aucun signal de fragmentation, et ni la rotation ni l'occupation ne s'y jugent comme ailleurs — un coin de retours plein ne dit pas la même chose qu'un palettier plein.
+
+  Conséquence sur la carte : un casier `standard` portant une référence non mélangeable est **plein dès la première référence**, quel que soit le nombre de cartons. Son occupation est binaire, pas graduée.
+
+  Cette table sert quatre usages pour une seule séance de mesure : la palettisation, le taux d'occupation, l'affectation des références aux niveaux selon la hauteur du carton, et le calcul du palier transporteur par la somme des trois côtés. C'est ce qui rend la mesure des 300 cartons rentable indépendamment de tout logiciel.
+- **Ne pas confondre la mesure et la règle.** « Au-delà de quatre références, ne plus proposer d'ajout, sauf si le nombre total d'articles est faible » est une règle de **placement**, pas une mesure d'occupation. Elle relève de la suggestion de rangement, qui n'est pas la carte. Sur la carte, elle s'affiche comme un marqueur distinct — « saturé en nombre de références » — à côté de la jauge de volume, jamais fondu dans la même couleur.
+
+  Cette règle arbitre une tension réelle : les palettes mixtes économisent de l'espace sur les faibles rotations, et dégradent la fiabilité du prélèvement et la vitesse de comptage. Le plafond de quatre est exactement le curseur entre les deux. Le seuil « x articles total » reste à chiffrer.
+- **Deux échelles rouge→vert séparées ne disent rien d'actionnable**, parce que « plein » n'est ni bon ni mauvais en soi et que « forte rotation » se juge par rapport à la distance au quai. Le signal utile est le **croisement** : forte occupation et faible rotation, c'est le casier à traiter en premier ; faible occupation et forte rotation, c'est un casier à recharger ou à agrandir. Une vue en quadrants plutôt que deux curseurs indépendants.
+
+Rendu en **grille schématique** dérivée de zone, baie et niveau — pas de plan à l'échelle. Des coordonnées physiques seraient une donnée de plus pour un gain de lisibilité marginal.
 
 À ne pas coder, même si la structure de données le permettrait :
 
@@ -479,18 +621,22 @@ Deux choses seulement, et ce ne sont pas des chantiers :
 2. **Écrire la consigne de repli** dans le README : si l'enregistrement échoue, noter sur papier et ressaisir au retour.
 3. **Retirer les deux indicateurs factices de l'Accueil.** C'est une suppression, pas une fonctionnalité : « Tout est synchronisé » en texte fixe est précisément ce qu'on regardera sans réfléchir pendant le pilote. Ils reviendront branchés avec la file hors ligne.
 4. **Rendre le commentaire obligatoire sur le motif `annulation`** (§4), si c'est l'affaire de quelques minutes. Sinon, avec le chantier de clôture.
+5. **Générateur d'emplacements** — zone, plage de baies, niveaux, création en lot. Sert la saisie du référentiel avant le démarrage, et **remplace l'import CSV d'emplacements** (§7) : une substitution, pas une addition.
+6. **Liste des saisies pendant la marche** (§6.5), **remontée depuis la liste du 18 octobre**. Raison : usage réel imminent — la répétition à blanc et les premiers comptages ont lieu cette semaine, et la double saisie qu'elle supprime pollue directement l'écart. Le reste du chantier de clôture ne bouge pas. Le gain d'une passe d'`advisor()` partagée ne valait pas un mois de comptages sans visibilité sur ce qui a déjà été saisi.
+7. **Cache de lecture** (§3) — à faire après les deux précédents, il sert le pilote et non le démarrage.
 
 ### Jusqu'au 18 octobre — point de situation
 
 Ordre dicté par l'indicateur du pilote, l'écart entre l'app et le physique :
 
 1. Automatisation du changelog — chantier isolé, sans dépendance, à sortir du chemin d'abord.
-2. **File hors ligne** et bandeau « n en attente ». C'est ce qui protège l'indicateur : un mouvement perdu le corrompt directement.
-3. **Clôture d'inventaire**, dans cet ordre interne : découplage de `comptages.statut` (§6.5) d'abord, puis policy `DELETE` conditionnée (§3), puis couverture, justification des écarts, écriture des `ajustement_inventaire`. Y rattacher l'affichage « vide » face à « non enregistré » dans la Recherche (§6.2) : c'est la même notion de casier confirmé vide.
-4. **Mouvements postérieurs au gel** listés sur l'écran des écarts — à coupler au point 3, c'est la même conversation.
-5. **Résolution des écarts compensés** en transfert (§6.5) — également couplée au point 3.
-6. **Export `.xlsx`** : l'instrument de comparaison avec l'Excel tenu en parallèle, donc de mesure de l'indicateur.
-7. Synthèse imprimable.
+2. **Mode hors ligne**, en deux moitiés indissociables : d'abord le **cache de lecture** — sans lui rien n'est saisissable hors réseau — puis la **file d'écriture** avec son bandeau « n en attente ». C'est ce qui protège l'indicateur : un mouvement perdu le corrompt directement.
+3. **Fin du blocage sur stock négatif** : avertissement et confirmation à la place du refus, liste d'anomalies, confirmation proportionnée au risque, correction en un geste (§6.4). Touche la policy validée en conditions réelles, donc pas avant le 18 septembre. Contournement d'ici là : annuler d'abord le mouvement fautif — motif `annulation`, commentaire obligatoire — puis saisir la vraie sortie.
+4. **Clôture d'inventaire**, dans cet ordre interne : découplage de `comptages.statut` (§6.5) d'abord, puis policy `DELETE` conditionnée (§3), puis couverture, justification des écarts, écriture des `ajustement_inventaire`. Y rattacher l'affichage « vide » face à « non enregistré » dans la Recherche (§6.2) : c'est la même notion de casier confirmé vide.
+5. **Mouvements postérieurs au gel** listés sur l'écran des écarts — à coupler au point 3, c'est la même conversation.
+6. **Résolution des écarts compensés** en transfert (§6.5) — également couplée au point 3.
+7. **Export `.xlsx`** : l'instrument de comparaison avec l'Excel tenu en parallèle, donc de mesure de l'indicateur.
+8. Synthèse imprimable.
 
 ### Repoussé
 
