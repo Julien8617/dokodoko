@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { useI18n } from '../i18n'
+import { useI18n, interpolate } from '../i18n'
 import {
   listConditionnements,
   listEmplacements,
@@ -38,6 +38,11 @@ export default function Search({ onBack }: { onBack: () => void }) {
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Identité de la référence trouvée, affichée en tête des résultats — sans
+  // elle, une recherche par nom (§6.2) ne laisse plus voir le libellé une
+  // fois la recherche lancée : la liste ci-dessous ne montre que casier et
+  // conditionnement, jamais la référence elle-même en toutes lettres.
+  const [searchedReference, setSearchedReference] = useState<Reference | null>(null)
 
   useEffect(() => {
     listReferences().then(setAllReferences).catch(() => {})
@@ -52,18 +57,25 @@ export default function Search({ onBack }: { onBack: () => void }) {
     setResults([])
     setSearched(false)
     setError(null)
+    setSearchedReference(null)
   }
 
   const resolvedEmplacement = mode === 'emplacement' ? resolveEmplacementInput(query) : null
+  // Pas de plafond dans matchReferences elle-même (chaque appelant décide,
+  // voir db.ts) : ici un plafond d'affichage reste utile sur un écran de
+  // téléphone, mais jamais silencieux — §6.2, spec 2.22 : un plafond muet
+  // ferait conclure qu'un article n'existe pas alors qu'il est le neuvième.
+  const referenceMatches =
+    mode === 'reference'
+      ? matchReferences(query, allReferences).filter((r) => r.code.toUpperCase() !== query.trim().toUpperCase())
+      : []
+  const REFERENCE_SUGGESTIONS_SHOWN = 8
   const suggestions =
     mode === 'reference'
-      ? matchReferences(query, allReferences)
-          .filter((r) => r.code.toUpperCase() !== query.trim().toUpperCase())
-          .slice(0, 8)
-          .map((r) => ({
-            value: r.code,
-            label: r.libelle ? `${r.code} — ${r.libelle}` : r.code,
-          }))
+      ? referenceMatches.slice(0, REFERENCE_SUGGESTIONS_SHOWN).map((r) => ({
+          value: r.code,
+          label: r.libelle ? `${r.code} — ${r.libelle}` : r.code,
+        }))
       : (resolvedEmplacement
           ? resolvedEmplacement === query.trim().toUpperCase()
             ? []
@@ -72,6 +84,9 @@ export default function Search({ onBack }: { onBack: () => void }) {
         ).map((code) => ({ value: code, label: code }))
 
   async function searchByReference(code: string) {
+    // `code` vient toujours de `matches[0].code`, résolu depuis
+    // `allReferences` — ne peut pas manquer, pas de repli fabriqué.
+    setSearchedReference(allReferences.find((r) => r.code === code) ?? null)
     const conditionnements = await listConditionnements(code)
     const condById = new Map(conditionnements.map((c) => [c.id, c]))
     const rows = await listStockByReference(code)
@@ -94,6 +109,7 @@ export default function Search({ onBack }: { onBack: () => void }) {
   }
 
   async function searchByEmplacement(empl: string) {
+    setSearchedReference(null)
     const rows = await listStockAtEmplacement(empl)
     // Un round-trip par référence distincte, en parallèle — pas un par ligne
     // de stock : un casier avec 8 réfs ne doit pas enchaîner 8 requêtes
@@ -102,15 +118,21 @@ export default function Search({ onBack }: { onBack: () => void }) {
     const condById = new Map(
       (await Promise.all(refCodes.map((code) => listConditionnements(code)))).flat().map((c) => [c.id, c]),
     )
+    // Plusieurs références différentes peuvent apparaître dans un même
+    // casier — le libellé propre à CHAQUE référence doit donc figurer sur
+    // sa ligne (§6.2), pas seulement le libellé du conditionnement
+    // (ex. "carton de 12", qui décrit l'emballage, pas l'article).
+    const refByCode = new Map(allReferences.map((r) => [r.code, r]))
     setResults(
       rows
         .map((row) => {
           const cond = condById.get(row.conditionnement_id)
           const ppc = cond?.pieces_par_carton ?? 1
+          const libelle = refByCode.get(row.ref_code)?.libelle
           return {
             key: `${row.ref_code}|${row.conditionnement_id}`,
             primary: row.ref_code,
-            secondary: cond?.libelle_court ?? null,
+            secondary: [libelle, cond?.libelle_court].filter(Boolean).join(' — ') || null,
             cartons: Math.floor(row.quantite_pieces / ppc),
             pieces: row.quantite_pieces % ppc,
             totalPieces: row.quantite_pieces,
@@ -208,6 +230,14 @@ export default function Search({ onBack }: { onBack: () => void }) {
             placeholder={mode === 'reference' ? t.inventory.referencePlaceholder : t.inventory.casierPlaceholder}
           />
         </label>
+        {mode === 'reference' && referenceMatches.length > REFERENCE_SUGGESTIONS_SHOWN && (
+          <p className="form-status">
+            {interpolate(t.search.moreMatches, {
+              shown: REFERENCE_SUGGESTIONS_SHOWN,
+              total: referenceMatches.length,
+            })}
+          </p>
+        )}
         <button type="submit" disabled={loading}>
           {t.search.searchButton}
         </button>
@@ -215,6 +245,14 @@ export default function Search({ onBack }: { onBack: () => void }) {
       </form>
 
       {loading && <p className="form-status">{t.search.loading}</p>}
+
+      {mode === 'reference' && searchedReference && searched && !error && (
+        <h2>
+          {searchedReference.code}
+          {searchedReference.libelle ? ` — ${searchedReference.libelle}` : ''}
+        </h2>
+      )}
+
       {!loading && searched && !error && results.length === 0 && (
         <p className="form-status">{t.search.noResults}</p>
       )}

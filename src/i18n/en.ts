@@ -114,6 +114,7 @@ const en: Dictionary = {
     noResults: 'No stock found.',
     invalidEmplacement: 'Invalid location code (expected: A-03-1)',
     pickSuggestion: 'Pick a reference from the list, or refine your search.',
+    moreMatches: '{shown} shown out of {total} — refine your search to see the rest.',
   },
   inventory: {
     title: 'Inventory',

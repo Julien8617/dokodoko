@@ -5,6 +5,11 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.12 — 2026-09-16
+
+- Recherche : le résultat affiche maintenant le libellé de la référence trouvée, pas seulement son code — utile en particulier après une recherche par nom
+- Recherche : au-delà de 8 références correspondantes, le nombre total est affiché plutôt que de laisser croire qu’un article manquant n’existe pas
+
 ## 0.9.11 — 2026-09-16
 
 - Nettoyage interne : le retrait des accents dans la recherche par nom passait par des caractères Unicode bruts dans le code source au lieu d’un motif lisible — comportement inchangé, vérifié par des cas concrets (accents, ordre des mots, priorité du code sur le nom)

@@ -114,6 +114,7 @@ const ja: Dictionary = {
     noResults: '在庫が見つかりません。',
     invalidEmplacement: 'ロケーションコードが不正です（例：A-03-1）',
     pickSuggestion: '候補から品番を選ぶか、入力を絞り込んでください。',
+    moreMatches: '{total} 件中 {shown} 件を表示 — 絞り込むと残りが表示されます。',
   },
   inventory: {
     title: '棚卸',

@@ -127,6 +127,10 @@ export interface Dictionary {
     noResults: string
     invalidEmplacement: string
     pickSuggestion: string
+    // {shown} et {total} remplacés via interpolate() — §6.2, spec 2.22 :
+    // un plafond silencieux ferait conclure qu'un article n'existe pas
+    // alors qu'il est le neuvième
+    moreMatches: string
   }
   inventory: {
     title: string

@@ -10,6 +10,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.12',
+    date: '2026-09-16',
+    items: [
+      'Recherche : le résultat affiche maintenant le libellé de la référence trouvée, pas seulement son code — utile en particulier après une recherche par nom',
+      'Recherche : au-delà de 8 références correspondantes, le nombre total est affiché plutôt que de laisser croire qu’un article manquant n’existe pas',
+    ],
+  },
+  {
     version: '0.9.11',
     date: '2026-09-16',
     items: [
