@@ -1,6 +1,6 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.23 — 16 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.24 — 16 septembre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -297,6 +297,7 @@ Repris de la v1, avec les quantités ajoutées.
 - **Ordre des résultats**, sans quoi le libellé noie le code : code en préfixe exact, puis code en sous-chaîne, puis libellé. Taper « 65 » doit continuer à donner `REU065` avant tout article dont le nom contient 65.
 - **Le résultat affiche le code et le libellé** — chercher par nom et ne voir que des codes ne permet pas de choisir. Cela vaut pour l'écran Recherche comme pour les sélecteurs : un filtre partagé ne change pas ce qui est rendu, l'affichage se vérifie écran par écran.
 - **Portée de cette exigence : les résultats, pas l'état sélectionné.** Une fois une référence choisie, l'affichage ne sert plus à choisir mais à **confirmer**. Cette confirmation doit exister sur tout écran qui écrit, avant l'écriture : compter ou sortir contre la mauvaise référence fabrique un faux écart à deux endroits, ce qui touche directement l'indicateur du pilote. Elle se place en ligne en lecture seule sous le champ, sans modifier le contrat d'un composant de saisie partagé, et le libellé figure aussi dans la liste des saisies (§6.5) — l'un confirme avant, l'autre après.
+- **`libelleCourt` désigne le conditionnement, jamais le produit.** Il a déjà été affiché à la place du nom de l'article sur deux écrans — c'est le champ qui invite à l'erreur. À renommer pour qu'il ne puisse plus se lire comme un nom de produit, et à afficher toujours en suffixe : « REU265 — Matelas XL bleu · carton de 12 ». Sans ce renommage, il y aura une troisième occurrence.
 - **Jamais de troncature silencieuse.** Un plafond de résultats est légitime dans une liste déroulante ; sur l'écran Recherche il ferait conclure qu'un article n'existe pas. Soit aucun plafond sur cet écran, soit le nombre total affiché — « 8 affichés sur 34 ».
 - `libelle` est facultatif en base. Une référence sans nom s'affiche par son seul code et ne sera jamais trouvée par nom : acceptable, et c'est une raison de renseigner les noms dès la création.
 - **Un seul filtre partagé** entre la Recherche, le sélecteur de référence de Mouvement et celui de l'Inventaire. Même règle que pour la suppression : une implémentation, plusieurs appelants.
