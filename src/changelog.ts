@@ -10,6 +10,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.10',
+    date: '2026-09-16',
+    items: [
+      'Recherche par nom d’article, enfin conforme à la spec : taper « matelas bleu » retrouve « Matelas XL bleu » quel que soit l’ordre des mots, les accents ou la casse — utile quand la facture ne porte pas la référence',
+      'Cette recherche est désormais la même partout (Recherche, Mouvement, sélection de références pour un inventaire) — un code tapé reste prioritaire sur un nom qui le contiendrait par coïncidence (« 65 » retrouve toujours REU065 en premier)',
+    ],
+  },
+  {
     version: '0.9.9',
     date: '2026-09-16',
     items: [

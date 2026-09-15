@@ -171,11 +171,10 @@ function Launch({ onBack, onReady }: { onBack: () => void; onReady: (inv: Invent
   }
 
   if (mode === 'references') {
-    const filtered = references.filter((r) => {
-      const q = query.trim().toLowerCase()
-      if (!q) return true
-      return r.code.toLowerCase().includes(q) || (r.libelle ?? '').toLowerCase().includes(q)
-    })
+    // Même recherche que la Recherche et Mouvement (§6.2, spec 2.20) —
+    // sans quoi cet écran resterait le seul avec sa propre logique
+    // naïve. Liste complète tant que rien n'est tapé, comme avant.
+    const filtered = query.trim() ? matchReferences(query, references) : references
 
     function toggle(code: string) {
       setSelectedRefs((prev) => {
@@ -371,14 +370,15 @@ function Walk({
       : matchEmplacements(emplacementCode, knownEmplacements)
   ).map((code) => ({ value: code, label: code }))
 
-  // Recherche floue par sous-chaîne (n'importe où dans le code, y compris
-  // juste les chiffres) : "65", "265" ou "REU26" trouvent tous "REU265" —
-  // permet de ne taper que des chiffres au clavier iPhone la plupart du
-  // temps, sans passer par le clavier lettres (2026-09-14).
-  const referenceSuggestions = matchReferences(refCode, allReferences).map((r) => ({
-    value: r.code,
-    label: r.libelle ? `${r.code} — ${r.libelle}` : r.code,
-  }))
+  // matchReferences (db.ts) : code ("65"/"265"/"REU26" trouvent "REU265",
+  // pas seulement au clavier chiffres) ET libellé par jetons normalisés
+  // (§6.2, spec 2.20) — même recherche que Recherche et Mouvement.
+  const referenceSuggestions = matchReferences(refCode, allReferences)
+    .slice(0, 8)
+    .map((r) => ({
+      value: r.code,
+      label: r.libelle ? `${r.code} — ${r.libelle}` : r.code,
+    }))
 
   async function lookupReference(codeOverride?: string) {
     const code = (codeOverride ?? refCode).trim().toUpperCase()

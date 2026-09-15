@@ -7,6 +7,7 @@ import {
   listConditionnements,
   listEmplacements,
   listReferences,
+  matchReferences,
 } from '../lib/db'
 import { refreshReferentielCache } from '../lib/referentielCache'
 import type { Conditionnement, Emplacement, MouvementInsert, Reference, Sens } from '../lib/types'
@@ -244,6 +245,14 @@ export default function Movement({ onBack }: { onBack: () => void }) {
           value={refCode}
           onChange={setRefCode}
           placeholder={t.movement.referenceSearch}
+          filter={(query) =>
+            matchReferences(query, references)
+              .slice(0, 8)
+              .map((r) => ({
+                value: r.code,
+                label: r.libelle ? `${r.code} — ${r.libelle}` : r.code,
+              }))
+          }
         />
       </label>
 

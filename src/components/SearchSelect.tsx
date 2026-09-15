@@ -10,22 +10,29 @@ interface SearchSelectProps {
   value: string | null
   onChange: (value: string) => void
   placeholder: string
+  // Remplace le filtre par défaut (sous-chaîne sur value+label) quand un
+  // appelant a besoin d'une recherche plus riche — ex. matchReferences
+  // (§6.2 : jetons, normalisation, ordre code puis libellé), partagée avec
+  // la Recherche et l'Inventaire plutôt que réimplémentée ici.
+  filter?: (query: string, options: SearchSelectOption[]) => SearchSelectOption[]
 }
 
 // Sélecteur avec filtrage incrémental, sans focus automatique (repris de la
 // logique de recherche v1, §6.2) — utilisé pour référence et emplacement
 // tant que l'écran Recherche dédié n'existe pas.
-export default function SearchSelect({ options, value, onChange, placeholder }: SearchSelectProps) {
+export default function SearchSelect({ options, value, onChange, placeholder, filter }: SearchSelectProps) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
+    const q = query.trim()
     if (!q) return options
+    if (filter) return filter(q, options)
+    const lower = q.toLowerCase()
     return options.filter(
-      (o) => o.value.toLowerCase().includes(q) || o.label.toLowerCase().includes(q),
+      (o) => o.value.toLowerCase().includes(lower) || o.label.toLowerCase().includes(lower),
     )
-  }, [options, query])
+  }, [options, query, filter])
 
   const selected = options.find((o) => o.value === value)
 

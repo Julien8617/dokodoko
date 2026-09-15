@@ -59,6 +59,7 @@ export default function Search({ onBack }: { onBack: () => void }) {
     mode === 'reference'
       ? matchReferences(query, allReferences)
           .filter((r) => r.code.toUpperCase() !== query.trim().toUpperCase())
+          .slice(0, 8)
           .map((r) => ({
             value: r.code,
             label: r.libelle ? `${r.code} — ${r.libelle}` : r.code,

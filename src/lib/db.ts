@@ -143,31 +143,95 @@ export function matchEmplacements(raw: string, knownCodes: string[]): string[] {
     .slice(0, 8)
 }
 
-// Suggestions pour la saisie libre de la référence (Inventaire, écran
-// "marche") : recherche floue par sous-chaîne — "65", "265" ou "REU26"
-// trouvent tous "REU265", pas seulement un préfixe exact. Évite d'avoir à
-// taper le code en entier au clavier en marchant dans l'entrepôt.
-export function matchReferences(raw: string, refs: Reference[]): Reference[] {
-  const query = raw.trim().toUpperCase()
-  if (!query) return []
-  const digitsQuery = /^\d+$/.test(query) ? query : null
+// Minuscules, accents retirés, séparateurs remplacés par un espace (§6.2,
+// spec 2.20) : "Pommade à cheveux" et "pommade-cheveux" se normalisent
+// tous deux vers "pommade a cheveux" / "pommade cheveux" et se rejoignent
+// au moment de la comparaison. Le japonais (sans espaces ni accents
+// latins) traverse cette fonction inchangé — un seul "mot", couvert plus
+// bas par la recherche en sous-chaîne de ce jeton unique.
+function normalizeSearchText(s: string): string {
+  return s
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim()
+}
 
-  const scored: { ref: Reference; index: number }[] = []
+// Recherche partagée par la Recherche, le sélecteur de référence de
+// Mouvement et celui de l'Inventaire (§6.2, spec 2.20 : "une
+// implémentation, plusieurs appelants" — même règle que la suppression
+// unifiée d'une saisie). Fonctionnalité, une seule fois, quatre exigences
+// qu'une version naïve raterait :
+//
+// 1. Correspondance par jetons de la requête, pas par sous-chaîne entière
+//    sur le libellé complet : "matelas bleu" doit retrouver
+//    "Matelas XL bleu" — chaque mot cherché indépendamment, dans
+//    n'importe quel ordre, tous présents (recopié depuis une facture, qui
+//    ne respecte ni l'ordre ni la casse du libellé en base).
+// 2. Normalisation avant comparaison (voir normalizeSearchText).
+// 3. Ordre des résultats : préfixe exact du code, puis code en
+//    sous-chaîne, puis libellé — sans quoi taper "65" noierait REU065
+//    sous tout article dont le nom contient "65".
+// 4. L'affichage (code + libellé) reste la responsabilité de l'appelant,
+//    cette fonction ne renvoie que les `Reference` triées.
+export function matchReferences(raw: string, refs: Reference[]): Reference[] {
+  const query = raw.trim()
+  if (!query) return []
+
+  const queryTokens = normalizeSearchText(query).split(/\s+/).filter(Boolean)
+  if (queryTokens.length === 0) return []
+
+  const codeQuery = query.toUpperCase()
+  const digitsQuery = /^\d+$/.test(codeQuery) ? codeQuery : null
+
+  const CODE_PREFIX = 0
+  const CODE_SUBSTRING = 1
+  const LIBELLE = 2
+
+  const scored: { ref: Reference; tier: number; index: number }[] = []
+
   for (const ref of refs) {
     const code = ref.code.toUpperCase()
-    const codeIndex = code.indexOf(query)
+    const digitsOnlyCode = code.replace(/\D/g, '')
+    const normalizedLibelle = normalizeSearchText(ref.libelle ?? '')
+    // Inclut la version tout-chiffres du code : sans elle, une requête
+    // "65" contre un code à chiffres non contigus (ex. "RE6U5") ne
+    // passerait jamais cette porte, et la branche digitsQuery plus bas
+    // — écrite justement pour ce cas — ne serait jamais atteinte.
+    const haystack = `${normalizeSearchText(ref.code)} ${digitsOnlyCode} ${normalizedLibelle}`.trim()
+
+    if (!queryTokens.every((t) => haystack.includes(t))) continue
+
+    if (code.startsWith(codeQuery)) {
+      scored.push({ ref, tier: CODE_PREFIX, index: 0 })
+      continue
+    }
+    const codeIndex = code.indexOf(codeQuery)
     if (codeIndex >= 0) {
-      scored.push({ ref, index: codeIndex })
+      scored.push({ ref, tier: CODE_SUBSTRING, index: codeIndex })
       continue
     }
     if (digitsQuery) {
-      const digitsIndex = code.replace(/\D/g, '').indexOf(digitsQuery)
-      if (digitsIndex >= 0) scored.push({ ref, index: digitsIndex })
+      const digitsIndex = digitsOnlyCode.indexOf(digitsQuery)
+      if (digitsIndex >= 0) {
+        scored.push({ ref, tier: CODE_SUBSTRING, index: digitsIndex })
+        continue
+      }
     }
+    // -1 (jeton trouvé seulement dans le code, pas dans le libellé) ne
+    // doit jamais devancer un vrai match à l'index 0 du libellé.
+    const libelleIndex = normalizedLibelle.indexOf(queryTokens[0])
+    scored.push({ ref, tier: LIBELLE, index: libelleIndex < 0 ? Number.MAX_SAFE_INTEGER : libelleIndex })
   }
 
-  scored.sort((a, b) => a.index - b.index || a.ref.code.localeCompare(b.ref.code))
-  return scored.slice(0, 8).map((s) => s.ref)
+  // Pas de plafond ici : une suggestion déroulante (Recherche, Mouvement,
+  // marche) veut ses 8 meilleurs résultats, mais la liste à cocher de
+  // l'Inventaire (périmètre "références") veut TOUT ce qui correspond —
+  // le plafond est la responsabilité de chaque appelant, pas de la
+  // recherche elle-même.
+  scored.sort((a, b) => a.tier - b.tier || a.index - b.index || a.ref.code.localeCompare(b.ref.code))
+  return scored.map((s) => s.ref)
 }
 
 export async function insertEmplacement(code: string, ordre?: number): Promise<void> {
