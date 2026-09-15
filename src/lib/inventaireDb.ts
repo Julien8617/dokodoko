@@ -186,31 +186,20 @@ export async function saveCasierLigne(
   if (error) throw error
 }
 
-// "Retirer une référence ajoutée par erreur de saisie" (2026-09-14) : une
-// correction d'UI, pas un événement métier — suppression réelle, contraste
-// volontaire avec l'immutabilité de `mouvements`. Ciblée par `id` (pas par
-// ref+conditionnement) : latest-wins fait qu'une correction (nouvelle saisie
-// sur la même réf) et l'ancienne ligne partagent ref+conditionnement — les
-// supprimer toutes deux effacerait aussi la correction. Utilisée par
-// l'écran des écarts (`deleteEdit`) : "supprimer" y agit sur LA ligne
-// affichée, pas sur l'historique du couple.
-export async function deleteCasierLigne(id: string): Promise<void> {
-  const { error } = await supabase.from('comptage_lignes').delete().eq('id', id)
-  if (error) throw error
-}
-
-// Supprime TOUTES les lignes d'un casier pour une (réf, conditionnement) —
-// utilisée UNIQUEMENT par la liste des saisies pendant la marche (§6.5),
-// où "annuler cette saisie" doit faire disparaître le couple entièrement :
-// `deleteCasierLigne(id)` n'y suffit pas, puisque la liste peut afficher
-// une ligne qui a déjà une correction plus ancienne sous elle (saisie faite
-// une autre session), et supprimer seulement la plus récente ferait
-// réapparaître l'ancienne valeur au lieu de vider la saisie. Ne PAS
-// réutiliser cette fonction pour deleteEdit (écran des écarts) : là, le
-// même bug existe en théorie (une correction peut aussi y masquer une
-// ligne plus ancienne) mais le corriger changerait le comportement d'un
-// écran déjà testé sur le terrain — à traiter sur décision explicite, pas
-// en silence dans ce commit.
+// Seule et unique implémentation de la suppression d'une saisie (arbitrage
+// 2026-09-16) : la marche ET l'écran des écarts l'appellent, pour que le
+// bug trouvé une première fois (suppression par `id`, donc de la seule
+// ligne la plus récente — une correction plus ancienne du même couple
+// resurgissait au lieu de disparaître) ne puisse plus exister à un endroit
+// pendant qu'il est corrigé à l'autre. Raisonne toujours sur l'ensemble des
+// lignes du couple (casier, réf, conditionnement), jamais sur une seule.
+//
+// Dette notée en spec §14, pas à traiter ici : un vrai DELETE sur un
+// journal en dernière-valeur-gagne reste structurellement fragile (c'est
+// aussi ce qui bloque la policy DELETE conditionnée à la clôture). La
+// réponse de fond — une ligne d'« absence » plutôt qu'une suppression —
+// est candidate à la migration du chantier de clôture, qui restructure
+// déjà cette table.
 export async function deleteCasierLignesForRef(
   comptageId: string,
   refCode: string,

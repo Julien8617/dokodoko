@@ -14,7 +14,6 @@ import {
 } from '../lib/db'
 import {
   createInventaire,
-  deleteCasierLigne,
   deleteCasierLignesForRef,
   getActiveInventaire,
   getInventaireSynthese,
@@ -769,11 +768,14 @@ function Ecarts({
     }
   }
 
-  async function deleteEdit(l: SyntheseLigneEmplacement) {
-    if (!l.ligneId) return
+  // Même chemin de suppression que la marche (arbitrage 2026-09-16) : sur
+  // l'ensemble des lignes du couple (casier, réf, conditionnement), jamais
+  // sur la seule dernière — voir deleteCasierLignesForRef.
+  async function deleteEdit(ref: SyntheseReference, l: SyntheseLigneEmplacement) {
+    if (!l.comptageId) return
     setEditStatus({ kind: 'saving' })
     try {
-      await deleteCasierLigne(l.ligneId)
+      await deleteCasierLignesForRef(l.comptageId, ref.refCode, ref.conditionnementId)
       setEditingLigneId(null)
       await refresh()
     } catch (err) {
@@ -854,7 +856,7 @@ function Ecarts({
                       <button
                         type="button"
                         className="back-link"
-                        onClick={() => deleteEdit(l)}
+                        onClick={() => deleteEdit(ref, l)}
                         disabled={editStatus.kind === 'saving'}
                       >
                         {t.inventory.removeLine}

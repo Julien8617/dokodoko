@@ -10,6 +10,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.8',
+    date: '2026-09-16',
+    items: [
+      'Correction : dans l’écran des écarts, supprimer une saisie corrigée pouvait faire réapparaître sa valeur d’avant correction au lieu de la faire disparaître — même correctif que la liste des saisies en marche (v0.9.7), maintenant partagé par les deux écrans',
+    ],
+  },
+  {
     version: '0.9.7',
     date: '2026-09-16',
     items: [

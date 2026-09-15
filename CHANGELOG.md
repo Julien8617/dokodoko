@@ -5,6 +5,10 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.8 — 2026-09-16
+
+- Correction : dans l’écran des écarts, supprimer une saisie corrigée pouvait faire réapparaître sa valeur d’avant correction au lieu de la faire disparaître — même correctif que la liste des saisies en marche (v0.9.7), maintenant partagé par les deux écrans
+
 ## 0.9.7 — 2026-09-16
 
 - Inventaire, saisie en marchant : la liste des saisies porte maintenant tout l’inventaire (pas seulement la session en cours) et redemande confirmation avant d’écraser une saisie déjà faite au même casier — remplacer la valeur ou l’ajouter à l’existant
