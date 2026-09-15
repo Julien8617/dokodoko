@@ -1,6 +1,6 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.17 — 16 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.18 — 16 septembre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -357,6 +357,8 @@ Ce qui reste à construire est la **résolution**, à la clôture : sur une pair
 - Vingt dernières lignes affichées, le reste derrière un lien. Sur un écran de téléphone, une liste sans plafond devient un mur.
 - **Le clic réutilise le chemin de modification existant de l'écran des écarts**, jamais un second chemin d'édition : deux chemins pour la même action finissent par diverger.
 
+**Suppression et modification d'une saisie : une seule implémentation, deux appels.** La marche et l'écran des écarts doivent appeler la même fonction. Le bug trouvé le 16 septembre — « annuler » ne retirait que la ligne la plus récente, laissant resurgir une correction antérieure du même casier × référence — existait aux deux endroits parce que le code était écrit deux fois. Corriger un seul appelant institutionnalise la divergence, et le troisième écran aura le même défaut.
+
 **Correction** : une saisie se modifie ou se retire depuis l'écran des écarts, sans repasser par la saisie.
 
 **Première étape du chantier de clôture — une seule migration, quatre corrections de schéma :**
@@ -684,6 +686,7 @@ L'app s'appelle **どこどこ**. Dépôt public `dokodoko` — le nom du dépô
 - **Pas de contrainte d'unicité sur `(inventaire_id, emplacement_code)`.** Coût : deux comptages possibles pour un même casier, lignes réparties entre les deux, écart faux. Vérification en lecture seule à faire tout de suite ; correction à la même migration.
 - **Ordre des lignes de comptage dépendant de l'horloge du téléphone** (§3). Coût : sur un appareil à la mauvaise date, une correction peut être datée avant l'original et le *latest-wins* retenir la mauvaise valeur. Atténué par l'avertissement de dérive au démarrage. Se referme avec le compteur monotone par appareil, à la migration du chantier de clôture.
 - **Création de casier hors file** (§3). Coût : un inventaire neuf est impossible hors réseau, puisque tous ses casiers sont neufs. Acceptable uniquement si la couverture en allée est vérifiée bonne. Correctif sans DDL disponible si elle ne l'est pas : identifiant de casier déterministe.
+- **« Supprimer » est un vrai `DELETE` dans un journal en dernière-valeur-gagne.** C'est un générateur de bugs : toute suppression doit raisonner sur l'ensemble des lignes d'un couple casier × référence × conditionnement, pas sur la dernière. Coût : chaque nouvel appelant peut réintroduire le défaut. La réponse structurelle est une **ligne d'absence** — un marqueur, comme l'annulation dans `mouvements` — plutôt qu'une suppression de lignes ; elle rendrait aussi sans objet la question de la policy `DELETE` (§3). Candidate pour la migration du chantier de clôture, qui restructure déjà cette table. Pas avant.
 - **`comptages.statut` surchargé.** Il signifie « ce casier a été touché » et passe à `clos` dès la première saisie, alors que son nom laisse lire « inventaire clôturé ». Coût immédiat : nul, le code est cohérent avec lui-même. Coût réel : il bloque la policy `DELETE` conditionnée, et il fera lire `clos` pour une clôture à quiconque arrive sur le code sans contexte. Se referme au début du chantier de clôture (§6.5), pas avant — un refactor de `markCasierVisite` et de la boucle de fusion de `getInventaireSynthese`, sur le module que `CLAUDE.md` signale pour ses bugs subtils, n'apporte rien au démarrage du pilote.
 
 Toute dette ajoutée ici doit dire ce qu'elle coûte, pas seulement ce qui manque.
