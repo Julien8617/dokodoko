@@ -5,7 +5,7 @@ import ja from './ja'
 import en from './en'
 
 export type { Dictionary, Locale, MotifKey } from './types'
-export { formatNumber, interpolate } from './format'
+export { formatNumber, formatRelativeTime, interpolate } from './format'
 
 const DICTIONARIES: Record<Locale, Dictionary> = { fr, ja, en }
 const SUPPORTED_LOCALES: Locale[] = ['fr', 'ja', 'en']

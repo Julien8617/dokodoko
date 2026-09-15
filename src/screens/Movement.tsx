@@ -8,6 +8,7 @@ import {
   listEmplacements,
   listReferences,
 } from '../lib/db'
+import { refreshReferentielCache } from '../lib/referentielCache'
 import type { Conditionnement, Emplacement, MouvementInsert, Reference, Sens } from '../lib/types'
 import SearchSelect from '../components/SearchSelect'
 
@@ -202,6 +203,10 @@ export default function Movement({ onBack }: { onBack: () => void }) {
         await insertMouvements([row])
       }
 
+      // Un mouvement change le stock (§3, cache de lecture) — rafraîchit
+      // pour que Recherche/l'instantané informatif reflète l'écriture qui
+      // vient d'aboutir, sans attendre le prochain déclencheur générique.
+      void refreshReferentielCache() // ne bloque jamais la confirmation d'une écriture réussie
       setStatus({ kind: 'success' })
       setCartons(0)
       setPieces(0)

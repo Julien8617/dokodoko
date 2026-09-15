@@ -42,11 +42,24 @@ chantiers — l'app se lance en l'état :
   l'indicateur du pilote sans laisser de trace) ; la consigne de repli
   est dans `README.md`.
 
-Ensuite, dans cet ordre, et rien d'autre avant le point de situation :
+Ensuite, dans cet ordre, et rien d'autre avant le point de situation
+(ordre révisé le 2026-09-16 — voir raison du point 2 ci-dessous) :
 
-1. File hors ligne et bandeau « n en attente »
-2. Export `.xlsx`
-3. Justification et clôture d'inventaire — **un seul chantier**
+1. **Cache de lecture** (§3, `src/lib/referentielCache.ts`) — fait. Sans
+   lui, hors réseau, aucun référentiel n'est disponible et il n'y a rien à
+   saisir. Portée volontairement étroite : referentiels + instantané de
+   stock informatif, jamais `getStock` (vérification bloquante d'une
+   sortie) ni le théorique figé d'un inventaire, qui doivent rester exacts
+   donc réseau.
+2. **Fin du blocage sur stock négatif** (§6.4 : avertir plutôt que
+   refuser). Promu avant la file — pas seulement une histoire de
+   confirmation en conditions réelles : si `getStock` reste un verrou
+   réseau, une sortie hors ligne échoue avant même d'atteindre l'écriture,
+   donc la file d'écriture n'aurait rien à mettre en file tant que ce
+   blocage existe. C'est un prérequis, pas une suite.
+3. **File hors ligne** et bandeau « n en attente ».
+4. Export `.xlsx`
+5. Justification et clôture d'inventaire — **un seul chantier**
    regroupant :
    - couverture de casiers exigée pour clôturer (voir nuance ci-dessous)
    - mouvements postérieurs au gel affichés sur l'écran des écarts
@@ -56,7 +69,7 @@ Ensuite, dans cet ordre, et rien d'autre avant le point de situation :
      `ajustement_inventaire` — sinon une palette simplement déplacée
      gonfle à tort les statistiques d'écart de fin de pilote, qui sont
      l'indicateur du pilote
-4. Synthèse imprimable
+6. Synthèse imprimable
 
 **Repoussé** : imports en masse (références/emplacements/stock en CSV).
 Fonction de passage à l'échelle, pas nécessaire tant que le périmètre
@@ -81,6 +94,10 @@ reste REUZEL/A/B/C — revient si le pilote s'étend.
   sert de type de référence (`Dictionary` dans `src/i18n/types.ts`) : une
   clé ajoutée doit exister dans les trois fichiers, sinon `tsc` échoue.
   Ne jamais ajouter une clé dans un seul fichier « pour tester ».
+- **Âges en relatif, gestes en absolu.** `formatRelativeTime` (âge d'un
+  état : cache de lecture, file hors ligne à venir) jamais pour le journal
+  des `mouvements`, où l'heure exacte du geste est l'information et ne
+  doit pas s'effacer derrière un « il y a 2 h » approximatif.
 
 ## Règles de modèle qui ne se négocient pas
 

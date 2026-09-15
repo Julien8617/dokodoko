@@ -8,6 +8,7 @@ import {
   listClients,
   upsertReferenceWithConditionnement,
 } from '../lib/db'
+import { refreshReferentielCache } from '../lib/referentielCache'
 import type { Client } from '../lib/types'
 import VersionFooter from '../components/VersionFooter'
 import SearchSelect from '../components/SearchSelect'
@@ -59,6 +60,7 @@ function ReferenceForm() {
     setStatus({ kind: 'saving' })
     try {
       await upsertReferenceWithConditionnement(code.trim(), libelle.trim(), Number(pieces), clientCode)
+      void refreshReferentielCache() // ne bloque jamais la confirmation d'une écriture réussie
       setStatus({ kind: 'saved' })
       setCode('')
       setLibelle('')
@@ -120,6 +122,7 @@ function ClientForm() {
     setStatus({ kind: 'saving' })
     try {
       await insertClient(code.trim().toUpperCase(), nom.trim())
+      void refreshReferentielCache() // ne bloque jamais la confirmation d'une écriture réussie
       setStatus({ kind: 'saved' })
       setCode('')
       setNom('')
@@ -185,6 +188,7 @@ function EmplacementGeneratorForm() {
     setStatus({ kind: 'saving' })
     try {
       const result = await generateEmplacements(zone, Number(baieFrom), Number(baieTo), niveauxList)
+      void refreshReferentielCache() // ne bloque jamais la confirmation d'une écriture réussie
       setStatus({ kind: 'done', ...result })
     } catch (err) {
       setStatus({ kind: 'error', message: err instanceof Error ? err.message : t.settings.saveError })
@@ -245,6 +249,7 @@ function EmplacementForm() {
     setStatus({ kind: 'saving' })
     try {
       await insertEmplacement(code.trim().toUpperCase(), ordre ? Number(ordre) : undefined)
+      void refreshReferentielCache() // ne bloque jamais la confirmation d'une écriture réussie
       setStatus({ kind: 'saved' })
       setCode('')
       setOrdre('')

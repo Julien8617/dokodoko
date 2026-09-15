@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Locale } from './i18n'
 import { useI18n } from './i18n'
 import UpdatePrompt from './UpdatePrompt'
 import ClockDriftWarning from './ClockDriftWarning'
+import CacheAgeInfo from './CacheAgeInfo'
 import { supabase } from './lib/supabase'
+import { refreshReferentielCache } from './lib/referentielCache'
 import Settings from './screens/Settings'
 import Movement from './screens/Movement'
 import Inventory from './screens/Inventory'
@@ -21,6 +23,21 @@ type Screen = 'home' | 'movement' | 'inventory' | 'settings' | 'search'
 export default function App() {
   const [screen, setScreen] = useState<Screen>('home')
 
+  // Deux des trois déclencheurs de rafraîchissement du cache de lecture
+  // (spec v2 §3) : à l'ouverture, et au retour du réseau. Le troisième —
+  // après chaque écriture réussie — est déclenché localement par chaque
+  // écran qui écrit (Réglages, Mouvement). Ici et non dans AuthGate : App
+  // reste monté en continu tant que la session est active, quel que soit
+  // l'écran affiché, donc un seul abonnement pour toute la session.
+  useEffect(() => {
+    refreshReferentielCache()
+    function onOnline() {
+      refreshReferentielCache()
+    }
+    window.addEventListener('online', onOnline)
+    return () => window.removeEventListener('online', onOnline)
+  }, [])
+
   if (screen === 'settings') return <Settings onBack={() => setScreen('home')} />
   if (screen === 'movement') return <Movement onBack={() => setScreen('home')} />
   if (screen === 'inventory') return <Inventory onBack={() => setScreen('home')} />
@@ -35,6 +52,7 @@ function Home({ onNavigate }: { onNavigate: (screen: Screen) => void }) {
     <main className="home">
       <UpdatePrompt />
       <ClockDriftWarning />
+      <CacheAgeInfo />
 
       <h1>{t.app.name}</h1>
 

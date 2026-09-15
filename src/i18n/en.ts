@@ -15,6 +15,8 @@ const en: Dictionary = {
     offlineQueueEmpty: 'Everything is synced',
     lastExport: 'Last export: {date}',
     movementsToday: '{count} movements today',
+    cacheAge: 'Data last updated {when}.',
+    cacheNeverLoaded: 'Data never loaded — needs a connection at least once.',
   },
   clockDrift: {
     warning:

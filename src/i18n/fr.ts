@@ -15,6 +15,8 @@ const fr: Dictionary = {
     offlineQueueEmpty: 'Tout est synchronisé',
     lastExport: 'Dernier export : {date}',
     movementsToday: '{count} mouvements aujourd’hui',
+    cacheAge: 'Référentiel à jour {when}.',
+    cacheNeverLoaded: 'Référentiel jamais chargé — connexion requise au moins une fois.',
   },
   clockDrift: {
     warning:

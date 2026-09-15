@@ -10,6 +10,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.9',
+    date: '2026-09-16',
+    items: [
+      'Cache de lecture : les références, emplacements, conditionnements, clients et le stock consultable restent disponibles hors réseau — rafraîchi à l’ouverture, après chaque écriture réussie et au retour du réseau. L’Accueil affiche son âge ("référentiel à jour il y a 2 h")',
+      'La vérification de stock disponible avant une sortie (Mouvement) reste volontairement en direct, jamais sur ce cache, pour ne pas bloquer une sortie légitime sur une donnée périmée',
+    ],
+  },
+  {
     version: '0.9.8',
     date: '2026-09-16',
     items: [

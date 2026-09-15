@@ -15,6 +15,8 @@ const ja: Dictionary = {
     offlineQueueEmpty: 'すべて同期済み',
     lastExport: '前回のエクスポート：{date}',
     movementsToday: '本日の移動 {count} 件',
+    cacheAge: 'データの最終更新：{when}。',
+    cacheNeverLoaded: 'データ未取得 — 一度は接続が必要です。',
   },
   clockDrift: {
     warning:

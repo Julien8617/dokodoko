@@ -5,6 +5,11 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.9 — 2026-09-16
+
+- Cache de lecture : les références, emplacements, conditionnements, clients et le stock consultable restent disponibles hors réseau — rafraîchi à l’ouverture, après chaque écriture réussie et au retour du réseau. L’Accueil affiche son âge ("référentiel à jour il y a 2 h")
+- La vérification de stock disponible avant une sortie (Mouvement) reste volontairement en direct, jamais sur ce cache, pour ne pas bloquer une sortie légitime sur une donnée périmée
+
 ## 0.9.8 — 2026-09-16
 
 - Correction : dans l’écran des écarts, supprimer une saisie corrigée pouvait faire réapparaître sa valeur d’avant correction au lieu de la faire disparaître — même correctif que la liste des saisies en marche (v0.9.7), maintenant partagé par les deux écrans

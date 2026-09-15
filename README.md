@@ -15,7 +15,11 @@
   saisie (mouvement ou inventaire), ce mouvement n'a **pas** été
   enregistré. Le noter sur l'Excel/papier comme d'habitude et réessayer
   plus tard ; ne jamais supposer qu'une erreur affichée s'est quand même
-  enregistrée derrière.
+  enregistrée derrière. **Le cache de lecture (voir Statut) ne change rien
+  à cette consigne** : il permet de continuer à naviguer et à sélectionner
+  une référence ou un emplacement hors réseau, pas d'enregistrer un
+  mouvement ou un comptage — la vérification de stock disponible et
+  l'écriture elle-même restent toutes deux réseau.
 - **Stock d'ouverture** : saisi à la main en mouvements `stock_initial`
   sur A, B et C (une session) — c'est aussi le premier comptage physique
   du pilote. Pas d'import en masse pour cette étape (voir Statut).
@@ -34,9 +38,11 @@ fonctionnalités livrées.
 - Front : React + TypeScript + Vite, PWA installable sur écran d'accueil
   iPhone. Site statique déployé sur **GitHub Pages** — pas de backend à
   héberger.
-- Prévu (voir spec) : lectures via cache local (IndexedDB), écritures
-  mises en file hors ligne et rejouées automatiquement (idempotentes par
-  `id` UUID généré côté client) — pas encore implémenté, voir Statut.
+- Lectures via cache local (`localStorage`, pas IndexedDB — quelques
+  centaines de Ko, pas besoin d'une base structurée) : voir Statut. Prévu
+  (voir spec), pas encore implémenté : écritures mises en file hors ligne
+  et rejouées automatiquement (idempotentes par `id` UUID généré côté
+  client).
 - Aucune « synchronisation Excel » bidirectionnelle : export `.xlsx` depuis
   l'app, ou interrogation directe de Supabase depuis le PC (vue SQL, CSV,
   Power Query). Voir la spec pour le détail des décisions et leurs raisons.
@@ -63,6 +69,14 @@ Base technique en place :
 - indicateur de version discret (pied de page Accueil/Réglages,
   `src/components/VersionFooter.tsx` + `src/changelog.ts`) pour confirmer
   après un déploiement que la bonne version est bien chargée sur iPhone.
+- **cache de lecture** (`src/lib/referentielCache.ts`) : références,
+  emplacements, conditionnements, clients et un instantané du stock restent
+  consultables hors réseau — rafraîchi à l'ouverture, après chaque écriture
+  réussie et au retour du réseau ; âge affiché en permanence sur l'Accueil.
+  **Ne couvre que la consultation** : la vérification de stock disponible
+  avant une sortie reste volontairement en réseau (un cache périmé ne doit
+  jamais faire refuser une sortie que le serveur aurait acceptée), donc
+  enregistrer un mouvement ou un comptage requiert toujours le réseau.
 
 Écrans fonctionnels :
 
@@ -108,18 +122,25 @@ dans `supabase/README.md`.
 en l'état, stock d'ouverture saisi à la main (voir Cadre du pilote).
 
 Pas encore fait, par ordre de priorité jusqu'au point de situation du
-18 octobre 2026 (voir `docs/spec.md` pour le détail et les raisons) :
+18 octobre 2026 (voir `docs/spec.md` pour le détail et les raisons ; ordre
+révisé le 2026-09-16 — la fin du blocage sur stock négatif est un
+prérequis de la file d'écriture, pas une suite : tant que la vérification
+de stock reste un refus réseau bloquant, une sortie hors ligne échoue
+avant même d'atteindre l'écriture, donc la file n'aurait rien à mettre en
+file) :
 
-1. File hors ligne (écritures en attente rejouées automatiquement,
+1. Fin du blocage sur stock négatif (avertir plutôt que refuser, liste
+   d'anomalies, confirmation proportionnée au risque)
+2. File hors ligne (écritures en attente rejouées automatiquement,
    bandeau « n en attente »)
-2. Export `.xlsx`
-3. Justification et clôture d'inventaire — un seul chantier avec :
+3. Export `.xlsx`
+4. Justification et clôture d'inventaire — un seul chantier avec :
    affichage des mouvements postérieurs au gel sur l'écran des écarts,
    et résolution d'une paire compensée en un **transfert** (deux
    mouvements, même `transfert_id`, somme nulle) plutôt qu'en deux
    `ajustement_inventaire` séparés — sans quoi une palette simplement
    déplacée gonflerait à tort les statistiques d'écart de fin de pilote
-4. Synthèse imprimable
+5. Synthèse imprimable
 
 **Repoussé** (fonction de passage à l'échelle, pas nécessaire tant que
 le périmètre reste REUZEL/A/B/C) : imports en masse.

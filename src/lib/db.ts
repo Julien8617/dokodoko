@@ -1,4 +1,12 @@
 import { supabase } from './supabase'
+import {
+  getClients,
+  getConditionnementsForRef,
+  getEmplacements,
+  getReferences,
+  getStockAtEmplacement,
+  getStockByReference,
+} from './referentielCache'
 import type {
   Client,
   Conditionnement,
@@ -9,19 +17,15 @@ import type {
   StockLine,
 } from './types'
 
+// Lit le cache de lecture (spec v2 §3), pas le réseau directement — voir
+// referentielCache.ts. Signature inchangée : tous les appelants existants
+// (Mouvement, Inventaire, Recherche) profitent du cache sans modification.
 export async function listReferences(): Promise<Reference[]> {
-  const { data, error } = await supabase
-    .from('references')
-    .select('code, libelle, client_code')
-    .order('code')
-  if (error) throw error
-  return data
+  return getReferences()
 }
 
 export async function listClients(): Promise<Client[]> {
-  const { data, error } = await supabase.from('clients').select('code, nom').order('nom')
-  if (error) throw error
-  return data
+  return getClients()
 }
 
 export async function insertClient(code: string, nom: string): Promise<void> {
@@ -34,28 +38,26 @@ export async function insertClient(code: string, nom: string): Promise<void> {
 // casiers") ; zone/baie/niveau reste le repli pour les emplacements sans
 // ordre défini.
 export async function listEmplacements(): Promise<Emplacement[]> {
-  const { data, error } = await supabase
-    .from('emplacements')
-    .select('code, zone, baie, niveau, ordre')
-    .order('ordre', { ascending: true, nullsFirst: false })
-    .order('zone')
-    .order('baie')
-    .order('niveau')
-  if (error) throw error
-  return data
+  return getEmplacements()
 }
 
 export async function listConditionnements(refCode: string): Promise<Conditionnement[]> {
-  const { data, error } = await supabase
-    .from('conditionnements')
-    .select('id, ref_code, pieces_par_carton, libelle_court, a_ecouler')
-    .eq('ref_code', refCode)
-  if (error) throw error
-  // à écouler en premier (§4.1 : proposé en priorité sur une sortie)
-  return data.sort((a, b) => Number(b.a_ecouler) - Number(a.a_ecouler))
+  // à écouler en premier (§4.1 : proposé en priorité sur une sortie) —
+  // tri appliqué dans referentielCache.ts, au même endroit que le filtre.
+  return getConditionnementsForRef(refCode)
 }
 
-// Stock = vue, jamais une colonne. Absence de ligne = 0 (§4).
+// Stock = vue, jamais une colonne. Absence de ligne = 0 (§4). VOLONTAIREMENT
+// hors du cache de lecture (§3) : sert à refuser une sortie qui dépasserait
+// le stock (Mouvement.tsx). Motif intrinsèque, pas conjoncturel : refuser
+// une sortie sur une donnée périmée est pire que la refuser sur une donnée
+// fraîche, puisque l'app interdirait alors ce que le serveur aurait
+// accepté — vrai que le refus reste bloquant ou devienne un simple
+// avertissement (§6.4). Cette lecture reste donc réseau, toujours exacte.
+// Conséquence : un verrou réseau sur `getStock` fait échouer une sortie
+// hors ligne avant même d'atteindre l'écriture, donc la fin du blocage
+// est un prérequis de la file d'écriture, pas une suite (voir
+// referentielCache.ts).
 export async function getStock(
   emplacementCode: string,
   refCode: string,
@@ -286,28 +288,19 @@ export async function upsertReferenceWithConditionnement(
   if (insertError) throw insertError
 }
 
-// Stock théorique d'un casier au moment où on l'ouvre pour comptage — sert de
-// base au comptage à l'aveugle (le théorique reste caché côté écran tant que
-// « voir l'attendu » n'a pas été demandé). Les lignes à 0 sont exclues : une
-// référence trouvée en trop se rajoute manuellement pendant le comptage.
+// Stock courant d'un casier — écran Recherche : "qu'y a-t-il dans A-05-1 ?".
+// Lit le cache de lecture (§3), informatif et potentiellement périmé hors
+// ligne — sans conséquence ici, la Recherche est un écran de consultation,
+// jamais un refus bloquant (contrairement à `getStock`, resté réseau).
 export async function listStockAtEmplacement(emplacementCode: string): Promise<StockLine[]> {
-  const { data, error } = await supabase
-    .from('stock')
-    .select('ref_code, conditionnement_id, quantite_pieces')
-    .eq('emplacement_code', emplacementCode)
-  if (error) throw error
-  return data.filter((row) => row.quantite_pieces !== 0)
+  return getStockAtEmplacement(emplacementCode)
 }
 
 // Stock courant (vue, jamais figé) d'une référence, tous emplacements
-// confondus — écran Recherche : "où se trouve REU003 ?".
+// confondus — écran Recherche : "où se trouve REU003 ?". Même remarque sur
+// le cache que ci-dessus.
 export async function listStockByReference(refCode: string): Promise<StockByReferenceLine[]> {
-  const { data, error } = await supabase
-    .from('stock')
-    .select('emplacement_code, conditionnement_id, quantite_pieces')
-    .eq('ref_code', refCode)
-  if (error) throw error
-  return data.filter((row) => row.quantite_pieces !== 0)
+  return getStockByReference(refCode)
 }
 
 export async function insertMouvements(rows: MouvementInsert[]): Promise<void> {

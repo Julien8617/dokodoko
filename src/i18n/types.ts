@@ -35,6 +35,9 @@ export interface Dictionary {
     offlineQueueEmpty: string
     lastExport: string
     movementsToday: string
+    // {when} remplacé via interpolate() — ex. "il y a 2 heures"
+    cacheAge: string
+    cacheNeverLoaded: string
   }
   clockDrift: {
     // {hours} remplacé via interpolate() — horloge de l'appareil trop

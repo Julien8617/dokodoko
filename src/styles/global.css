@@ -147,6 +147,14 @@ body {
   font-size: 0.9rem;
 }
 
+.cache-age-info {
+  width: 100%;
+  margin: 0;
+  font-size: 0.8rem;
+  color: #666;
+  text-align: center;
+}
+
 /* Écrans internes (Réglages, Mouvement, Inventaire) */
 
 .settings,
