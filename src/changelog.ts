@@ -10,6 +10,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.7',
+    date: '2026-09-16',
+    items: [
+      'Inventaire, saisie en marchant : la liste des saisies porte maintenant tout l’inventaire (pas seulement la session en cours) et redemande confirmation avant d’écraser une saisie déjà faite au même casier — remplacer la valeur ou l’ajouter à l’existant',
+    ],
+  },
+  {
     version: '0.9.6',
     date: '2026-09-16',
     items: [

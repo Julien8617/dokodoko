@@ -15,11 +15,15 @@ import {
 import {
   createInventaire,
   deleteCasierLigne,
+  deleteCasierLignesForRef,
   getActiveInventaire,
   getInventaireSynthese,
   getOrCreateCasier,
+  listInventaireSaisies,
+  listLatestCasierLignes,
   markCasierVisite,
   saveCasierLigne,
+  type SaisieLine,
   type SyntheseLigneEmplacement,
   type SyntheseReference,
 } from '../lib/inventaireDb'
@@ -250,16 +254,35 @@ function Launch({ onBack, onReady }: { onBack: () => void; onReady: (inv: Invent
 // Écran 2 — saisie libre en marchant
 // ---------------------------------------------------------------------
 
-interface RecentEntry {
-  ligneId: string
+type WalkStatus = { kind: 'idle' } | { kind: 'saving' } | { kind: 'error'; message: string }
+
+// Casier + réf + conditionnement identifient une saisie de façon unique
+// dans un inventaire (une ligne par couple, latest-wins) — sert à la fois
+// à détecter un doublon et à savoir si une soumission est la correction en
+// cours plutôt qu'une nouvelle saisie qui tombe par coïncidence sur le
+// même couple.
+interface EntryKey {
   emplacementCode: string
   refCode: string
   conditionnementId: string
-  cartons: number
-  pieces: number
 }
 
-type WalkStatus = { kind: 'idle' } | { kind: 'saving' } | { kind: 'error'; message: string }
+function sameKey(a: EntryKey, b: EntryKey): boolean {
+  return (
+    a.emplacementCode === b.emplacementCode &&
+    a.refCode === b.refCode &&
+    a.conditionnementId === b.conditionnementId
+  )
+}
+
+// Saisie en attente du choix "remplacer ou ajouter" (spec v2 §6.5) —
+// posée après résolution complète de la saisie tapée, avant tout appel
+// réseau d'écriture.
+interface PendingDuplicate extends EntryKey {
+  comptageId: string
+  cartonsValue: number
+  piecesValue: number
+}
 
 // Pas de liste à cocher, pas d'auto-complétion : l'opérateur marche à son
 // rythme et tape ce qu'il voit, où qu'il le voie — y compris une réf qui n'a
@@ -288,14 +311,52 @@ function Walk({
   const [cartons, setCartons] = useState('')
   const [pieces, setPieces] = useState('')
   const [status, setStatus] = useState<WalkStatus>({ kind: 'idle' })
-  const [recent, setRecent] = useState<RecentEntry[]>([])
+  // État effectif de tout l'inventaire (pas seulement de cette session) —
+  // chargé au montage, tenu à jour localement à chaque écriture pour
+  // éviter un refetch complet à chaque saisie (spec v2 §6.5).
+  const [saisies, setSaisies] = useState<SaisieLine[]>([])
+  const [showAllSaisies, setShowAllSaisies] = useState(false)
+  // Couple (casier, réf, conditionnement) chargé dans le formulaire via
+  // "modifier" — une resoumission sur exactement ce couple est la
+  // correction attendue, pas un doublon à trancher.
+  const [editingKey, setEditingKey] = useState<EntryKey | null>(null)
+  const [pendingDuplicate, setPendingDuplicate] = useState<PendingDuplicate | null>(null)
+  // Étiquette de conditionnement par id, pour l'afficher dans la liste des
+  // saisies (spec v2 §6.5 : "casier, référence, conditionnement, quantité")
+  // — sans elle, deux lignes de la même réf sur deux conditionnements
+  // distincts semblent identiques dans la liste.
+  const [conditionnementLabels, setConditionnementLabels] = useState<Map<string, string>>(new Map())
 
   useEffect(() => {
     listEmplacements()
       .then((list) => setKnownEmplacements(list.map((e) => e.code)))
       .catch(() => {})
     listReferences().then(setAllReferences).catch(() => {})
-  }, [])
+    listInventaireSaisies(inventaire.id).then(setSaisies).catch(() => {})
+  }, [inventaire.id])
+
+  // Ne relit les conditionnements que pour les réf effectivement présentes
+  // dans la liste — pas à chaque frappe, seulement quand l'ensemble des réf
+  // saisies change (une nouvelle réf apparaît, jamais un simple changement
+  // de quantité sur une réf déjà connue).
+  const saisieRefCodes = [...new Set(saisies.map((s) => s.refCode))].sort().join(',')
+  useEffect(() => {
+    if (!saisieRefCodes) return
+    let cancelled = false
+    Promise.all(saisieRefCodes.split(',').map((code) => listConditionnements(code)))
+      .then((lists) => {
+        if (cancelled) return
+        const map = new Map<string, string>()
+        for (const list of lists) {
+          for (const c of list) map.set(c.id, c.libelle_court ?? `${c.pieces_par_carton}p/c`)
+        }
+        setConditionnementLabels(map)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [saisieRefCodes])
 
   // Une entrée complète (tirets déjà posés, ou zone+chiffres sans tiret) se
   // résout de façon déterministe (règle stricte "A11" -> "A-01-1" seulement)
@@ -357,12 +418,6 @@ function Walk({
       return
     }
 
-    // Capturés au moment du geste (l'appui sur Enregistrer), jamais plus
-    // tard : voir le commentaire sur saveCasierLigne pour la raison exacte
-    // (file hors ligne, spec v2 §3).
-    const ligneId = crypto.randomUUID()
-    const ligneTs = new Date().toISOString()
-
     setStatus({ kind: 'saving' })
     try {
       // Toujours relire les conditionnements ici, jamais se fier à l'état
@@ -379,52 +434,140 @@ function Walk({
         return
       }
 
-      await ensureEmplacement(empl)
-      const { comptage } = await getOrCreateCasier(inventaire.id, empl)
       const cartonsValue = Number(cartons) || 0
       const piecesValue = Number(pieces) || 0
-      await saveCasierLigne(ligneId, ligneTs, comptage.id, code, condId, cartonsValue, piecesValue, auteur)
-      await markCasierVisite(comptage.id) // "touché" = compté, dans ce modèle il n'y a pas d'état intermédiaire
+      const key: EntryKey = { emplacementCode: empl, refCode: code, conditionnementId: condId }
 
-      setEmplacementCode(empl) // affiche la forme canonique réellement enregistrée (ex. "A11" tapé -> "A-01-1")
-      setRecent((prev) => [
-        {
-          ligneId,
-          emplacementCode: empl,
-          refCode: code,
-          conditionnementId: condId,
-          cartons: cartonsValue,
-          pieces: piecesValue,
-        },
-        ...prev,
-      ].slice(0, 8))
+      // "modifier" cliqué sur exactement ce couple : la resoumission est la
+      // correction attendue, jamais un doublon à trancher — même si le
+      // couple existe déjà dans `saisies` (c'est justement la ligne qu'on
+      // corrige). Un couple différent de celui chargé (casier ou réf changé
+      // entre-temps) retombe dans le cas normal ci-dessous.
+      const existing = editingKey && sameKey(editingKey, key)
+        ? null
+        : saisies.find((s) => sameKey(s, key))
 
-      setRefCode('')
-      setConditionnements([])
-      setConditionnementId(null)
-      setCartons('')
-      setPieces('')
-      setStatus({ kind: 'idle' })
+      if (existing) {
+        setStatus({ kind: 'idle' })
+        setPendingDuplicate({ ...key, comptageId: existing.comptageId, cartonsValue, piecesValue })
+        return
+      }
+
+      await commitSave(key, cartonsValue, piecesValue)
     } catch (err) {
       setStatus({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
     }
   }
 
-  async function undo(entry: RecentEntry) {
-    await deleteCasierLigne(entry.ligneId)
-    setRecent((prev) => prev.filter((e) => e.ligneId !== entry.ligneId))
+  // Écrit réellement la ligne — appelé directement (pas de doublon détecté)
+  // ou après le choix "remplacer"/"ajouter" sur un doublon.
+  async function commitSave(key: EntryKey, cartonsValue: number, piecesValue: number) {
+    // Ne devrait jamais arriver : handleSave vérifie déjà `auteur` avant
+    // d'atteindre ce point, y compris via le détour par pendingDuplicate.
+    // Un throw ici remonte dans le catch de l'appelant (message d'erreur
+    // visible) au lieu de laisser le bouton bloqué en "saving" sans rien
+    // afficher.
+    if (!auteur) throw new Error('auteur manquant')
+    // Capturés au moment du geste (l'appui sur Enregistrer, ou sur
+    // remplacer/ajouter), jamais plus tard : voir le commentaire sur
+    // saveCasierLigne pour la raison exacte (file hors ligne, spec v2 §3).
+    const ligneId = crypto.randomUUID()
+    const ligneTs = new Date().toISOString()
+
+    await ensureEmplacement(key.emplacementCode)
+    const { comptage } = await getOrCreateCasier(inventaire.id, key.emplacementCode)
+    await saveCasierLigne(
+      ligneId,
+      ligneTs,
+      comptage.id,
+      key.refCode,
+      key.conditionnementId,
+      cartonsValue,
+      piecesValue,
+      auteur,
+    )
+    await markCasierVisite(comptage.id) // "touché" = compté, dans ce modèle il n'y a pas d'état intermédiaire
+
+    setEmplacementCode(key.emplacementCode) // forme canonique réellement enregistrée (ex. "A11" -> "A-01-1")
+    setSaisies((prev) => [
+      {
+        ligneId,
+        comptageId: comptage.id,
+        emplacementCode: key.emplacementCode,
+        refCode: key.refCode,
+        conditionnementId: key.conditionnementId,
+        cartons: cartonsValue,
+        pieces: piecesValue,
+        ts: ligneTs,
+      },
+      ...prev.filter((s) => !sameKey(s, key)),
+    ])
+
+    setRefCode('')
+    setConditionnements([])
+    setConditionnementId(null)
+    setCartons('')
+    setPieces('')
+    setEditingKey(null)
+    setPendingDuplicate(null)
+    setStatus({ kind: 'idle' })
   }
 
-  // Recharge une saisie récente dans le formulaire pour la corriger (ex. un
-  // carton oublié) — pas de suppression : réenregistrer crée simplement une
-  // nouvelle ligne plus récente pour la même (réf, casier), qui prévaut sur
-  // l'ancienne (dernière valeur connue), en gardant l'historique complet.
-  async function editEntry(entry: RecentEntry) {
+  // "Ajouter" somme sur la valeur SERVEUR au moment du choix, jamais sur
+  // `saisies` : cet état est un instantané chargé au montage (reprise
+  // d'inventaire, autre onglet) et peut être périmé — sommer dessus
+  // écrirait un total faux et silencieux, en latest-wins ce serait la
+  // valeur retenue (même principe que la relecture des conditionnements
+  // dans handleSave, jamais se fier à un état local pour un calcul).
+  async function resolveDuplicate(mode: 'remplacer' | 'ajouter') {
+    if (!pendingDuplicate) return
+    const { comptageId, cartonsValue, piecesValue, ...key } = pendingDuplicate
+    setStatus({ kind: 'saving' })
+    try {
+      let finalCartons = cartonsValue
+      let finalPieces = piecesValue
+      if (mode === 'ajouter') {
+        const currentLines = await listLatestCasierLignes(comptageId)
+        const current = currentLines.find(
+          (l) => l.ref_code === key.refCode && l.conditionnement_id === key.conditionnementId,
+        )
+        finalCartons += current?.cartons ?? 0
+        finalPieces += current?.pieces ?? 0
+      }
+      await commitSave(key, finalCartons, finalPieces)
+    } catch (err) {
+      setStatus({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
+    }
+  }
+
+  function cancelDuplicate() {
+    setPendingDuplicate(null)
+    setStatus({ kind: 'idle' })
+  }
+
+  async function undo(entry: SaisieLine) {
+    await deleteCasierLignesForRef(entry.comptageId, entry.refCode, entry.conditionnementId)
+    setSaisies((prev) => prev.filter((s) => !sameKey(s, entry)))
+  }
+
+  // Recharge une saisie existante dans le formulaire pour la corriger (ex.
+  // un carton oublié) — pas de suppression : réenregistrer crée simplement
+  // une nouvelle ligne plus récente pour le même (casier, réf), qui prévaut
+  // sur l'ancienne (dernière valeur connue), en gardant l'historique
+  // complet. Même chemin de modification que l'écran des écarts : une
+  // nouvelle ligne via saveCasierLigne, jamais un second mécanisme.
+  async function editEntry(entry: SaisieLine) {
     setEmplacementCode(entry.emplacementCode)
     setRefCode(entry.refCode)
     setCartons(String(entry.cartons))
     setPieces(String(entry.pieces))
     setStatus({ kind: 'idle' })
+    setPendingDuplicate(null)
+    setEditingKey({
+      emplacementCode: entry.emplacementCode,
+      refCode: entry.refCode,
+      conditionnementId: entry.conditionnementId,
+    })
     const list = await listConditionnements(entry.refCode)
     setConditionnements(list)
     setConditionnementId(entry.conditionnementId)
@@ -445,7 +588,7 @@ function Walk({
             onChange={setEmplacementCode}
             suggestions={emplacementSuggestions}
             placeholder={t.inventory.casierPlaceholder}
-            disabled={status.kind === 'saving'}
+            disabled={status.kind === 'saving' || pendingDuplicate !== null}
           />
         </label>
         <label className="field-label">
@@ -457,7 +600,7 @@ function Walk({
             onBlur={() => lookupReference()}
             suggestions={referenceSuggestions}
             placeholder={t.inventory.referencePlaceholder}
-            disabled={status.kind === 'saving'}
+            disabled={status.kind === 'saving' || pendingDuplicate !== null}
           />
         </label>
         {conditionnements.length > 1 && (
@@ -484,19 +627,43 @@ function Walk({
           </label>
         </div>
         {totalPieces !== null && <p className="quantity-formula">{totalPieces} pièces</p>}
-        <button type="submit" disabled={status.kind === 'saving'}>
+        <button type="submit" disabled={status.kind === 'saving' || pendingDuplicate !== null}>
           {t.common.save}
         </button>
         {status.kind === 'error' && <p className="form-status form-error">{status.message}</p>}
       </form>
 
-      {recent.length > 0 && (
+      {pendingDuplicate && (
+        <div className="form-status">
+          <p>
+            {interpolate(t.inventory.duplicateEntry, {
+              emplacement: pendingDuplicate.emplacementCode,
+              refCode: pendingDuplicate.refCode,
+            })}
+          </p>
+          <button type="button" onClick={() => resolveDuplicate('remplacer')} disabled={status.kind === 'saving'}>
+            {t.inventory.replaceEntry}
+          </button>
+          <button type="button" onClick={() => resolveDuplicate('ajouter')} disabled={status.kind === 'saving'}>
+            {t.inventory.addEntry}
+          </button>
+          <button type="button" className="back-link" onClick={cancelDuplicate} disabled={status.kind === 'saving'}>
+            {t.common.cancel}
+          </button>
+        </div>
+      )}
+
+      {saisies.length > 0 && (
         <ul className="casier-list">
-          {recent.map((entry) => (
+          {(showAllSaisies ? saisies : saisies.slice(0, 20)).map((entry) => (
             <li key={entry.ligneId}>
               <div className="casier-row">
                 <span>
-                  {entry.emplacementCode} — {entry.refCode} : {entry.cartons}c + {entry.pieces}p
+                  {entry.emplacementCode} — {entry.refCode}
+                  {conditionnementLabels.has(entry.conditionnementId)
+                    ? ` (${conditionnementLabels.get(entry.conditionnementId)})`
+                    : ''}{' '}
+                  : {entry.cartons}c + {entry.pieces}p
                 </span>
                 <span className="recent-entry-actions">
                   <button type="button" className="back-link" onClick={() => editEntry(entry)}>
@@ -509,6 +676,13 @@ function Walk({
               </div>
             </li>
           ))}
+          {!showAllSaisies && saisies.length > 20 && (
+            <li>
+              <button type="button" className="back-link" onClick={() => setShowAllSaisies(true)}>
+                {t.inventory.showMore}
+              </button>
+            </li>
+          )}
         </ul>
       )}
 

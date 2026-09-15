@@ -191,10 +191,84 @@ export async function saveCasierLigne(
 // volontaire avec l'immutabilité de `mouvements`. Ciblée par `id` (pas par
 // ref+conditionnement) : latest-wins fait qu'une correction (nouvelle saisie
 // sur la même réf) et l'ancienne ligne partagent ref+conditionnement — les
-// supprimer toutes deux effacerait aussi la correction.
+// supprimer toutes deux effacerait aussi la correction. Utilisée par
+// l'écran des écarts (`deleteEdit`) : "supprimer" y agit sur LA ligne
+// affichée, pas sur l'historique du couple.
 export async function deleteCasierLigne(id: string): Promise<void> {
   const { error } = await supabase.from('comptage_lignes').delete().eq('id', id)
   if (error) throw error
+}
+
+// Supprime TOUTES les lignes d'un casier pour une (réf, conditionnement) —
+// utilisée UNIQUEMENT par la liste des saisies pendant la marche (§6.5),
+// où "annuler cette saisie" doit faire disparaître le couple entièrement :
+// `deleteCasierLigne(id)` n'y suffit pas, puisque la liste peut afficher
+// une ligne qui a déjà une correction plus ancienne sous elle (saisie faite
+// une autre session), et supprimer seulement la plus récente ferait
+// réapparaître l'ancienne valeur au lieu de vider la saisie. Ne PAS
+// réutiliser cette fonction pour deleteEdit (écran des écarts) : là, le
+// même bug existe en théorie (une correction peut aussi y masquer une
+// ligne plus ancienne) mais le corriger changerait le comportement d'un
+// écran déjà testé sur le terrain — à traiter sur décision explicite, pas
+// en silence dans ce commit.
+export async function deleteCasierLignesForRef(
+  comptageId: string,
+  refCode: string,
+  conditionnementId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('comptage_lignes')
+    .delete()
+    .eq('comptage_id', comptageId)
+    .eq('ref_code', refCode)
+    .eq('conditionnement_id', conditionnementId)
+  if (error) throw error
+}
+
+export interface SaisieLine {
+  ligneId: string
+  comptageId: string
+  emplacementCode: string
+  refCode: string
+  conditionnementId: string
+  cartons: number
+  pieces: number
+  ts: string
+}
+
+// Toutes les saisies de l'inventaire, tous casiers confondus, dernière
+// valeur par (casier, réf, conditionnement) — spec v2 §6.5 "liste des
+// saisies pendant la marche". Même parcours que getInventaireSynthese
+// (comptages -> listLatestCasierLignes) mais sans le théorique, et SANS
+// son filtre `if (c.statut !== 'clos') continue` : ce filtre existe là-bas
+// pour une autre raison (statut surchargé, §14, dette assumée) et le
+// reproduire ici ferait dépendre un second endroit de la même ambiguïté —
+// exactement ce que le découplage futur de `statut` devra éviter de devoir
+// corriger à deux endroits.
+export async function listInventaireSaisies(inventaireId: string): Promise<SaisieLine[]> {
+  const { data: comptages, error } = await supabase
+    .from('comptages')
+    .select('id, emplacement_code')
+    .eq('inventaire_id', inventaireId)
+  if (error) throw error
+
+  const lines: SaisieLine[] = []
+  for (const c of comptages) {
+    for (const l of await listLatestCasierLignes(c.id)) {
+      lines.push({
+        ligneId: l.id,
+        comptageId: c.id,
+        emplacementCode: c.emplacement_code,
+        refCode: l.ref_code,
+        conditionnementId: l.conditionnement_id,
+        cartons: l.cartons,
+        pieces: l.pieces,
+        ts: l.ts,
+      })
+    }
+  }
+  lines.sort((a, b) => b.ts.localeCompare(a.ts))
+  return lines
 }
 
 export interface SyntheseLigneEmplacement {

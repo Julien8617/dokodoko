@@ -154,6 +154,11 @@ export interface Dictionary {
     pieces: string
     removeLine: string
     editLine: string
+    // {emplacement} et {refCode} remplacés via interpolate()
+    duplicateEntry: string
+    replaceEntry: string
+    addEntry: string
+    showMore: string
     invalidEmplacement: string
     unknownReference: string
     emptyQuantity: string

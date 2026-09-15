@@ -5,6 +5,10 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.7 — 2026-09-16
+
+- Inventaire, saisie en marchant : la liste des saisies porte maintenant tout l’inventaire (pas seulement la session en cours) et redemande confirmation avant d’écraser une saisie déjà faite au même casier — remplacer la valeur ou l’ajouter à l’existant
+
 ## 0.9.6 — 2026-09-16
 
 - Réglages : générateur d’emplacements en lot (zone, plage de baies, niveaux) — remplace la saisie un par un pour peupler le référentiel avant le démarrage
