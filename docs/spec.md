@@ -1,6 +1,6 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.20 — 16 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.22 — 16 septembre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -295,7 +295,8 @@ Repris de la v1, avec les quantités ajoutées.
 - **Correspondance par jetons, pas par sous-chaîne entière.** « matelas bleu » doit retrouver « Matelas XL bleu » : chaque mot de la requête est cherché indépendamment, dans n'importe quel ordre, et tous doivent être présents. Une sous-chaîne sur la chaîne complète échouerait sur la moitié des libellés recopiés d'une facture.
 - **Normalisation avant comparaison** : minuscules, accents retirés, séparateurs ignorés — « Pommade à cheveux » et « pommade cheveux » doivent se rejoindre. Le japonais, sans espaces, reste couvert par la recherche en sous-chaîne de chaque jeton.
 - **Ordre des résultats**, sans quoi le libellé noie le code : code en préfixe exact, puis code en sous-chaîne, puis libellé. Taper « 65 » doit continuer à donner `REU065` avant tout article dont le nom contient 65.
-- **Le résultat affiche le code et le libellé** — chercher par nom et ne voir que des codes ne permet pas de choisir.
+- **Le résultat affiche le code et le libellé** — chercher par nom et ne voir que des codes ne permet pas de choisir. Cela vaut pour l'écran Recherche comme pour les sélecteurs : un filtre partagé ne change pas ce qui est rendu, l'affichage se vérifie écran par écran.
+- **Jamais de troncature silencieuse.** Un plafond de résultats est légitime dans une liste déroulante ; sur l'écran Recherche il ferait conclure qu'un article n'existe pas. Soit aucun plafond sur cet écran, soit le nombre total affiché — « 8 affichés sur 34 ».
 - `libelle` est facultatif en base. Une référence sans nom s'affiche par son seul code et ne sera jamais trouvée par nom : acceptable, et c'est une raison de renseigner les noms dès la création.
 - **Un seul filtre partagé** entre la Recherche, le sélecteur de référence de Mouvement et celui de l'Inventaire. Même règle que pour la suppression : une implémentation, plusieurs appelants.
 - Les résultats sont des références ; taper l'une d'elles affiche **tous ses emplacements** avec la quantité à chacun, en cartons et pièces, plus le total en pièces.
@@ -651,6 +652,7 @@ Ordre dicté par l'indicateur du pilote, l'écart entre l'app et le physique. Le
 5. **Résolution des écarts compensés** en transfert (§6.5) — également couplée au point 3.
 6. **Export `.xlsx`** : l'instrument de comparaison avec l'Excel tenu en parallèle, donc de mesure de l'indicateur.
 7. Synthèse imprimable.
+8. **Tests unitaires des deux fonctions pures à bugs subtils** : `matchReferences` et la résolution des codes d'emplacement abrégés. Trois appelants chacune, quatre bugs déjà trouvés entre elles, et ce sont les seules parties du code testables sans base ni écran. Un fichier de test qui **importe** la fonction, pas une copie exécutée à part : une copie prouve qu'un extrait fonctionne, pas que le code livré fonctionne, et elle cesse d'être fidèle au premier changement.
 
 ### Repoussé
 
