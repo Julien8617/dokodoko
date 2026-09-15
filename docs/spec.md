@@ -1,6 +1,6 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.18 — 16 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.20 — 16 septembre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -48,12 +48,18 @@ Le cache passe donc **avant** la file, et les deux forment un seul chantier.
 
 Ce qui se met en cache, et c'est petit — quelques centaines de kilo-octets en tout :
 
-- les référentiels : `references`, `emplacements`, `conditionnements`, `clients`, et les familles ;
+- les référentiels : `references`, `emplacements`, `conditionnements`, `clients`. « Et les familles » figurait ici par erreur de rédaction : `familles_melange` appartient à la carte thermique post-pilote et n'existe pas en base ;
 - un **instantané du stock** par emplacement × référence × conditionnement — quelques centaines de lignes — et non le journal des mouvements, qui n'a pas à descendre sur le téléphone.
 
 Rafraîchi à l'ouverture de l'app, après chaque écriture réussie, et au retour du réseau. **L'âge du cache est affiché** au même titre que celui de la file : « référentiel à jour il y a 2 h ». Un cache silencieusement périmé est le même piège qu'un « tout est synchronisé » codé en dur.
 
-L'instantané de stock est forcément décalé hors ligne, donc l'avertissement « sortie supérieure au stock » peut se tromper dans les deux sens. C'est sans gravité **parce qu'il avertit au lieu de bloquer** (§4) : les deux décisions se tiennent l'une l'autre. Avec un blocage, un cache périmé aurait interdit des sorties légitimes en allée.
+**Le cache ne sert que la consultation.** La vérification de stock qui conditionne une sortie reste une lecture réseau et n'est jamais branchée sur le cache : refuser sur une donnée périmée serait pire que refuser sur une donnée fraîche, puisque l'app interdirait une sortie que le serveur aurait acceptée. Cette règle vaut indépendamment du calendrier — elle tiendrait même si la fin du blocage était déjà codée.
+
+L'instantané de stock est donc **informatif**, pour la Recherche. Il est forcément décalé hors ligne, et c'est sans gravité tant qu'il ne fonde aucun refus.
+
+**Conséquence de séquencement, à ne pas manquer : la file d'écriture ne peut pas fonctionner tant que la vérification de stock est un verrou réseau.** Hors réseau, une sortie échoue à la vérification avant même d'atteindre l'écriture, donc il n'y a rien à mettre en file. La fin du blocage (§4) passe ainsi **avant** la file, et non après comme le calendrier le prévoyait initialement.
+
+**Format des durées et des dates.** Relatif pour les **âges** — âge du cache, âge de la file — parce que ce qui compte est l'écart au présent. Absolu pour le **journal des mouvements**, où l'heure exacte du geste est l'information. Les deux formats coexistent, chacun pour son usage.
 
 ### File hors ligne
 
@@ -285,7 +291,13 @@ Sous les boutons : état de la file hors ligne, date du dernier export, nombre d
 
 Repris de la v1, avec les quantités ajoutées.
 
-- Recherche par référence, filtrage incrémental sur code et libellé, sans focus automatique.
+- Recherche par référence, filtrage incrémental sur **code et libellé**, sans focus automatique. Le libellé n'est pas un confort : les factures ne portent pas toujours la référence, et le nom de l'article est alors le seul point d'entrée.
+- **Correspondance par jetons, pas par sous-chaîne entière.** « matelas bleu » doit retrouver « Matelas XL bleu » : chaque mot de la requête est cherché indépendamment, dans n'importe quel ordre, et tous doivent être présents. Une sous-chaîne sur la chaîne complète échouerait sur la moitié des libellés recopiés d'une facture.
+- **Normalisation avant comparaison** : minuscules, accents retirés, séparateurs ignorés — « Pommade à cheveux » et « pommade cheveux » doivent se rejoindre. Le japonais, sans espaces, reste couvert par la recherche en sous-chaîne de chaque jeton.
+- **Ordre des résultats**, sans quoi le libellé noie le code : code en préfixe exact, puis code en sous-chaîne, puis libellé. Taper « 65 » doit continuer à donner `REU065` avant tout article dont le nom contient 65.
+- **Le résultat affiche le code et le libellé** — chercher par nom et ne voir que des codes ne permet pas de choisir.
+- `libelle` est facultatif en base. Une référence sans nom s'affiche par son seul code et ne sera jamais trouvée par nom : acceptable, et c'est une raison de renseigner les noms dès la création.
+- **Un seul filtre partagé** entre la Recherche, le sélecteur de référence de Mouvement et celui de l'Inventaire. Même règle que pour la suppression : une implémentation, plusieurs appelants.
 - Les résultats sont des références ; taper l'une d'elles affiche **tous ses emplacements** avec la quantité à chacun, en cartons et pièces, plus le total en pièces.
 - Une référence à deux conditionnements affiche une ligne par conditionnement à chaque emplacement concerné — « 4 cartons de 12 » et « 2 cartons de 6 » restent deux lignes distinctes. Le total en pièces, lui, est unique.
 - Recherche par emplacement également, via **deux boutons de mode explicites** — par référence / par emplacement. C'est plus clair qu'une barre unique qui devine : `A11` peut être un code de casier comme un fragment de référence, et une heuristique qui se trompe une fois sur dix est pire qu'un bouton.
@@ -626,19 +638,19 @@ Deux choses seulement, et ce ne sont pas des chantiers :
 5. **Générateur d'emplacements** — zone, plage de baies, niveaux, création en lot. Sert la saisie du référentiel avant le démarrage, et **remplace l'import CSV d'emplacements** (§7) : une substitution, pas une addition.
 6. **Liste des saisies pendant la marche** (§6.5), **remontée depuis la liste du 18 octobre**. Raison : usage réel imminent — la répétition à blanc et les premiers comptages ont lieu cette semaine, et la double saisie qu'elle supprime pollue directement l'écart. Le reste du chantier de clôture ne bouge pas. Le gain d'une passe d'`advisor()` partagée ne valait pas un mois de comptages sans visibilité sur ce qui a déjà été saisi.
 7. **Cache de lecture** (§3) — à faire après les deux précédents, il sert le pilote et non le démarrage.
+8. **Recherche par libellé** (§6.2). Ce n'est pas une addition au périmètre : la spec l'exigeait déjà, le code ne cherchait que sur le code. Mise en conformité, et elle sert dès le premier jour — les factures sans référence se lisent vendredi.
 
 ### Jusqu'au 18 octobre — point de situation
 
-Ordre dicté par l'indicateur du pilote, l'écart entre l'app et le physique :
+Ordre dicté par l'indicateur du pilote, l'écart entre l'app et le physique. Les dépendances techniques l'emportent sur l'ordre de valeur : la file ne peut pas venir avant la fin du blocage.
 
-1. Automatisation du changelog — chantier isolé, sans dépendance, à sortir du chemin d'abord.
-2. **Mode hors ligne**, en deux moitiés indissociables : d'abord le **cache de lecture** — sans lui rien n'est saisissable hors réseau — puis la **file d'écriture** avec son bandeau « n en attente ». C'est ce qui protège l'indicateur : un mouvement perdu le corrompt directement.
-3. **Fin du blocage sur stock négatif** : avertissement et confirmation à la place du refus, liste d'anomalies, confirmation proportionnée au risque, correction en un geste (§6.4). Touche la policy validée en conditions réelles, donc pas avant le 18 septembre. Contournement d'ici là : annuler d'abord le mouvement fautif — motif `annulation`, commentaire obligatoire — puis saisir la vraie sortie.
-4. **Clôture d'inventaire**, dans cet ordre interne : découplage de `comptages.statut` (§6.5) d'abord, puis policy `DELETE` conditionnée (§3), puis couverture, justification des écarts, écriture des `ajustement_inventaire`. Y rattacher l'affichage « vide » face à « non enregistré » dans la Recherche (§6.2) : c'est la même notion de casier confirmé vide.
-5. **Mouvements postérieurs au gel** listés sur l'écran des écarts — à coupler au point 3, c'est la même conversation.
-6. **Résolution des écarts compensés** en transfert (§6.5) — également couplée au point 3.
-7. **Export `.xlsx`** : l'instrument de comparaison avec l'Excel tenu en parallèle, donc de mesure de l'indicateur.
-8. Synthèse imprimable.
+1. **Fin du blocage sur stock négatif** : avertissement et confirmation à la place du refus, liste d'anomalies, confirmation proportionnée au risque, correction en un geste (§6.4). Touche la policy validée en conditions réelles, donc pas avant le 18 septembre. Contournement d'ici là : annuler d'abord le mouvement fautif — motif `annulation`, commentaire obligatoire — puis saisir la vraie sortie.
+2. **File d'écriture** et bandeau « n en attente depuis ». Prérequis : le point 1 (§3). C'est ce qui protège l'indicateur, un mouvement perdu le corrompt directement.
+3. **Clôture d'inventaire**, dans cet ordre interne : découplage de `comptages.statut` (§6.5) d'abord, puis policy `DELETE` conditionnée (§3), puis couverture, justification des écarts, écriture des `ajustement_inventaire`. Y rattacher l'affichage « vide » face à « non enregistré » dans la Recherche (§6.2) : c'est la même notion de casier confirmé vide.
+4. **Mouvements postérieurs au gel** listés sur l'écran des écarts — à coupler au point 3, c'est la même conversation.
+5. **Résolution des écarts compensés** en transfert (§6.5) — également couplée au point 3.
+6. **Export `.xlsx`** : l'instrument de comparaison avec l'Excel tenu en parallèle, donc de mesure de l'indicateur.
+7. Synthèse imprimable.
 
 ### Repoussé
 
