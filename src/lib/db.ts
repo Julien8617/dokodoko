@@ -152,7 +152,7 @@ export function matchEmplacements(raw: string, knownCodes: string[]): string[] {
 function normalizeSearchText(s: string): string {
   return s
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/\p{Mn}/gu, '') // marques diacritiques laissées par la décomposition NFD
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, ' ')
     .trim()

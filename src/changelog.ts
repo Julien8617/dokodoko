@@ -10,6 +10,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.11',
+    date: '2026-09-16',
+    items: [
+      'Nettoyage interne : le retrait des accents dans la recherche par nom passait par des caractères Unicode bruts dans le code source au lieu d’un motif lisible — comportement inchangé, vérifié par des cas concrets (accents, ordre des mots, priorité du code sur le nom)',
+    ],
+  },
+  {
     version: '0.9.10',
     date: '2026-09-16',
     items: [

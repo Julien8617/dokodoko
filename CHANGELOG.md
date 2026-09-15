@@ -5,6 +5,10 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.11 — 2026-09-16
+
+- Nettoyage interne : le retrait des accents dans la recherche par nom passait par des caractères Unicode bruts dans le code source au lieu d’un motif lisible — comportement inchangé, vérifié par des cas concrets (accents, ordre des mots, priorité du code sur le nom)
+
 ## 0.9.10 — 2026-09-16
 
 - Recherche par nom d’article, enfin conforme à la spec : taper « matelas bleu » retrouve « Matelas XL bleu » quel que soit l’ordre des mots, les accents ou la casse — utile quand la facture ne porte pas la référence
