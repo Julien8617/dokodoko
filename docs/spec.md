@@ -1,6 +1,6 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.29 — 16 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.30 — 16 septembre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -311,13 +311,17 @@ Deux corrections successives, consignées parce qu'elles délimitent le problèm
 
 Le clavier voulu et l'acceptation des lettres sont donc, sauf découverte contraire, **livrés ensemble par le même attribut** : on ne peut pas prendre l'un sans l'autre.
 
-Mesure avant décision : poser `inputMode="decimal"` sur le champ de référence — un `inputMode` n'empêche jamais la frappe d'une lettre, donc aucune régression possible — et regarder sur l'appareil quel clavier s'ouvre. Attendu : un pavé à dix touches, sans accès aux lettres, donc différent de celui de Mouvement.
+**Résultat de la mesure du 16 septembre** : `inputMode="decimal"`, prouvé présent sur l'`<input>` du DOM dans le bundle servi, **n'a aucun effet perceptible** sur l'iPhone de l'utilisateur en PWA installée. Le clavier s'ouvre sur les lettres, touche « 123 » à gauche — c'est-à-dire le comportement par défaut d'un champ texte.
 
-Décision déjà arbitrée selon le résultat, pour éviter un aller-retour :
+Conséquence qui invalide le repli prévu : si `inputMode` est inerte dans ce contexte, un bouton de bascule qui change l'`inputMode` sera inerte aussi. Le seul attribut dont on ait la preuve qu'il ouvre un clavier chiffré ici est `type="number"`, qui refuse les lettres.
 
-- Si le clavier obtenu est celui de Mouvement **et** que les lettres restent atteignables : c'est fini, rien d'autre à faire.
-- Sinon — cas attendu : **pavé numérique plus bouton de bascule `123 / ABC`**, état persistant sur la session. Repli assumé, il coûte un appui à la recherche par libellé. **Après le 18**, avec prototypage sur l'appareil.
-- Le champ casier garde le clavier texte dans tous les cas : un code commence par une lettre, et l'abréviation `a11` en a besoin.
+Le repli se redéfinit donc, **après le 18** :
+
+- Première étape, une mesure et rien d'autre : `inputMode="numeric"` produit-il quelque chose là où `decimal` n'a rien produit ? Aucune conception avant cette réponse.
+- S'il est inerte aussi, la bascule doit agir sur le `type` de l'`<input>` — `number` pour les chiffres, `text` pour les lettres — et non sur l'`inputMode`. Autre mécanisme, autres risques : perte de la valeur au changement de type, et validation différente. À prototyper sur l'appareil.
+- Le champ casier garde le clavier texte dans tous les cas.
+
+Et un constat à garder en tête au-delà de ce sujet : **`inputMode` ne peut pas être considéré comme fiable dans cette PWA**. Toute conception qui en dépend se mesure avant d'être promise.
 
 - **Un seul filtre partagé** entre la Recherche, le sélecteur de référence de Mouvement et celui de l'Inventaire. Même règle que pour la suppression : une implémentation, plusieurs appelants.
 - Les résultats sont des références ; taper l'une d'elles affiche **tous ses emplacements** avec la quantité à chacun, en cartons et pièces, plus le total en pièces.
@@ -669,13 +673,12 @@ Deux choses seulement, et ce ne sont pas des chantiers :
 
 1. **Vérifier qu'un échec d'écriture est visible.** Une erreur réseau avalée en silence, sur un mouvement que l'utilisateur croit enregistré, est le seul défaut capable de fausser l'indicateur du pilote sans laisser de trace.
 2. **Écrire la consigne de repli** dans le README : si l'enregistrement échoue, noter sur papier et ressaisir au retour.
-3. **Clavier d'ouverture du champ de référence** (§6.2) — uniquement la mesure : `inputMode="decimal"`, sans régression possible, pour constater quel clavier s'ouvre. Le repli par bouton de bascule, s'il s'avère nécessaire, est après le 18.
-4. **Retirer les deux indicateurs factices de l'Accueil.** C'est une suppression, pas une fonctionnalité : « Tout est synchronisé » en texte fixe est précisément ce qu'on regardera sans réfléchir pendant le pilote. Ils reviendront branchés avec la file hors ligne.
-5. **Rendre le commentaire obligatoire sur le motif `annulation`** (§4), si c'est l'affaire de quelques minutes. Sinon, avec le chantier de clôture.
-6. **Générateur d'emplacements** — zone, plage de baies, niveaux, création en lot. Sert la saisie du référentiel avant le démarrage, et **remplace l'import CSV d'emplacements** (§7) : une substitution, pas une addition.
-7. **Liste des saisies pendant la marche** (§6.5), **remontée depuis la liste du 18 octobre**. Raison : usage réel imminent — la répétition à blanc et les premiers comptages ont lieu cette semaine, et la double saisie qu'elle supprime pollue directement l'écart. Le reste du chantier de clôture ne bouge pas. Le gain d'une passe d'`advisor()` partagée ne valait pas un mois de comptages sans visibilité sur ce qui a déjà été saisi.
-8. **Cache de lecture** (§3) — à faire après les deux précédents, il sert le pilote et non le démarrage.
-9. **Recherche par libellé** (§6.2). Ce n'est pas une addition au périmètre : la spec l'exigeait déjà, le code ne cherchait que sur le code. Mise en conformité, et elle sert dès le premier jour — les factures sans référence se lisent vendredi.
+3. **Retirer les deux indicateurs factices de l'Accueil.** C'est une suppression, pas une fonctionnalité : « Tout est synchronisé » en texte fixe est précisément ce qu'on regardera sans réfléchir pendant le pilote. Ils reviendront branchés avec la file hors ligne.
+4. **Rendre le commentaire obligatoire sur le motif `annulation`** (§4), si c'est l'affaire de quelques minutes. Sinon, avec le chantier de clôture.
+5. **Générateur d'emplacements** — zone, plage de baies, niveaux, création en lot. Sert la saisie du référentiel avant le démarrage, et **remplace l'import CSV d'emplacements** (§7) : une substitution, pas une addition.
+6. **Liste des saisies pendant la marche** (§6.5), **remontée depuis la liste du 18 octobre**. Raison : usage réel imminent — la répétition à blanc et les premiers comptages ont lieu cette semaine, et la double saisie qu'elle supprime pollue directement l'écart. Le reste du chantier de clôture ne bouge pas. Le gain d'une passe d'`advisor()` partagée ne valait pas un mois de comptages sans visibilité sur ce qui a déjà été saisi.
+7. **Cache de lecture** (§3) — à faire après les deux précédents, il sert le pilote et non le démarrage.
+8. **Recherche par libellé** (§6.2). Ce n'est pas une addition au périmètre : la spec l'exigeait déjà, le code ne cherchait que sur le code. Mise en conformité, et elle sert dès le premier jour — les factures sans référence se lisent vendredi.
 
 ### Jusqu'au 18 octobre — point de situation
 
@@ -688,7 +691,8 @@ Ordre dicté par l'indicateur du pilote, l'écart entre l'app et le physique. Le
 5. **Résolution des écarts compensés** en transfert (§6.5) — également couplée au point 3.
 6. **Export `.xlsx`** : l'instrument de comparaison avec l'Excel tenu en parallèle, donc de mesure de l'indicateur.
 7. Synthèse imprimable.
-8. **Tests unitaires des deux fonctions pures à bugs subtils** : `matchReferences` et la résolution des codes d'emplacement abrégés. Trois appelants chacune, quatre bugs déjà trouvés entre elles, et ce sont les seules parties du code testables sans base ni écran. Un fichier de test qui **importe** la fonction, pas une copie exécutée à part : une copie prouve qu'un extrait fonctionne, pas que le code livré fonctionne, et elle cesse d'être fidèle au premier changement.
+8. **Clavier d'ouverture du champ de référence** (§6.2) — mesure de `inputMode="numeric"` d'abord, puis bascule sur le `type` de l'`<input>` si nécessaire. Reporté ici parce que la mesure du 16 septembre a invalidé le mécanisme prévu.
+9. **Tests unitaires des deux fonctions pures à bugs subtils** : `matchReferences` et la résolution des codes d'emplacement abrégés. Trois appelants chacune, quatre bugs déjà trouvés entre elles, et ce sont les seules parties du code testables sans base ni écran. Un fichier de test qui **importe** la fonction, pas une copie exécutée à part : une copie prouve qu'un extrait fonctionne, pas que le code livré fonctionne, et elle cesse d'être fidèle au premier changement.
 
 ### Repoussé
 
