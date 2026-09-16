@@ -5,6 +5,12 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.19 — 2026-09-17
+
+- Réglages : import du stock d’ouverture par fichier CSV — sert de feuille de comptage, un mouvement par ligne. Rejouer le même fichier n’enregistre rien de plus (identifiant dérivé du fichier lui-même), donc un import interrompu peut reprendre sans risquer de compter le stock deux fois
+- Un casier déjà pourvu de stock est signalé à l’aperçu plutôt que de bloquer tout le fichier — utile pour reprendre un import coupé en cours de route, sans empêcher un vrai doublon de se voir avant d’enregistrer
+- Un casier listé deux fois pour la même référence et le même conditionnement est rejeté avec son numéro de ligne, plutôt que d’en compter un des deux en silence
+
 ## 0.9.18 — 2026-09-17
 
 - Réglages : import de clients et de références par fichier CSV — aperçu avant écriture (lignes valides et rejetées, avec le motif), séparateur et encodage (UTF-8 ou Shift-JIS) détectés automatiquement, codes toujours lus comme du texte

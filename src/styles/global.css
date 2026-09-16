@@ -284,6 +284,10 @@ body {
   color: #b00020;
 }
 
+.form-warning {
+  color: #8a5a00;
+}
+
 .sens-picker {
   display: flex;
   gap: 0.5rem;

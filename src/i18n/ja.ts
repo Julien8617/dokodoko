@@ -88,6 +88,10 @@ const ja: Dictionary = {
     importDoneClients: '{count} 件の取引先をインポートしました。',
     importDoneReferences: '{ok} 件の品番をインポートしました。',
     importReferencesFailed: '{count} 件の品番が失敗しました：',
+    importStockOuverture: '期首在庫をインポート（CSV）',
+    importBatchId: 'インポート単位：{batchId}',
+    importPreviewWarnings: '既に在庫がある行：{count} 件 — 続ける前に確認してください',
+    importDoneStockOuverture: '{count} 件の入出庫を記録しました。',
   },
   movement: {
     title: '入出庫',

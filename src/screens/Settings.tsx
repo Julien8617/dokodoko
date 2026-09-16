@@ -12,13 +12,17 @@ import { decodeImportFile } from '../lib/csvImport'
 import {
   commitClientsImport,
   commitReferencesImport,
+  commitStockOuvertureImport,
   previewClientsImport,
   previewReferencesImport,
+  previewStockOuvertureImport,
   type ClientImportRow,
   type ReferenceImportRow,
+  type StockOuverturePreview,
 } from '../lib/importReferentiel'
 import type { ImportPreview } from '../lib/csvImport'
 import { refreshReferentielCache } from '../lib/referentielCache'
+import { supabase } from '../lib/supabase'
 import type { Client } from '../lib/types'
 import VersionFooter from '../components/VersionFooter'
 import SearchSelect from '../components/SearchSelect'
@@ -41,6 +45,7 @@ export default function Settings({ onBack }: { onBack: () => void }) {
       <ClientForm />
       <ClientsImportForm />
       <ReferencesImportForm />
+      <StockOuvertureImportForm />
       <VersionFooter />
     </main>
   )
@@ -185,6 +190,91 @@ function ReferencesImportForm() {
           {state.message}
         </p>
       )}
+      {state.kind === 'error' && <p className="form-status form-error">{state.message}</p>}
+    </form>
+  )
+}
+
+type StockOuvertureState =
+  | { kind: 'idle' }
+  | { kind: 'error'; message: string }
+  | { kind: 'previewed'; preview: StockOuverturePreview }
+  | { kind: 'importing'; preview: StockOuverturePreview }
+  | { kind: 'done'; message: string }
+
+// Écrit des mouvements (motif stock_initial) — seul des trois imports de
+// cet écran dans ce cas (§7). L'aperçu est asynchrone : il vérifie en
+// direct les conditionnements et le stock déjà présent, jamais via le
+// cache (voir previewStockOuvertureImport).
+function StockOuvertureImportForm() {
+  const { t } = useI18n()
+  const [auteur, setAuteur] = useState<string | null>(null)
+  const [state, setState] = useState<StockOuvertureState>({ kind: 'idle' })
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setAuteur(data.session?.user.email ?? null))
+  }, [])
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    try {
+      const text = await decodeImportFile(file)
+      setState({ kind: 'previewed', preview: await previewStockOuvertureImport(text) })
+    } catch (err) {
+      setState({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
+    }
+  }
+
+  async function handleImport() {
+    if (state.kind !== 'previewed' || !auteur) return
+    setState({ kind: 'importing', preview: state.preview })
+    try {
+      const count = await commitStockOuvertureImport(
+        state.preview.batchId,
+        state.preview.valid.map((r) => r.data),
+        auteur,
+      )
+      void refreshReferentielCache()
+      setState({ kind: 'done', message: interpolate(t.settings.importDoneStockOuverture, { count }) })
+    } catch (err) {
+      setState({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
+    }
+  }
+
+  return (
+    <form className="settings-form" onSubmit={(e) => e.preventDefault()}>
+      <h2>{t.settings.importStockOuverture}</h2>
+      <input type="file" accept=".csv,text/csv" onChange={handleFile} disabled={state.kind === 'importing'} />
+      {(state.kind === 'previewed' || state.kind === 'importing') && (
+        <>
+          <p className="form-status">{interpolate(t.settings.importBatchId, { batchId: state.preview.batchId })}</p>
+          <ImportPreviewPanel preview={state.preview} />
+          {state.preview.warnings.length > 0 && (
+            <div className="form-status">
+              <p className="form-warning">
+                {interpolate(t.settings.importPreviewWarnings, { count: state.preview.warnings.length })}
+              </p>
+              <ul>
+                {state.preview.warnings.map((w) => (
+                  <li key={w.line} className="form-warning">
+                    {interpolate(t.settings.importRejectedLine, { line: w.line, reason: w.reason })}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={handleImport}
+            disabled={state.kind === 'importing' || state.preview.valid.length === 0 || !auteur}
+          >
+            {state.kind === 'importing' ? t.settings.importing : t.settings.importConfirm}
+          </button>
+        </>
+      )}
+      {state.kind === 'done' && <p className="form-status">{state.message}</p>}
       {state.kind === 'error' && <p className="form-status form-error">{state.message}</p>}
     </form>
   )

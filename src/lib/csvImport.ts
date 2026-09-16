@@ -140,3 +140,43 @@ export function requireColumns(header: string[], required: string[]): void {
   const missing = required.filter((c) => !header.includes(c))
   if (missing.length > 0) throw new MissingColumnsError(missing)
 }
+
+// --- Identifiants déterministes (§7, spec 2.33) -------------------------
+//
+// Le stock d'ouverture écrit des mouvements : l'idempotence du rejeu ne
+// peut pas venir d'un simple upsert sur un code comme Clients/Références,
+// elle doit être CONSTRUITE dans l'id du mouvement lui-même.
+
+async function sha1Hex(text: string): Promise<string> {
+  const bytes = new TextEncoder().encode(text)
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-1', bytes))
+  return Array.from(digest, (b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+// Identifie le lot UNE FOIS par fichier, affiché à l'aperçu pour que
+// Julien sache ce qu'il rejoue. Dérivé du CONTENU, pas d'un compteur ni
+// d'un tirage aléatoire : rejouer EXACTEMENT le même fichier doit
+// reproduire le même lot, donc les mêmes id de mouvement via
+// deriveMouvementId — c'est ce qui rend le rejeu sans effet de bord.
+export async function computeImportBatchId(text: string): Promise<string> {
+  return (await sha1Hex(text)).slice(0, 12)
+}
+
+// UUID "façon v5" (bits de version/variante posés comme le voudrait la
+// RFC) mais dérivé d'un simple SHA-1 sur une clé texte plutôt que de la
+// convention namespace-UUID + nom — la seule propriété qui compte ici est
+// déterministe : la même clé produit toujours le même UUID. Sert à dériver
+// l'id du mouvement de (lot, référence, emplacement, conditionnement) :
+// le même fichier rejoué régénère les mêmes id, et l'écriture par
+// upsert(ignoreDuplicates) — le mécanisme qu'utilise déjà insertMouvements
+// — n'écrit donc rien de plus. Un import interrompu à mi-course reprend
+// au lieu de bloquer : les lignes déjà écrites régénèrent leur propre id,
+// ignoré en conflit ; seules les lignes manquantes s'insèrent.
+export async function deriveMouvementId(key: string): Promise<string> {
+  const bytes = new TextEncoder().encode(`dokodoko:stock-ouverture:${key}`)
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-1', bytes))
+  digest[6] = (digest[6] & 0x0f) | 0x50 // version 5
+  digest[8] = (digest[8] & 0x3f) | 0x80 // variante RFC 4122
+  const hex = Array.from(digest.subarray(0, 16), (b) => b.toString(16).padStart(2, '0')).join('')
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`
+}

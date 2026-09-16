@@ -10,6 +10,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.19',
+    date: '2026-09-17',
+    items: [
+      'Réglages : import du stock d’ouverture par fichier CSV — sert de feuille de comptage, un mouvement par ligne. Rejouer le même fichier n’enregistre rien de plus (identifiant dérivé du fichier lui-même), donc un import interrompu peut reprendre sans risquer de compter le stock deux fois',
+      'Un casier déjà pourvu de stock est signalé à l’aperçu plutôt que de bloquer tout le fichier — utile pour reprendre un import coupé en cours de route, sans empêcher un vrai doublon de se voir avant d’enregistrer',
+      'Un casier listé deux fois pour la même référence et le même conditionnement est rejeté avec son numéro de ligne, plutôt que d’en compter un des deux en silence',
+    ],
+  },
+  {
     version: '0.9.18',
     date: '2026-09-17',
     items: [

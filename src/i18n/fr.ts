@@ -88,6 +88,10 @@ const fr: Dictionary = {
     importDoneClients: '{count} client(s) importé(s).',
     importDoneReferences: '{ok} référence(s) importée(s).',
     importReferencesFailed: '{count} référence(s) en échec :',
+    importStockOuverture: 'Importer le stock d’ouverture (CSV)',
+    importBatchId: 'Lot d’import : {batchId}',
+    importPreviewWarnings: '{count} ligne(s) déjà pourvue(s) de stock — vérifier avant de continuer',
+    importDoneStockOuverture: '{count} mouvement(s) enregistré(s).',
   },
   movement: {
     title: 'Mouvement',

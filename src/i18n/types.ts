@@ -102,6 +102,10 @@ export interface Dictionary {
     importDoneClients: string // {count}
     importDoneReferences: string // {ok}
     importReferencesFailed: string // {count}
+    importStockOuverture: string
+    importBatchId: string // {batchId}
+    importPreviewWarnings: string // {count}
+    importDoneStockOuverture: string // {count}
   }
   movement: {
     title: string
