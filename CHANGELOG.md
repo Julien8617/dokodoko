@@ -5,6 +5,10 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.17 — 2026-09-16
+
+- Mesure (pas encore un choix définitif) : le champ référence de la marche s’ouvre sur un clavier orienté chiffres — à confirmer sur iPhone que les lettres restent atteignables pour REU et un nom d’article
+
 ## 0.9.16 — 2026-09-16
 
 - Correction : les flèches de navigation entre casiers suivaient l’ordre dans lequel les emplacements avaient été créés (utile seulement quand une zone est générée en un seul lot) plutôt que le parcours zone/baie/niveau (A-01-0, A-01-1, A-01-2, A-02-0…) — suivent maintenant toujours ce parcours

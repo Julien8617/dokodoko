@@ -10,6 +10,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.17',
+    date: '2026-09-16',
+    items: [
+      'Mesure (pas encore un choix définitif) : le champ référence de la marche s’ouvre sur un clavier orienté chiffres — à confirmer sur iPhone que les lettres restent atteignables pour REU et un nom d’article',
+    ],
+  },
+  {
     version: '0.9.16',
     date: '2026-09-16',
     items: [

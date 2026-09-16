@@ -658,6 +658,7 @@ function Walk({
             suggestions={referenceSuggestions}
             placeholder={t.inventory.referencePlaceholder}
             disabled={status.kind === 'saving' || pendingDuplicate !== null}
+            inputMode="decimal"
           />
         </label>
         {/* Confirmation avant écriture (§6.2, spec 2.23) : ComboInput se
