@@ -1,6 +1,6 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.30 — 16 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.32 — 16 septembre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -454,13 +454,32 @@ Hors périmètre pour l'instant : le suivi de l'historique casier par casier au 
 
 Trois fichiers distincts, chacun son bouton. Ne pas fusionner en un seul fichier polyvalent : la validation devient floue et les erreurs silencieuses.
 
-**Références** — `reference, libelle, pieces_par_carton`
+**Références — réintégré au périmètre avant le 18.** Distinction qui sauve l'arbitrage antérieur : le report des imports en masse visait le **stock initial**, qui écrit des mouvements et touche l'intégrité du stock. L'import de références n'écrit aucun mouvement ; une erreur y est visible et corrigible. Ce n'est pas le même risque, ce n'est donc pas la même décision. Et les dimensions des cartons se saisissent dans un tableur, pas sur un téléphone.
+
+Le stock initial, lui, **reste manuel pour le démarrage**.
+
+`reference, libelle, pieces_par_carton`
 Crée la référence et son premier conditionnement. Référence connue : le libellé est mis à jour. Si `pieces_par_carton` diffère d'un conditionnement existant, un **nouveau** conditionnement est créé et l'ancien marqué `a_ecouler` — jamais de modification de l'existant. L'aperçu d'import signale explicitement ces créations. Aucun mouvement.
 
 **Emplacements** — remplacé par le **générateur** : zone, plage de baies, niveaux, création en lot, `ordre` servant uniquement à ne pas renuméroter les emplacements déjà créés (§8). L'import CSV d'emplacements n'est plus au périmètre. Aucun mouvement créé. Un emplacement sans stock est vide, pas inconnu.
 
 **Stock initial** — `reference, emplacement, pieces_par_carton, cartons, pieces`
 Génère un mouvement d'entrée de motif `stock_initial` par ligne. `pieces_par_carton` désigne le conditionnement concerné ; facultatif si la référence n'en a qu'un, obligatoire sinon. Refusé si le triplet référence/emplacement/conditionnement porte déjà du stock, avec la liste des lignes en conflit : le stock initial se charge une fois.
+
+### Modèle Excel
+
+Un seul classeur, produit par la même session que l'analyseur qui le lit — sinon un décalage de colonnes est inévitable.
+
+- **Lisez-moi** : légende des couleurs, et le rappel que le fichier reste la source et doit être conservé.
+- **Clients** : `client_code`, `nom`.
+- **Références** : une ligne par couple référence × conditionnement — deux lignes pour une référence qui en a deux. C'est le contresens le plus probable, à écrire dans le fichier.
+- **Stock d'ouverture** : sert de feuille de comptage du vendredi matin.
+- **Tarifs** : `code_tarifaire`, `libelle`, `valeur`, `devise`, `unite` (pièce ou carton), `nature` (prix de vente du client, ou prestation facturée par l'entrepôt), `valide_a_partir_de`. **Aucune valeur sans son unité ni sa nature** : un montant seul est inexploitable, et c'est exactement ce qui rendrait la carte thermique impossible à interpréter.
+- Pas de feuille Emplacements : le générateur les crée.
+
+**Trois codes couleur en en-tête, pas deux** : obligatoire, facultatif, et *collecté maintenant mais pas encore importé* — dimensions de cartons, `max_par_palette`, `code_tarifaire`, `famille_melange`, feuille Tarifs. Leurs tables n'existent pas ; le classeur leur sert de stockage intermédiaire et reste réimportable. Sans cette troisième couleur, on croira ces données en base.
+
+**Format texte forcé** sur `reference`, `client_code`, `emplacement` et `code_tarifaire` — format de cellule et validation de données, pas seulement une consigne écrite, sinon Excel mange les zéros initiaux.
 
 ### Règles communes
 
@@ -673,12 +692,13 @@ Deux choses seulement, et ce ne sont pas des chantiers :
 
 1. **Vérifier qu'un échec d'écriture est visible.** Une erreur réseau avalée en silence, sur un mouvement que l'utilisateur croit enregistré, est le seul défaut capable de fausser l'indicateur du pilote sans laisser de trace.
 2. **Écrire la consigne de repli** dans le README : si l'enregistrement échoue, noter sur papier et ressaisir au retour.
-3. **Retirer les deux indicateurs factices de l'Accueil.** C'est une suppression, pas une fonctionnalité : « Tout est synchronisé » en texte fixe est précisément ce qu'on regardera sans réfléchir pendant le pilote. Ils reviendront branchés avec la file hors ligne.
-4. **Rendre le commentaire obligatoire sur le motif `annulation`** (§4), si c'est l'affaire de quelques minutes. Sinon, avec le chantier de clôture.
-5. **Générateur d'emplacements** — zone, plage de baies, niveaux, création en lot. Sert la saisie du référentiel avant le démarrage, et **remplace l'import CSV d'emplacements** (§7) : une substitution, pas une addition.
-6. **Liste des saisies pendant la marche** (§6.5), **remontée depuis la liste du 18 octobre**. Raison : usage réel imminent — la répétition à blanc et les premiers comptages ont lieu cette semaine, et la double saisie qu'elle supprime pollue directement l'écart. Le reste du chantier de clôture ne bouge pas. Le gain d'une passe d'`advisor()` partagée ne valait pas un mois de comptages sans visibilité sur ce qui a déjà été saisi.
-7. **Cache de lecture** (§3) — à faire après les deux précédents, il sert le pilote et non le démarrage.
-8. **Recherche par libellé** (§6.2). Ce n'est pas une addition au périmètre : la spec l'exigeait déjà, le code ne cherchait que sur le code. Mise en conformité, et elle sert dès le premier jour — les factures sans référence se lisent vendredi.
+3. **Modèle Excel et import des références** (§7) — codes en texte, une ligne par couple référence × conditionnement, colonnes de dimensions collectées mais non importées tant que la table `cartons` n'existe pas.
+4. **Retirer les deux indicateurs factices de l'Accueil.** C'est une suppression, pas une fonctionnalité : « Tout est synchronisé » en texte fixe est précisément ce qu'on regardera sans réfléchir pendant le pilote. Ils reviendront branchés avec la file hors ligne.
+5. **Rendre le commentaire obligatoire sur le motif `annulation`** (§4), si c'est l'affaire de quelques minutes. Sinon, avec le chantier de clôture.
+6. **Générateur d'emplacements** — zone, plage de baies, niveaux, création en lot. Sert la saisie du référentiel avant le démarrage, et **remplace l'import CSV d'emplacements** (§7) : une substitution, pas une addition.
+7. **Liste des saisies pendant la marche** (§6.5), **remontée depuis la liste du 18 octobre**. Raison : usage réel imminent — la répétition à blanc et les premiers comptages ont lieu cette semaine, et la double saisie qu'elle supprime pollue directement l'écart. Le reste du chantier de clôture ne bouge pas. Le gain d'une passe d'`advisor()` partagée ne valait pas un mois de comptages sans visibilité sur ce qui a déjà été saisi.
+8. **Cache de lecture** (§3) — à faire après les deux précédents, il sert le pilote et non le démarrage.
+9. **Recherche par libellé** (§6.2). Ce n'est pas une addition au périmètre : la spec l'exigeait déjà, le code ne cherchait que sur le code. Mise en conformité, et elle sert dès le premier jour — les factures sans référence se lisent vendredi.
 
 ### Jusqu'au 18 octobre — point de situation
 
@@ -691,8 +711,9 @@ Ordre dicté par l'indicateur du pilote, l'écart entre l'app et le physique. Le
 5. **Résolution des écarts compensés** en transfert (§6.5) — également couplée au point 3.
 6. **Export `.xlsx`** : l'instrument de comparaison avec l'Excel tenu en parallèle, donc de mesure de l'indicateur.
 7. Synthèse imprimable.
-8. **Clavier d'ouverture du champ de référence** (§6.2) — mesure de `inputMode="numeric"` d'abord, puis bascule sur le `type` de l'`<input>` si nécessaire. Reporté ici parce que la mesure du 16 septembre a invalidé le mécanisme prévu.
-9. **Tests unitaires des deux fonctions pures à bugs subtils** : `matchReferences` et la résolution des codes d'emplacement abrégés. Trois appelants chacune, quatre bugs déjà trouvés entre elles, et ce sont les seules parties du code testables sans base ni écran. Un fichier de test qui **importe** la fonction, pas une copie exécutée à part : une copie prouve qu'un extrait fonctionne, pas que le code livré fonctionne, et elle cesse d'être fidèle au premier changement.
+8. **Import des dimensions de cartons**, quand la table `cartons` existera. Jusque-là, les colonnes du modèle Excel sont remplies et conservées dans le fichier, qui fait office de stockage intermédiaire et reste réimportable.
+9. **Clavier d'ouverture du champ de référence** (§6.2) — mesure de `inputMode="numeric"` d'abord, puis bascule sur le `type` de l'`<input>` si nécessaire. Reporté ici parce que la mesure du 16 septembre a invalidé le mécanisme prévu.
+10. **Tests unitaires des deux fonctions pures à bugs subtils** : `matchReferences` et la résolution des codes d'emplacement abrégés. Trois appelants chacune, quatre bugs déjà trouvés entre elles, et ce sont les seules parties du code testables sans base ni écran. Un fichier de test qui **importe** la fonction, pas une copie exécutée à part : une copie prouve qu'un extrait fonctionne, pas que le code livré fonctionne, et elle cesse d'être fidèle au premier changement.
 
 ### Repoussé
 
