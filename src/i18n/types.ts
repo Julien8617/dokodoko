@@ -106,6 +106,12 @@ export interface Dictionary {
     importBatchId: string // {batchId}
     importPreviewWarnings: string // {count}
     importDoneStockOuverture: string // {count}
+    // Confirmation proportionnée (§6.4, spec du 2026-09-17) : au-delà d'un
+    // tiers des lignes valides déjà pourvues de stock, taper ce mot
+    // remplace le simple appui — signature probable d'un second chargement
+    // complet plutôt qu'un chevauchement normal.
+    importOverlapWord: string
+    importOverlapWarning: string // {count}, {total}, {word}
   }
   movement: {
     title: string

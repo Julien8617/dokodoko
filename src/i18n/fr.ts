@@ -92,6 +92,9 @@ const fr: Dictionary = {
     importBatchId: 'Lot d’import : {batchId}',
     importPreviewWarnings: '{count} ligne(s) déjà pourvue(s) de stock — vérifier avant de continuer',
     importDoneStockOuverture: '{count} mouvement(s) enregistré(s).',
+    importOverlapWord: 'CONFIRMER',
+    importOverlapWarning:
+      '{count} lignes sur {total} portent déjà du stock — plus d’un tiers, signe probable d’un second chargement complet plutôt que d’un chevauchement normal. Tapez {word} pour continuer.',
   },
   movement: {
     title: 'Mouvement',

@@ -10,6 +10,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.20',
+    date: '2026-09-17',
+    items: [
+      'Réglages, import du stock d’ouverture : au-delà d’un tiers des lignes déjà pourvues de stock, un simple appui ne suffit plus — il faut taper un mot de confirmation, signe probable d’avoir rechargé le même fichier une deuxième fois plutôt qu’un chevauchement normal',
+    ],
+  },
+  {
     version: '0.9.19',
     date: '2026-09-17',
     items: [

@@ -5,6 +5,10 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.20 — 2026-09-17
+
+- Réglages, import du stock d’ouverture : au-delà d’un tiers des lignes déjà pourvues de stock, un simple appui ne suffit plus — il faut taper un mot de confirmation, signe probable d’avoir rechargé le même fichier une deuxième fois plutôt qu’un chevauchement normal
+
 ## 0.9.19 — 2026-09-17
 
 - Réglages : import du stock d’ouverture par fichier CSV — sert de feuille de comptage, un mouvement par ligne. Rejouer le même fichier n’enregistre rien de plus (identifiant dérivé du fichier lui-même), donc un import interrompu peut reprendre sans risquer de compter le stock deux fois

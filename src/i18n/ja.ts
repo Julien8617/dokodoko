@@ -92,6 +92,9 @@ const ja: Dictionary = {
     importBatchId: 'インポート単位：{batchId}',
     importPreviewWarnings: '既に在庫がある行：{count} 件 — 続ける前に確認してください',
     importDoneStockOuverture: '{count} 件の入出庫を記録しました。',
+    importOverlapWord: '確認',
+    importOverlapWarning:
+      '{total} 行中 {count} 行が既に在庫あり — 3分の1を超えており、通常の重複ではなく再読み込みの可能性があります。続けるには {word} と入力してください。',
   },
   movement: {
     title: '入出庫',

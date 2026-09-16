@@ -206,10 +206,19 @@ type StockOuvertureState =
 // cet écran dans ce cas (§7). L'aperçu est asynchrone : il vérifie en
 // direct les conditionnements et le stock déjà présent, jamais via le
 // cache (voir previewStockOuvertureImport).
+// Chevauchement au-delà duquel un avertissement + un appui ne suffit plus
+// (retour du 2026-09-17, même principe que la confirmation proportionnée
+// du §6.4) : quelques triplets déjà pourvus sont un recoupement normal,
+// mais au-delà d'un tiers des lignes valides, c'est la signature d'un
+// second chargement complet du même fichier — la friction doit augmenter
+// avec l'ampleur, pas rester plate.
+const OVERLAP_RATIO_REQUIRING_TYPED_CONFIRM = 1 / 3
+
 function StockOuvertureImportForm() {
   const { t } = useI18n()
   const [auteur, setAuteur] = useState<string | null>(null)
   const [state, setState] = useState<StockOuvertureState>({ kind: 'idle' })
+  const [overlapConfirmText, setOverlapConfirmText] = useState('')
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setAuteur(data.session?.user.email ?? null))
@@ -219,6 +228,7 @@ function StockOuvertureImportForm() {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
+    setOverlapConfirmText('')
     try {
       const text = await decodeImportFile(file)
       setState({ kind: 'previewed', preview: await previewStockOuvertureImport(text) })
@@ -243,6 +253,15 @@ function StockOuvertureImportForm() {
     }
   }
 
+  const overlapRatio =
+    state.kind === 'previewed' || state.kind === 'importing'
+      ? state.preview.valid.length === 0
+        ? 0
+        : state.preview.warnings.length / state.preview.valid.length
+      : 0
+  const requiresTypedConfirm = overlapRatio > OVERLAP_RATIO_REQUIRING_TYPED_CONFIRM
+  const typedConfirmOk = overlapConfirmText.trim().toUpperCase() === t.settings.importOverlapWord.toUpperCase()
+
   return (
     <form className="settings-form" onSubmit={(e) => e.preventDefault()}>
       <h2>{t.settings.importStockOuverture}</h2>
@@ -265,10 +284,31 @@ function StockOuvertureImportForm() {
               </ul>
             </div>
           )}
+          {requiresTypedConfirm && (
+            <label className="field-label">
+              <span className="form-warning">
+                {interpolate(t.settings.importOverlapWarning, {
+                  count: state.preview.warnings.length,
+                  total: state.preview.valid.length,
+                  word: t.settings.importOverlapWord,
+                })}
+              </span>
+              <input
+                value={overlapConfirmText}
+                onChange={(e) => setOverlapConfirmText(e.target.value)}
+                disabled={state.kind === 'importing'}
+              />
+            </label>
+          )}
           <button
             type="button"
             onClick={handleImport}
-            disabled={state.kind === 'importing' || state.preview.valid.length === 0 || !auteur}
+            disabled={
+              state.kind === 'importing' ||
+              state.preview.valid.length === 0 ||
+              !auteur ||
+              (requiresTypedConfirm && !typedConfirmOk)
+            }
           >
             {state.kind === 'importing' ? t.settings.importing : t.settings.importConfirm}
           </button>

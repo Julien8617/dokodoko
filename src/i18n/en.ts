@@ -92,6 +92,9 @@ const en: Dictionary = {
     importBatchId: 'Import batch: {batchId}',
     importPreviewWarnings: '{count} row(s) already carry stock — check before continuing',
     importDoneStockOuverture: '{count} movement(s) recorded.',
+    importOverlapWord: 'CONFIRM',
+    importOverlapWarning:
+      '{count} of {total} rows already carry stock — more than a third, likely a full second load rather than normal overlap. Type {word} to continue.',
   },
   movement: {
     title: 'Movement',
