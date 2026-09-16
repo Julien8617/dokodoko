@@ -1,6 +1,6 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.32 — 16 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.33 — 16 septembre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -456,7 +456,9 @@ Trois fichiers distincts, chacun son bouton. Ne pas fusionner en un seul fichier
 
 **Références — réintégré au périmètre avant le 18.** Distinction qui sauve l'arbitrage antérieur : le report des imports en masse visait le **stock initial**, qui écrit des mouvements et touche l'intégrité du stock. L'import de références n'écrit aucun mouvement ; une erreur y est visible et corrigible. Ce n'est pas le même risque, ce n'est donc pas la même décision. Et les dimensions des cartons se saisissent dans un tableur, pas sur un téléphone.
 
-Le stock initial, lui, **reste manuel pour le démarrage**.
+**Le stock d'ouverture rejoint le classeur** — révision de l'arbitrage du 15 septembre, parce que l'usage change : la feuille devient la **feuille de comptage** du vendredi matin. On compte, on remplit, on importe une fois. Plus sûr que de taper trois cents mouvements sur un téléphone.
+
+Exigence de méthode qui pèse plus que le gain de temps : **le stock d'ouverture se compte physiquement, il ne se recopie pas de l'ancien fichier de suivi.** Un stock semé depuis l'existant embarque ses erreurs, et l'inventaire de mi-octobre mesurerait la dérive de l'app **plus** l'erreur initiale sans pouvoir les séparer — l'indicateur unique du pilote perdrait son sens.
 
 `reference, libelle, pieces_par_carton`
 Crée la référence et son premier conditionnement. Référence connue : le libellé est mis à jour. Si `pieces_par_carton` diffère d'un conditionnement existant, un **nouveau** conditionnement est créé et l'ancien marqué `a_ecouler` — jamais de modification de l'existant. L'aperçu d'import signale explicitement ces créations. Aucun mouvement.
@@ -488,7 +490,10 @@ Un seul classeur, produit par la même session que l'analyseur qui le lit — si
 - Codes lus comme du texte : les zéros initiaux doivent survivre.
 - Emplacements validés par `^[A-Z]{1,2}-\d{2}-\d$`.
 - Prévisualisation avant écriture : lignes valides, lignes rejetées avec numéro de ligne et motif.
-- **Import tout ou rien.** Aucune écriture partielle.
+- **La propriété exigée est le rejeu idempotent, pas le tout ou rien.** C'est une révision : « tout ou rien » visait à ne jamais laisser un état à moitié connu, mais sur un fichier de trois cents lignes, une coquille ne doit pas bloquer les deux cent quatre-vingt-dix-neuf autres, et ce qui protège réellement est de pouvoir rejouer le fichier sans effet de bord. L'atomicité par ligne est donc acceptée **à condition** que le rejeu soit exactement idempotent.
+- Pour les imports qui n'écrivent **aucun mouvement** — clients, références — l'upsert sur clé suffit.
+- Pour le **stock d'ouverture**, qui écrit des mouvements, l'idempotence doit être construite : l'`id` du mouvement est **dérivé de façon déterministe** de (lot d'import, référence, emplacement, conditionnement), et l'écriture passe par `upsert(ignoreDuplicates)`. Le même fichier rejoué n'écrit rien de plus, et un import interrompu à mi-course **reprend** au lieu de bloquer. Un lot identifié une fois, affiché à l'aperçu.
+- Le garde-fou « déjà du stock sur ce triplet » reste, mais comme **avertissement à l'aperçu** et non comme refus global : il attrape le vrai danger, un second chargement depuis un autre fichier ou après de vrais mouvements — ce que l'identifiant déterministe ne voit pas. Un refus global, lui, rendrait impossible la reprise d'un import interrompu.
 
 La saisie manuelle unitaire couvre les mêmes champs, un élément à la fois, pour les ajouts au fil de l'eau.
 
