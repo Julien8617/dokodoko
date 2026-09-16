@@ -1,6 +1,6 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.25 — 16 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.29 — 16 septembre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -51,7 +51,9 @@ Ce qui se met en cache, et c'est petit — quelques centaines de kilo-octets en 
 - les référentiels : `references`, `emplacements`, `conditionnements`, `clients`. « Et les familles » figurait ici par erreur de rédaction : `familles_melange` appartient à la carte thermique post-pilote et n'existe pas en base ;
 - un **instantané du stock** par emplacement × référence × conditionnement — quelques centaines de lignes — et non le journal des mouvements, qui n'a pas à descendre sur le téléphone.
 
-Rafraîchi à l'ouverture de l'app, après chaque écriture réussie, et au retour du réseau. **L'âge du cache est affiché** au même titre que celui de la file : « référentiel à jour il y a 2 h ». Un cache silencieusement périmé est le même piège qu'un « tout est synchronisé » codé en dur.
+Rafraîchi à l'ouverture de l'app, après chaque écriture réussie, et au retour du réseau. **Toute modification de la forme ou du sens des données mises en cache change la clé du cache.** Sans quoi une copie locale ressert en silence l'ancienne sémantique jusqu'au prochain réseau — et le défaut sera imputé au code qui lit, pas au cache qui mentait.
+
+**L'âge du cache est affiché** au même titre que celui de la file : « référentiel à jour il y a 2 h ». Un cache silencieusement périmé est le même piège qu'un « tout est synchronisé » codé en dur.
 
 **Le cache ne sert que la consultation.** La vérification de stock qui conditionne une sortie reste une lecture réseau et n'est jamais branchée sur le cache : refuser sur une donnée périmée serait pire que refuser sur une donnée fraîche, puisque l'app interdirait une sortie que le serveur aurait acceptée. Cette règle vaut indépendamment du calendrier — elle tiendrait même si la fin du blocage était déjà codée.
 
@@ -144,7 +146,7 @@ emplacements (
   zone    text not null,
   baie    int  not null,
   niveau  int  not null,
-  ordre   int
+  ordre   int              -- séquence de création, pas un parcours ; voir §8
 )
 
 mouvements (
@@ -300,6 +302,23 @@ Repris de la v1, avec les quantités ajoutées.
 - **`libelleCourt` désigne le conditionnement, jamais le produit.** Il a déjà été affiché à la place du nom de l'article sur deux écrans — c'est le champ qui invite à l'erreur. À renommer pour qu'il ne puisse plus se lire comme un nom de produit, et à afficher toujours en suffixe : « REU265 — Matelas XL bleu · carton de 12 ». Sans ce renommage, il y aura une troisième occurrence.
 - **Jamais de troncature silencieuse.** Un plafond de résultats est légitime dans une liste déroulante ; sur l'écran Recherche il ferait conclure qu'un article n'existe pas. Soit aucun plafond sur cet écran, soit le nombre total affiché — « 8 affichés sur 34 ».
 - `libelle` est facultatif en base. Une référence sans nom s'affiche par son seul code et ne sera jamais trouvée par nom : acceptable, et c'est une raison de renseigner les noms dès la création.
+**Clavier d'ouverture des champs de référence.** La saisie quotidienne est majoritairement chiffrée, et la recherche par sous-chaîne de chiffres suffit à retrouver un code (« 65 » donne `REU065`).
+
+Deux corrections successives, consignées parce qu'elles délimitent le problème :
+
+1. J'ai affirmé qu'iOS n'expose aucun moyen d'ouvrir le clavier alphanumérique sur sa page des chiffres. **Faux** : les champs cartons et pièces de Mouvement le font.
+2. L'attribut en cause est `type="number"`, et il n'est **pas transposable** : un champ de ce type refuse toute frappe non numérique dans sa valeur, sur tous les navigateurs. Le champ de référence doit rester `type="text"`.
+
+Le clavier voulu et l'acceptation des lettres sont donc, sauf découverte contraire, **livrés ensemble par le même attribut** : on ne peut pas prendre l'un sans l'autre.
+
+Mesure avant décision : poser `inputMode="decimal"` sur le champ de référence — un `inputMode` n'empêche jamais la frappe d'une lettre, donc aucune régression possible — et regarder sur l'appareil quel clavier s'ouvre. Attendu : un pavé à dix touches, sans accès aux lettres, donc différent de celui de Mouvement.
+
+Décision déjà arbitrée selon le résultat, pour éviter un aller-retour :
+
+- Si le clavier obtenu est celui de Mouvement **et** que les lettres restent atteignables : c'est fini, rien d'autre à faire.
+- Sinon — cas attendu : **pavé numérique plus bouton de bascule `123 / ABC`**, état persistant sur la session. Repli assumé, il coûte un appui à la recherche par libellé. **Après le 18**, avec prototypage sur l'appareil.
+- Le champ casier garde le clavier texte dans tous les cas : un code commence par une lettre, et l'abréviation `a11` en a besoin.
+
 - **Un seul filtre partagé** entre la Recherche, le sélecteur de référence de Mouvement et celui de l'Inventaire. Même règle que pour la suppression : une implémentation, plusieurs appelants.
 - Les résultats sont des références ; taper l'une d'elles affiche **tous ses emplacements** avec la quantité à chacun, en cartons et pièces, plus le total en pièces.
 - Une référence à deux conditionnements affiche une ligne par conditionnement à chaque emplacement concerné — « 4 cartons de 12 » et « 2 cartons de 6 » restent deux lignes distinctes. Le total en pièces, lui, est unique.
@@ -366,7 +385,8 @@ Ce qui reste à construire est la **résolution**, à la clôture : sur une pair
 **Navigation par flèches sur le champ casier, et casier persistant.** C'est le principal frottement de la marche : retaper un code à chaque casier.
 
 - Une flèche avant et une flèche arrière à côté du champ, qui avancent d'un casier dans l'ordre de tournée défini au §8 — niveau suivant dans la même baie, puis baie suivante au niveau le plus bas, puis zone suivante. C'est exactement l'ordre par défaut, il n'y a pas de second ordre à inventer.
-- **La navigation parcourt la liste des emplacements existants, elle ne calcule pas un code.** Une inter-allée n'a qu'un niveau 0, et une baie peut n'avoir que trois niveaux : composer `A-03-3` par arithmétique produirait un cul-de-sac ou un casier fantôme. On avance dans la séquence réelle, celle du champ `ordre`.
+- **La navigation parcourt la liste des emplacements existants, elle ne calcule pas un code.** Une inter-allée n'a qu'un niveau 0, et une baie peut n'avoir que trois niveaux : composer `A-03-3` par arithmétique produirait un cul-de-sac ou un casier fantôme. On avance dans la liste réelle des emplacements, triée zone/baie/niveau (§8).
+- **Changer de casier vide la référence, la quantité et toute édition en cours.** Reporter une quantité à moitié saisie sur le casier suivant fabriquerait un comptage.
 - **Le casier reste inscrit après enregistrement.** On enregistre plusieurs références au même casier avant de passer au suivant ; le vider à chaque validation impose de le retaper.
 - Au retour dans le champ, **le contenu est sélectionné plutôt qu'effacé**. Taper le remplace, comme un effacement ; mais un appui involontaire ne perd rien. Sur un téléphone tenu à une main, l'effacement franc coûte plus qu'il ne rapporte.
 
@@ -433,7 +453,7 @@ Trois fichiers distincts, chacun son bouton. Ne pas fusionner en un seul fichier
 **Références** — `reference, libelle, pieces_par_carton`
 Crée la référence et son premier conditionnement. Référence connue : le libellé est mis à jour. Si `pieces_par_carton` diffère d'un conditionnement existant, un **nouveau** conditionnement est créé et l'ancien marqué `a_ecouler` — jamais de modification de l'existant. L'aperçu d'import signale explicitement ces créations. Aucun mouvement.
 
-**Emplacements** — remplacé par le **générateur** : zone, plage de baies, niveaux, création en lot, avec `ordre` calculé par le tri par défaut (§8). L'import CSV d'emplacements n'est plus au périmètre. Aucun mouvement créé. Un emplacement sans stock est vide, pas inconnu.
+**Emplacements** — remplacé par le **générateur** : zone, plage de baies, niveaux, création en lot, `ordre` servant uniquement à ne pas renuméroter les emplacements déjà créés (§8). L'import CSV d'emplacements n'est plus au périmètre. Aucun mouvement créé. Un emplacement sans stock est vide, pas inconnu.
 
 **Stock initial** — `reference, emplacement, pieces_par_carton, cartons, pieces`
 Génère un mouvement d'entrée de motif `stock_initial` par ligne. `pieces_par_carton` désigne le conditionnement concerné ; facultatif si la référence n'en a qu'un, obligatoire sinon. Refusé si le triplet référence/emplacement/conditionnement porte déjà du stock, avec la liste des lignes en conflit : le stock initial se charge une fois.
@@ -455,7 +475,11 @@ Repris de la v1, sans changement.
 
 Code toujours `ZONE-BAIE-NIVEAU` : `A-03-2`. Zone à une lettre pour une allée, deux lettres pour une inter-allée (`AB`, `CD`). Baie sur deux chiffres. Niveau sur un chiffre, `0` au sol ; les inter-allées n'existent qu'au niveau `0`.
 
-Ordre de tournée par défaut : zone comme texte, puis baie comme nombre, puis niveau comme nombre — on parcourt une baie de bas en haut avant d'avancer. Une colonne `ordre` à l'import impose un autre parcours sans toucher au code.
+**L'ordre de tournée est zone, puis baie, puis niveau, toujours** — on parcourt une baie de bas en haut avant d'avancer. Il n'y a pas d'ordre alternatif.
+
+La possibilité d'imposer un autre parcours par une colonne `ordre` est **retirée de la spec**. Le champ existe en base mais il ne sert qu'à empêcher le générateur en lot de renuméroter des emplacements déjà créés : c'est une séquence de création, pas un parcours. Le faire primer sur zone/baie/niveau a produit le défaut du 16 septembre — les flèches suivaient l'ordre de génération dès qu'une zone était générée en plusieurs appels.
+
+C'est le même défaut que `comptages.statut` : **un champ avec deux significations**. À renommer pour ce qu'il fait — une séquence de création — plutôt qu'à remettre en priorité. Si un parcours non alphabétique devient réellement nécessaire (sens de circulation imposé, allée remontée en sens inverse), il prendra un champ distinct et correctement nommé, à ce moment-là seulement.
 
 Feuille A4 de QR : une page par zone, nom de la zone en en-tête, contenu du QR en texte brut, code lisible en clair sous chaque QR.
 
@@ -645,12 +669,13 @@ Deux choses seulement, et ce ne sont pas des chantiers :
 
 1. **Vérifier qu'un échec d'écriture est visible.** Une erreur réseau avalée en silence, sur un mouvement que l'utilisateur croit enregistré, est le seul défaut capable de fausser l'indicateur du pilote sans laisser de trace.
 2. **Écrire la consigne de repli** dans le README : si l'enregistrement échoue, noter sur papier et ressaisir au retour.
-3. **Retirer les deux indicateurs factices de l'Accueil.** C'est une suppression, pas une fonctionnalité : « Tout est synchronisé » en texte fixe est précisément ce qu'on regardera sans réfléchir pendant le pilote. Ils reviendront branchés avec la file hors ligne.
-4. **Rendre le commentaire obligatoire sur le motif `annulation`** (§4), si c'est l'affaire de quelques minutes. Sinon, avec le chantier de clôture.
-5. **Générateur d'emplacements** — zone, plage de baies, niveaux, création en lot. Sert la saisie du référentiel avant le démarrage, et **remplace l'import CSV d'emplacements** (§7) : une substitution, pas une addition.
-6. **Liste des saisies pendant la marche** (§6.5), **remontée depuis la liste du 18 octobre**. Raison : usage réel imminent — la répétition à blanc et les premiers comptages ont lieu cette semaine, et la double saisie qu'elle supprime pollue directement l'écart. Le reste du chantier de clôture ne bouge pas. Le gain d'une passe d'`advisor()` partagée ne valait pas un mois de comptages sans visibilité sur ce qui a déjà été saisi.
-7. **Cache de lecture** (§3) — à faire après les deux précédents, il sert le pilote et non le démarrage.
-8. **Recherche par libellé** (§6.2). Ce n'est pas une addition au périmètre : la spec l'exigeait déjà, le code ne cherchait que sur le code. Mise en conformité, et elle sert dès le premier jour — les factures sans référence se lisent vendredi.
+3. **Clavier d'ouverture du champ de référence** (§6.2) — uniquement la mesure : `inputMode="decimal"`, sans régression possible, pour constater quel clavier s'ouvre. Le repli par bouton de bascule, s'il s'avère nécessaire, est après le 18.
+4. **Retirer les deux indicateurs factices de l'Accueil.** C'est une suppression, pas une fonctionnalité : « Tout est synchronisé » en texte fixe est précisément ce qu'on regardera sans réfléchir pendant le pilote. Ils reviendront branchés avec la file hors ligne.
+5. **Rendre le commentaire obligatoire sur le motif `annulation`** (§4), si c'est l'affaire de quelques minutes. Sinon, avec le chantier de clôture.
+6. **Générateur d'emplacements** — zone, plage de baies, niveaux, création en lot. Sert la saisie du référentiel avant le démarrage, et **remplace l'import CSV d'emplacements** (§7) : une substitution, pas une addition.
+7. **Liste des saisies pendant la marche** (§6.5), **remontée depuis la liste du 18 octobre**. Raison : usage réel imminent — la répétition à blanc et les premiers comptages ont lieu cette semaine, et la double saisie qu'elle supprime pollue directement l'écart. Le reste du chantier de clôture ne bouge pas. Le gain d'une passe d'`advisor()` partagée ne valait pas un mois de comptages sans visibilité sur ce qui a déjà été saisi.
+8. **Cache de lecture** (§3) — à faire après les deux précédents, il sert le pilote et non le démarrage.
+9. **Recherche par libellé** (§6.2). Ce n'est pas une addition au périmètre : la spec l'exigeait déjà, le code ne cherchait que sur le code. Mise en conformité, et elle sert dès le premier jour — les factures sans référence se lisent vendredi.
 
 ### Jusqu'au 18 octobre — point de situation
 
@@ -712,6 +737,8 @@ L'app s'appelle **どこどこ**. Dépôt public `dokodoko` — le nom du dépô
 - **Ordre des lignes de comptage dépendant de l'horloge du téléphone** (§3). Coût : sur un appareil à la mauvaise date, une correction peut être datée avant l'original et le *latest-wins* retenir la mauvaise valeur. Atténué par l'avertissement de dérive au démarrage. Se referme avec le compteur monotone par appareil, à la migration du chantier de clôture.
 - **Création de casier hors file** (§3). Coût : un inventaire neuf est impossible hors réseau, puisque tous ses casiers sont neufs. Acceptable uniquement si la couverture en allée est vérifiée bonne. Correctif sans DDL disponible si elle ne l'est pas : identifiant de casier déterministe.
 - **« Supprimer » est un vrai `DELETE` dans un journal en dernière-valeur-gagne.** C'est un générateur de bugs : toute suppression doit raisonner sur l'ensemble des lignes d'un couple casier × référence × conditionnement, pas sur la dernière. Coût : chaque nouvel appelant peut réintroduire le défaut. La réponse structurelle est une **ligne d'absence** — un marqueur, comme l'annulation dans `mouvements` — plutôt qu'une suppression de lignes ; elle rendrait aussi sans objet la question de la policy `DELETE` (§3). Candidate pour la migration du chantier de clôture, qui restructure déjà cette table. Pas avant.
+- **Le rafraîchissement du cache n'est pas attendu par les écrans.** Un écran ouvert juste avant la fin du rafraîchissement rend sur des données périmées quelques instants. Coût : faible, mais trompeur — un ordre de tournée périmé sera imputé à la logique de tri, qui sera innocente. À traiter après le 18, en distinguant bien ce cas du tri lui-même.
+- **`ordre` sur `emplacements` est surchargé** : nommé comme un parcours, utilisé comme une séquence de création (§8). À renommer. Coût tant que ce n'est pas fait : quiconque lit le schéma croira qu'un parcours personnalisé existe.
 - **`comptages.statut` surchargé.** Il signifie « ce casier a été touché » et passe à `clos` dès la première saisie, alors que son nom laisse lire « inventaire clôturé ». Coût immédiat : nul, le code est cohérent avec lui-même. Coût réel : il bloque la policy `DELETE` conditionnée, et il fera lire `clos` pour une clôture à quiconque arrive sur le code sans contexte. Se referme au début du chantier de clôture (§6.5), pas avant — un refactor de `markCasierVisite` et de la boucle de fusion de `getInventaireSynthese`, sur le module que `CLAUDE.md` signale pour ses bugs subtils, n'apporte rien au démarrage du pilote.
 
 Toute dette ajoutée ici doit dire ce qu'elle coûte, pas seulement ce qui manque.
