@@ -5,6 +5,12 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.18 — 2026-09-17
+
+- Réglages : import de clients et de références par fichier CSV — aperçu avant écriture (lignes valides et rejetées, avec le motif), séparateur et encodage (UTF-8 ou Shift-JIS) détectés automatiquement, codes toujours lus comme du texte
+- Une référence importée deux fois avec deux conditionnements différents (deux cartons distincts) crée bien les deux, sans marquer le premier à écouler par erreur
+- Une référence listée deux fois avec le même conditionnement dans le fichier est signalée dans les lignes rejetées, plutôt que de créer deux fois le même carton
+
 ## 0.9.17 — 2026-09-16
 
 - Mesure (pas encore un choix définitif) : le champ référence de la marche s’ouvre sur un clavier orienté chiffres — à confirmer sur iPhone que les lettres restent atteignables pour REU et un nom d’article

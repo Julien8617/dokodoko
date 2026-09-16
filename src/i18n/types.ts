@@ -91,6 +91,17 @@ export interface Dictionary {
     generate: string
     // {created} et {skipped} remplacés via interpolate()
     generated: string
+    // Import CSV (§7, spec 2.32)
+    importClients: string
+    importReferences: string
+    importPreviewValid: string // {count}
+    importPreviewRejected: string // {count}
+    importRejectedLine: string // {line}, {reason}
+    importConfirm: string
+    importing: string
+    importDoneClients: string // {count}
+    importDoneReferences: string // {ok}
+    importReferencesFailed: string // {count}
   }
   movement: {
     title: string

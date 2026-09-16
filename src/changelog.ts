@@ -10,6 +10,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.18',
+    date: '2026-09-17',
+    items: [
+      'Réglages : import de clients et de références par fichier CSV — aperçu avant écriture (lignes valides et rejetées, avec le motif), séparateur et encodage (UTF-8 ou Shift-JIS) détectés automatiquement, codes toujours lus comme du texte',
+      'Une référence importée deux fois avec deux conditionnements différents (deux cartons distincts) crée bien les deux, sans marquer le premier à écouler par erreur',
+      'Une référence listée deux fois avec le même conditionnement dans le fichier est signalée dans les lignes rejetées, plutôt que de créer deux fois le même carton',
+    ],
+  },
+  {
     version: '0.9.17',
     date: '2026-09-16',
     items: [

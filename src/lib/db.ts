@@ -319,36 +319,87 @@ export async function ensureEmplacement(code: string): Promise<void> {
   if (error) throw error
 }
 
-// Référence connue : le libellé est mis à jour. Un pieces_par_carton qui
-// diffère d'un conditionnement existant crée une nouvelle ligne et marque
-// l'ancienne à écouler — jamais de modification du taux existant (§4, §7).
-export async function upsertReferenceWithConditionnement(
+export interface ConditionnementSpec {
+  piecesParCarton: number
+  libelleCourt?: string | null
+}
+
+// Référence connue : le libellé est mis à jour, SAUF si la valeur reçue est
+// vide — un libellé déjà en base ne doit jamais être effacé par une ligne
+// d'import où la colonne est restée vide (le libellé est facultatif en
+// base, §7 : une cellule vide est un "je ne sais pas", pas un "supprime").
+//
+// Le jeu de conditionnements visé est fourni EN UNE FOIS, jamais un appel
+// par conditionnement : un pieces_par_carton absent de ce jeu mais déjà en
+// base est marqué à écouler ; un pieces_par_carton du jeu déjà présent ne
+// change rien ; les autres sont créés. Fournir tout le jeu d'un coup est ce
+// qui distingue "une référence qui gagne un second conditionnement" d'un
+// import en deux lignes qui écoulerait le premier avant même de poser le
+// second — le bug exact que redoutait la spec 2.32 pour ce cas ("le
+// contresens le plus probable"), trouvé ici avant livraison : l'ancien
+// appelant (le formulaire Réglages) ne soumettait jamais deux
+// conditionnements d'affilée pour la même référence, donc ne l'aurait
+// jamais révélé.
+export async function upsertReferenceWithConditionnements(
   code: string,
   libelle: string,
-  piecesParCarton: number,
   clientCode: string,
+  conditionnements: ConditionnementSpec[],
 ): Promise<void> {
+  const { data: existingRef, error: readError } = await supabase
+    .from('references')
+    .select('libelle')
+    .eq('code', code)
+    .maybeSingle()
+  if (readError) throw readError
+
+  const nextLibelle = libelle.trim() || existingRef?.libelle || null
   const { error: refError } = await supabase
     .from('references')
-    .upsert({ code, libelle, client_code: clientCode }, { onConflict: 'code' })
+    .upsert({ code, libelle: nextLibelle, client_code: clientCode }, { onConflict: 'code' })
   if (refError) throw refError
 
-  const existing = await listConditionnements(code)
-  const same = existing.find((c) => c.pieces_par_carton === piecesParCarton)
-  if (same) return
+  const { data: existingConds, error: listError } = await supabase
+    .from('conditionnements')
+    .select('id, pieces_par_carton')
+    .eq('ref_code', code)
+  if (listError) throw listError
 
-  if (existing.length > 0) {
+  const targetRates = new Set(conditionnements.map((c) => c.piecesParCarton))
+  const toEcouler = (existingConds ?? []).filter((c) => !targetRates.has(c.pieces_par_carton))
+  if (toEcouler.length > 0) {
     const { error: flagError } = await supabase
       .from('conditionnements')
       .update({ a_ecouler: true })
-      .eq('ref_code', code)
+      .in(
+        'id',
+        toEcouler.map((c) => c.id),
+      )
     if (flagError) throw flagError
   }
 
-  const { error: insertError } = await supabase
-    .from('conditionnements')
-    .insert({ ref_code: code, pieces_par_carton: piecesParCarton, a_ecouler: false })
-  if (insertError) throw insertError
+  // Dédoublonné sur pieces_par_carton : `conditionnements` n'a pas de
+  // contrainte d'unicité ni de policy DELETE, donc un jeu fourni avec deux
+  // fois le même taux (doublon de saisie chez l'appelant) créerait deux
+  // lignes indiscernables, impossibles à retirer ensuite depuis l'app.
+  const existingRates = new Set((existingConds ?? []).map((c) => c.pieces_par_carton))
+  const seenNewRates = new Set<number>()
+  const toCreate = conditionnements.filter((c) => {
+    if (existingRates.has(c.piecesParCarton) || seenNewRates.has(c.piecesParCarton)) return false
+    seenNewRates.add(c.piecesParCarton)
+    return true
+  })
+  if (toCreate.length > 0) {
+    const { error: insertError } = await supabase.from('conditionnements').insert(
+      toCreate.map((c) => ({
+        ref_code: code,
+        pieces_par_carton: c.piecesParCarton,
+        libelle_court: c.libelleCourt ?? null,
+        a_ecouler: false,
+      })),
+    )
+    if (insertError) throw insertError
+  }
 }
 
 // Stock courant d'un casier — écran Recherche : "qu'y a-t-il dans A-05-1 ?".

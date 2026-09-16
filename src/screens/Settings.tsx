@@ -6,8 +6,18 @@ import {
   insertClient,
   insertEmplacement,
   listClients,
-  upsertReferenceWithConditionnement,
+  upsertReferenceWithConditionnements,
 } from '../lib/db'
+import { decodeImportFile } from '../lib/csvImport'
+import {
+  commitClientsImport,
+  commitReferencesImport,
+  previewClientsImport,
+  previewReferencesImport,
+  type ClientImportRow,
+  type ReferenceImportRow,
+} from '../lib/importReferentiel'
+import type { ImportPreview } from '../lib/csvImport'
 import { refreshReferentielCache } from '../lib/referentielCache'
 import type { Client } from '../lib/types'
 import VersionFooter from '../components/VersionFooter'
@@ -29,8 +39,154 @@ export default function Settings({ onBack }: { onBack: () => void }) {
       <EmplacementGeneratorForm />
       <EmplacementForm />
       <ClientForm />
+      <ClientsImportForm />
+      <ReferencesImportForm />
       <VersionFooter />
     </main>
+  )
+}
+
+type ImportState<T> =
+  | { kind: 'idle' }
+  | { kind: 'error'; message: string }
+  | { kind: 'previewed'; preview: ImportPreview<T> }
+  | { kind: 'importing'; preview: ImportPreview<T> }
+  | { kind: 'done'; message: string }
+
+// Aperçu générique (§7 : "prévisualisation avant écriture, lignes rejetées
+// avec numéro de ligne et motif") — partagé par Clients et Références, la
+// logique métier (colonnes, règles de rejet, écriture) reste dans
+// importReferentiel.ts, propre à chaque feuille.
+function ImportPreviewPanel({ preview }: { preview: ImportPreview<unknown> }) {
+  const { t } = useI18n()
+  return (
+    <div className="form-status">
+      <p>{interpolate(t.settings.importPreviewValid, { count: preview.valid.length })}</p>
+      {preview.rejected.length > 0 && (
+        <>
+          <p className="form-error">{interpolate(t.settings.importPreviewRejected, { count: preview.rejected.length })}</p>
+          <ul>
+            {preview.rejected.map((r) => (
+              <li key={r.line} className="form-error">
+                {interpolate(t.settings.importRejectedLine, { line: r.line, reason: r.reason })}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
+  )
+}
+
+function ClientsImportForm() {
+  const { t } = useI18n()
+  const [state, setState] = useState<ImportState<ClientImportRow>>({ kind: 'idle' })
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = '' // même fichier resélectionnable après une correction
+    if (!file) return
+    try {
+      const text = await decodeImportFile(file)
+      setState({ kind: 'previewed', preview: previewClientsImport(text) })
+    } catch (err) {
+      setState({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
+    }
+  }
+
+  async function handleImport() {
+    if (state.kind !== 'previewed') return
+    setState({ kind: 'importing', preview: state.preview })
+    try {
+      await commitClientsImport(state.preview.valid.map((r) => r.data))
+      void refreshReferentielCache()
+      setState({
+        kind: 'done',
+        message: interpolate(t.settings.importDoneClients, { count: state.preview.valid.length }),
+      })
+    } catch (err) {
+      setState({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
+    }
+  }
+
+  return (
+    <form className="settings-form" onSubmit={(e) => e.preventDefault()}>
+      <h2>{t.settings.importClients}</h2>
+      <input type="file" accept=".csv,text/csv" onChange={handleFile} disabled={state.kind === 'importing'} />
+      {(state.kind === 'previewed' || state.kind === 'importing') && (
+        <>
+          <ImportPreviewPanel preview={state.preview} />
+          <button
+            type="button"
+            onClick={handleImport}
+            disabled={state.kind === 'importing' || state.preview.valid.length === 0}
+          >
+            {state.kind === 'importing' ? t.settings.importing : t.settings.importConfirm}
+          </button>
+        </>
+      )}
+      {state.kind === 'done' && <p className="form-status">{state.message}</p>}
+      {state.kind === 'error' && <p className="form-status form-error">{state.message}</p>}
+    </form>
+  )
+}
+
+function ReferencesImportForm() {
+  const { t } = useI18n()
+  const [state, setState] = useState<ImportState<ReferenceImportRow>>({ kind: 'idle' })
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    try {
+      const text = await decodeImportFile(file)
+      setState({ kind: 'previewed', preview: previewReferencesImport(text) })
+    } catch (err) {
+      setState({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
+    }
+  }
+
+  async function handleImport() {
+    if (state.kind !== 'previewed') return
+    setState({ kind: 'importing', preview: state.preview })
+    try {
+      const result = await commitReferencesImport(state.preview.valid.map((r) => r.data))
+      void refreshReferentielCache()
+      const parts = [interpolate(t.settings.importDoneReferences, { ok: result.ok.length })]
+      if (result.failed.length > 0) {
+        parts.push(interpolate(t.settings.importReferencesFailed, { count: result.failed.length }))
+        parts.push(...result.failed.map((f) => `${f.reference} : ${f.error}`))
+      }
+      setState({ kind: 'done', message: parts.join('\n') })
+    } catch (err) {
+      setState({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
+    }
+  }
+
+  return (
+    <form className="settings-form" onSubmit={(e) => e.preventDefault()}>
+      <h2>{t.settings.importReferences}</h2>
+      <input type="file" accept=".csv,text/csv" onChange={handleFile} disabled={state.kind === 'importing'} />
+      {(state.kind === 'previewed' || state.kind === 'importing') && (
+        <>
+          <ImportPreviewPanel preview={state.preview} />
+          <button
+            type="button"
+            onClick={handleImport}
+            disabled={state.kind === 'importing' || state.preview.valid.length === 0}
+          >
+            {state.kind === 'importing' ? t.settings.importing : t.settings.importConfirm}
+          </button>
+        </>
+      )}
+      {state.kind === 'done' && (
+        <p className="form-status" style={{ whiteSpace: 'pre-line' }}>
+          {state.message}
+        </p>
+      )}
+      {state.kind === 'error' && <p className="form-status form-error">{state.message}</p>}
+    </form>
   )
 }
 
@@ -59,7 +215,9 @@ function ReferenceForm() {
     if (!clientCode) return
     setStatus({ kind: 'saving' })
     try {
-      await upsertReferenceWithConditionnement(code.trim(), libelle.trim(), Number(pieces), clientCode)
+      await upsertReferenceWithConditionnements(code.trim(), libelle.trim(), clientCode, [
+        { piecesParCarton: Number(pieces) },
+      ])
       void refreshReferentielCache() // ne bloque jamais la confirmation d'une écriture réussie
       setStatus({ kind: 'saved' })
       setCode('')
