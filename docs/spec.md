@@ -1,6 +1,6 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.33 — 16 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.35 — 17 septembre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -38,7 +38,19 @@ L'indicateur du pilote est unique : l'écart entre l'app et le comptage physique
 - Front : React + TypeScript + Vite, PWA installée sur l'écran d'accueil de l'iPhone.
 - Lectures : cache local (IndexedDB) rafraîchi à l'ouverture et après chaque écriture, pour que la consultation reste instantanée dans les allées.
 - Écritures : envoyées à Supabase ; en cas d'échec réseau, mises en file dans IndexedDB et rejouées automatiquement. L'`id` UUID généré côté client rend le rejeu idempotent — c'est ce qui permet de rejouer sans jamais compter deux fois.
+**Tout échec s'affiche en clair.** L'audit du 15 septembre a vérifié que les erreurs remontent ; il n'a pas vérifié qu'elles sont **lisibles**. Un `(objet Objet)` est visible et inutilisable : il ne dit ni la cause ni la marche à suivre, et il masque le vrai message. Toute erreur affichée passe par l'extraction de son message, avec un repli explicite quand il n'y en a pas — jamais l'objet lui-même. Un écran qui refuse d'avancer sans rien dire, comme le lancement d'inventaire hors réseau, relève du même défaut.
+
 - L'état de la file hors ligne est **visible en permanence** : un bandeau « 3 mouvements en attente » tant que la file n'est pas vide. Un mouvement non remonté qu'on croit enregistré est le pire défaut possible pour ce genre d'outil.
+
+### Résultat du test de couverture — 17 septembre
+
+**La 4G passe dans tout le bâtiment.** Aucune zone morte sur les allées A, B et C. Trois conséquences.
+
+La **file d'écriture** descend loin dans le calendrier : elle protège contre un risque qui ne se manifeste pas. Elle n'est pas abandonnée — la mesure vaut pour un jour, un état des rideaux, une charge du réseau donnés — mais elle passe après le chantier de clôture.
+
+Ce qui la remplace dans l'immédiat : un **message d'erreur lisible et une ressaisie possible**. Sur une coupure passagère, retaper un mouvement à ce volume est acceptable ; sur un message illisible, non.
+
+La **création de casier reste hors file** sans discussion, et la piste de l'identifiant déterministe pour `comptages.id` devient sans objet.
 
 ### Cache de lecture — prérequis de tout le reste
 
@@ -302,26 +314,9 @@ Repris de la v1, avec les quantités ajoutées.
 - **`libelleCourt` désigne le conditionnement, jamais le produit.** Il a déjà été affiché à la place du nom de l'article sur deux écrans — c'est le champ qui invite à l'erreur. À renommer pour qu'il ne puisse plus se lire comme un nom de produit, et à afficher toujours en suffixe : « REU265 — Matelas XL bleu · carton de 12 ». Sans ce renommage, il y aura une troisième occurrence.
 - **Jamais de troncature silencieuse.** Un plafond de résultats est légitime dans une liste déroulante ; sur l'écran Recherche il ferait conclure qu'un article n'existe pas. Soit aucun plafond sur cet écran, soit le nombre total affiché — « 8 affichés sur 34 ».
 - `libelle` est facultatif en base. Une référence sans nom s'affiche par son seul code et ne sera jamais trouvée par nom : acceptable, et c'est une raison de renseigner les noms dès la création.
-**Clavier d'ouverture des champs de référence.** La saisie quotidienne est majoritairement chiffrée, et la recherche par sous-chaîne de chiffres suffit à retrouver un code (« 65 » donne `REU065`).
+**Clavier d'ouverture des champs de référence — chantier abandonné.** L'usage réel a tranché en deux jours : les lettres servent très régulièrement, y compris dans la saisie d'inventaire. Le clavier texte reste partout, l'`inputMode="decimal"` posé en mesure est retiré, et il n'y a plus de bouton de bascule à concevoir.
 
-Deux corrections successives, consignées parce qu'elles délimitent le problème :
-
-1. J'ai affirmé qu'iOS n'expose aucun moyen d'ouvrir le clavier alphanumérique sur sa page des chiffres. **Faux** : les champs cartons et pièces de Mouvement le font.
-2. L'attribut en cause est `type="number"`, et il n'est **pas transposable** : un champ de ce type refuse toute frappe non numérique dans sa valeur, sur tous les navigateurs. Le champ de référence doit rester `type="text"`.
-
-Le clavier voulu et l'acceptation des lettres sont donc, sauf découverte contraire, **livrés ensemble par le même attribut** : on ne peut pas prendre l'un sans l'autre.
-
-**Résultat de la mesure du 16 septembre** : `inputMode="decimal"`, prouvé présent sur l'`<input>` du DOM dans le bundle servi, **n'a aucun effet perceptible** sur l'iPhone de l'utilisateur en PWA installée. Le clavier s'ouvre sur les lettres, touche « 123 » à gauche — c'est-à-dire le comportement par défaut d'un champ texte.
-
-Conséquence qui invalide le repli prévu : si `inputMode` est inerte dans ce contexte, un bouton de bascule qui change l'`inputMode` sera inerte aussi. Le seul attribut dont on ait la preuve qu'il ouvre un clavier chiffré ici est `type="number"`, qui refuse les lettres.
-
-Le repli se redéfinit donc, **après le 18** :
-
-- Première étape, une mesure et rien d'autre : `inputMode="numeric"` produit-il quelque chose là où `decimal` n'a rien produit ? Aucune conception avant cette réponse.
-- S'il est inerte aussi, la bascule doit agir sur le `type` de l'`<input>` — `number` pour les chiffres, `text` pour les lettres — et non sur l'`inputMode`. Autre mécanisme, autres risques : perte de la valeur au changement de type, et validation différente. À prototyper sur l'appareil.
-- Le champ casier garde le clavier texte dans tous les cas.
-
-Et un constat à garder en tête au-delà de ce sujet : **`inputMode` ne peut pas être considéré comme fiable dans cette PWA**. Toute conception qui en dépend se mesure avant d'être promise.
+Trace utile de l'épisode : `inputMode` s'est révélé **inerte dans cette PWA** sur l'iPhone de l'utilisateur, malgré sa présence prouvée sur l'`<input>`. Toute conception qui en dépendrait devrait être mesurée avant d'être promise.
 
 - **Un seul filtre partagé** entre la Recherche, le sélecteur de référence de Mouvement et celui de l'Inventaire. Même règle que pour la suppression : une implémentation, plusieurs appelants.
 - Les résultats sont des références ; taper l'une d'elles affiche **tous ses emplacements** avec la quantité à chacun, en cartons et pièces, plus le total en pièces.
@@ -492,7 +487,10 @@ Un seul classeur, produit par la même session que l'analyseur qui le lit — si
 - Prévisualisation avant écriture : lignes valides, lignes rejetées avec numéro de ligne et motif.
 - **La propriété exigée est le rejeu idempotent, pas le tout ou rien.** C'est une révision : « tout ou rien » visait à ne jamais laisser un état à moitié connu, mais sur un fichier de trois cents lignes, une coquille ne doit pas bloquer les deux cent quatre-vingt-dix-neuf autres, et ce qui protège réellement est de pouvoir rejouer le fichier sans effet de bord. L'atomicité par ligne est donc acceptée **à condition** que le rejeu soit exactement idempotent.
 - Pour les imports qui n'écrivent **aucun mouvement** — clients, références — l'upsert sur clé suffit.
-- Pour le **stock d'ouverture**, qui écrit des mouvements, l'idempotence doit être construite : l'`id` du mouvement est **dérivé de façon déterministe** de (lot d'import, référence, emplacement, conditionnement), et l'écriture passe par `upsert(ignoreDuplicates)`. Le même fichier rejoué n'écrit rien de plus, et un import interrompu à mi-course **reprend** au lieu de bloquer. Un lot identifié une fois, affiché à l'aperçu.
+- Pour le **stock d'ouverture**, qui écrit des mouvements, l'idempotence doit être construite : l'`id` du mouvement est **dérivé de façon déterministe** de (lot d'import, référence, emplacement, conditionnement), et l'écriture passe par `upsert(ignoreDuplicates)`. Le même fichier rejoué n'écrit rien de plus, et un import interrompu à mi-course **reprend** au lieu de bloquer. **Le lot est une étiquette saisie par l'utilisateur, pas un hachage du fichier.** Un hachage de contenu protège dans le seul cas où le fichier est rejoué octet pour octet, et échoue dans le cas probable : le jour du comptage, on corrige une cellule, on réexporte, et le hachage change — tout le stock d'ouverture s'écrit alors une seconde fois. Une étiquette du genre `ouverture-2026-09-18`, saisie une fois et rappelée à l'aperçu, reste stable à travers les réexports.
+
+**Corollaire à dire explicitement à l'écran : un réimport ne corrige rien.** Avec des mouvements immuables et un `upsert(ignoreDuplicates)`, une ligne déjà importée sous le même lot est ignorée — y compris si sa quantité a changé dans le fichier. Une correction passe par un mouvement ou une annulation, jamais par un réimport. Sans ce message, l'utilisateur croira sa correction appliquée alors qu'elle a été avalée : c'est le seul scénario où l'import mentirait.
+- **Friction proportionnée à l'ampleur du recouvrement.** Quelques triplets déjà pourvus, c'est un chevauchement normal : un avertissement et un appui suffisent. Au-delà d'un tiers des lignes, c'est la signature d'un second chargement complet — l'aperçu doit alors demander de **taper une confirmation** plutôt que d'accepter un appui. Même principe que la confirmation proportionnée au risque du §6.4 : l'ampleur distingue le chevauchement de l'accident.
 - Le garde-fou « déjà du stock sur ce triplet » reste, mais comme **avertissement à l'aperçu** et non comme refus global : il attrape le vrai danger, un second chargement depuis un autre fichier ou après de vrais mouvements — ce que l'identifiant déterministe ne voit pas. Un refus global, lui, rendrait impossible la reprise d'un import interrompu.
 
 La saisie manuelle unitaire couvre les mêmes champs, un élément à la fois, pour les ajouts au fil de l'eau.
@@ -698,26 +696,28 @@ Deux choses seulement, et ce ne sont pas des chantiers :
 1. **Vérifier qu'un échec d'écriture est visible.** Une erreur réseau avalée en silence, sur un mouvement que l'utilisateur croit enregistré, est le seul défaut capable de fausser l'indicateur du pilote sans laisser de trace.
 2. **Écrire la consigne de repli** dans le README : si l'enregistrement échoue, noter sur papier et ressaisir au retour.
 3. **Modèle Excel et import des références** (§7) — codes en texte, une ligne par couple référence × conditionnement, colonnes de dimensions collectées mais non importées tant que la table `cartons` n'existe pas.
-4. **Retirer les deux indicateurs factices de l'Accueil.** C'est une suppression, pas une fonctionnalité : « Tout est synchronisé » en texte fixe est précisément ce qu'on regardera sans réfléchir pendant le pilote. Ils reviendront branchés avec la file hors ligne.
-5. **Rendre le commentaire obligatoire sur le motif `annulation`** (§4), si c'est l'affaire de quelques minutes. Sinon, avec le chantier de clôture.
-6. **Générateur d'emplacements** — zone, plage de baies, niveaux, création en lot. Sert la saisie du référentiel avant le démarrage, et **remplace l'import CSV d'emplacements** (§7) : une substitution, pas une addition.
-7. **Liste des saisies pendant la marche** (§6.5), **remontée depuis la liste du 18 octobre**. Raison : usage réel imminent — la répétition à blanc et les premiers comptages ont lieu cette semaine, et la double saisie qu'elle supprime pollue directement l'écart. Le reste du chantier de clôture ne bouge pas. Le gain d'une passe d'`advisor()` partagée ne valait pas un mois de comptages sans visibilité sur ce qui a déjà été saisi.
-8. **Cache de lecture** (§3) — à faire après les deux précédents, il sert le pilote et non le démarrage.
-9. **Recherche par libellé** (§6.2). Ce n'est pas une addition au périmètre : la spec l'exigeait déjà, le code ne cherchait que sur le code. Mise en conformité, et elle sert dès le premier jour — les factures sans référence se lisent vendredi.
+4. **Messages d'erreur lisibles** (§3) — remplacer `(objet Objet)` par le message réel, sur tous les chemins d'écriture. Admis avant le 18 : c'est la différence entre un échec diagnosticable et un mystère le jour du démarrage.
+5. **Retirer l'`inputMode` de la saisie d'inventaire** — retour au clavier texte, une ligne.
+6. **Retirer les deux indicateurs factices de l'Accueil.** C'est une suppression, pas une fonctionnalité : « Tout est synchronisé » en texte fixe est précisément ce qu'on regardera sans réfléchir pendant le pilote. Ils reviendront branchés avec la file hors ligne.
+7. **Rendre le commentaire obligatoire sur le motif `annulation`** (§4), si c'est l'affaire de quelques minutes. Sinon, avec le chantier de clôture.
+8. **Générateur d'emplacements** — zone, plage de baies, niveaux, création en lot. Sert la saisie du référentiel avant le démarrage, et **remplace l'import CSV d'emplacements** (§7) : une substitution, pas une addition.
+9. **Liste des saisies pendant la marche** (§6.5), **remontée depuis la liste du 18 octobre**. Raison : usage réel imminent — la répétition à blanc et les premiers comptages ont lieu cette semaine, et la double saisie qu'elle supprime pollue directement l'écart. Le reste du chantier de clôture ne bouge pas. Le gain d'une passe d'`advisor()` partagée ne valait pas un mois de comptages sans visibilité sur ce qui a déjà été saisi.
+10. **Cache de lecture** (§3) — à faire après les deux précédents, il sert le pilote et non le démarrage.
+11. **Recherche par libellé** (§6.2). Ce n'est pas une addition au périmètre : la spec l'exigeait déjà, le code ne cherchait que sur le code. Mise en conformité, et elle sert dès le premier jour — les factures sans référence se lisent vendredi.
 
 ### Jusqu'au 18 octobre — point de situation
 
 Ordre dicté par l'indicateur du pilote, l'écart entre l'app et le physique. Les dépendances techniques l'emportent sur l'ordre de valeur : la file ne peut pas venir avant la fin du blocage.
 
 1. **Fin du blocage sur stock négatif** : avertissement et confirmation à la place du refus, liste d'anomalies, confirmation proportionnée au risque, correction en un geste (§6.4). Touche la policy validée en conditions réelles, donc pas avant le 18 septembre. Contournement d'ici là : annuler d'abord le mouvement fautif — motif `annulation`, commentaire obligatoire — puis saisir la vraie sortie.
-2. **File d'écriture** et bandeau « n en attente depuis ». Prérequis : le point 1 (§3). C'est ce qui protège l'indicateur, un mouvement perdu le corrompt directement.
+2. **Corrections d'ergonomie relevées le 17 septembre** : largeur des champs cartons et pièces en portrait sur le détail par emplacement de l'écran des écarts ; distinction des boutons de la liste des saisies — libellé « Annuler », contour jaune pour modifier, contour rouge pour annuler, et **double appui pour annuler** puisque l'action est immédiate et irréversible, selon le motif déjà en place sur OK (§6.4).
 3. **Clôture d'inventaire**, dans cet ordre interne : découplage de `comptages.statut` (§6.5) d'abord, puis policy `DELETE` conditionnée (§3), puis couverture, justification des écarts, écriture des `ajustement_inventaire`. Y rattacher l'affichage « vide » face à « non enregistré » dans la Recherche (§6.2) : c'est la même notion de casier confirmé vide.
 4. **Mouvements postérieurs au gel** listés sur l'écran des écarts — à coupler au point 3, c'est la même conversation.
 5. **Résolution des écarts compensés** en transfert (§6.5) — également couplée au point 3.
 6. **Export `.xlsx`** : l'instrument de comparaison avec l'Excel tenu en parallèle, donc de mesure de l'indicateur.
 7. Synthèse imprimable.
-8. **Import des dimensions de cartons**, quand la table `cartons` existera. Jusque-là, les colonnes du modèle Excel sont remplies et conservées dans le fichier, qui fait office de stockage intermédiaire et reste réimportable.
-9. **Clavier d'ouverture du champ de référence** (§6.2) — mesure de `inputMode="numeric"` d'abord, puis bascule sur le `type` de l'`<input>` si nécessaire. Reporté ici parce que la mesure du 16 septembre a invalidé le mécanisme prévu.
+8. **File d'écriture** et bandeau « n en attente depuis ». Descendue ici après le test de couverture du 17 septembre : la 4G passe partout dans le bâtiment (§3). Prérequis conservé : la fin du blocage sur stock négatif.
+9. **Import des dimensions de cartons**, quand la table `cartons` existera. Jusque-là, les colonnes du modèle Excel sont remplies et conservées dans le fichier, qui fait office de stockage intermédiaire et reste réimportable.
 10. **Tests unitaires des deux fonctions pures à bugs subtils** : `matchReferences` et la résolution des codes d'emplacement abrégés. Trois appelants chacune, quatre bugs déjà trouvés entre elles, et ce sont les seules parties du code testables sans base ni écran. Un fichier de test qui **importe** la fonction, pas une copie exécutée à part : une copie prouve qu'un extrait fonctionne, pas que le code livré fonctionne, et elle cesse d'être fidèle au premier changement.
 
 ### Repoussé
