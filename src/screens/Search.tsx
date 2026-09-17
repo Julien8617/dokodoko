@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useI18n, interpolate } from '../i18n'
+import { extractErrorMessage } from '../lib/errors'
 import {
   listConditionnements,
   listEmplacements,
@@ -165,7 +166,7 @@ export default function Search({ onBack }: { onBack: () => void }) {
       try {
         await searchByReference(matches[0].code)
       } catch (err) {
-        setError(err instanceof Error ? err.message : String(err))
+        setError(extractErrorMessage(err, t.common.unknownError))
       } finally {
         setLoading(false)
       }
@@ -184,7 +185,7 @@ export default function Search({ onBack }: { onBack: () => void }) {
     try {
       await searchByEmplacement(empl)
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
+      setError(extractErrorMessage(err, t.common.unknownError))
     } finally {
       setLoading(false)
     }

@@ -30,6 +30,7 @@ const fr: Dictionary = {
     add: 'Ajouter',
     save: 'Enregistrer',
     loading: 'Chargement…',
+    unknownError: 'Erreur inconnue — réessayez, et notez ce que vous faisiez si ça persiste.',
   },
   auth: {
     emailLabel: 'Adresse e-mail',
@@ -89,12 +90,15 @@ const fr: Dictionary = {
     importDoneReferences: '{ok} référence(s) importée(s).',
     importReferencesFailed: '{count} référence(s) en échec :',
     importStockOuverture: 'Importer le stock d’ouverture (CSV)',
+    importBatchLabel: 'Lot d’import — reprenez le même texte pour réimporter le fichier corrigé sans compter deux fois',
     importBatchId: 'Lot d’import : {batchId}',
     importPreviewWarnings: '{count} ligne(s) déjà pourvue(s) de stock — vérifier avant de continuer',
     importDoneStockOuverture: '{count} mouvement(s) enregistré(s).',
     importOverlapWord: 'CONFIRMER',
     importOverlapWarning:
       '{count} lignes sur {total} portent déjà du stock — plus d’un tiers, signe probable d’un second chargement complet plutôt que d’un chevauchement normal. Tapez {word} pour continuer.',
+    importReplayNote:
+      'Un réimport sous le même lot ne corrige rien : une ligne déjà importée est ignorée même si sa quantité a changé dans le fichier. Pour corriger, passez par un mouvement ou une annulation.',
   },
   movement: {
     title: 'Mouvement',

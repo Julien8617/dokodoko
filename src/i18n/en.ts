@@ -30,6 +30,7 @@ const en: Dictionary = {
     add: 'Add',
     save: 'Save',
     loading: 'Loading…',
+    unknownError: 'Unknown error — try again, and note what you were doing if it keeps happening.',
   },
   auth: {
     emailLabel: 'Email address',
@@ -89,12 +90,15 @@ const en: Dictionary = {
     importDoneReferences: '{ok} reference(s) imported.',
     importReferencesFailed: '{count} reference(s) failed:',
     importStockOuverture: 'Import opening stock (CSV)',
+    importBatchLabel: 'Import batch — reuse the same text to re-import a corrected file without double-counting',
     importBatchId: 'Import batch: {batchId}',
     importPreviewWarnings: '{count} row(s) already carry stock — check before continuing',
     importDoneStockOuverture: '{count} movement(s) recorded.',
     importOverlapWord: 'CONFIRM',
     importOverlapWarning:
       '{count} of {total} rows already carry stock — more than a third, likely a full second load rather than normal overlap. Type {word} to continue.',
+    importReplayNote:
+      'Re-importing under the same batch fixes nothing: a row already imported is skipped even if its quantity changed in the file. To correct it, use a movement or a reversal instead.',
   },
   movement: {
     title: 'Movement',

@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useI18n, interpolate } from '../i18n'
 import { supabase } from '../lib/supabase'
+import { extractErrorMessage } from '../lib/errors'
 import {
   ensureEmplacement,
   listClients,
@@ -93,6 +94,10 @@ function Launch({ onBack, onReady }: { onBack: () => void; onReady: (inv: Invent
   const [query, setQuery] = useState('')
   const [selectedRefs, setSelectedRefs] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
+  // Sans elle, un lancement qui échoue (hors réseau, entre autres) retombe
+  // silencieusement à `busy: false` sans qu'aucun message n'ait jamais été
+  // affiché (§3, spec 2.35) — le bouton semble juste n'avoir rien fait.
+  const [launchError, setLaunchError] = useState<string | null>(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setAuteur(data.session?.user.email ?? null))
@@ -106,9 +111,12 @@ function Launch({ onBack, onReady }: { onBack: () => void; onReady: (inv: Invent
   async function start(scopeKind: ScopeKind, options: { clientCode?: string; refCodes?: string[] } = {}) {
     if (!auteur || busy) return
     setBusy(true)
+    setLaunchError(null)
     try {
       const inv = await createInventaire(scopeKind, auteur, options)
       onReady(inv)
+    } catch (err) {
+      setLaunchError(extractErrorMessage(err, t.common.unknownError))
     } finally {
       setBusy(false)
     }
@@ -166,6 +174,7 @@ function Launch({ onBack, onReady }: { onBack: () => void; onReady: (inv: Invent
         >
           {t.inventory.start}
         </button>
+        {launchError && <p className="form-status form-error">{launchError}</p>}
       </main>
     )
   }
@@ -223,6 +232,7 @@ function Launch({ onBack, onReady }: { onBack: () => void; onReady: (inv: Invent
         >
           {t.inventory.start}
         </button>
+        {launchError && <p className="form-status form-error">{launchError}</p>}
       </main>
     )
   }
@@ -244,6 +254,7 @@ function Launch({ onBack, onReady }: { onBack: () => void; onReady: (inv: Invent
           {t.inventory.scopeReferences}
         </button>
       </div>
+      {launchError && <p className="form-status form-error">{launchError}</p>}
     </main>
   )
 }
@@ -491,7 +502,7 @@ function Walk({
 
       await commitSave(key, cartonsValue, piecesValue)
     } catch (err) {
-      setStatus({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
+      setStatus({ kind: 'error', message: extractErrorMessage(err, t.common.unknownError) })
     }
   }
 
@@ -572,7 +583,7 @@ function Walk({
       }
       await commitSave(key, finalCartons, finalPieces)
     } catch (err) {
-      setStatus({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
+      setStatus({ kind: 'error', message: extractErrorMessage(err, t.common.unknownError) })
     }
   }
 
@@ -658,7 +669,6 @@ function Walk({
             suggestions={referenceSuggestions}
             placeholder={t.inventory.referencePlaceholder}
             disabled={status.kind === 'saving' || pendingDuplicate !== null}
-            inputMode="decimal"
           />
         </label>
         {/* Confirmation avant écriture (§6.2, spec 2.23) : ComboInput se
@@ -786,6 +796,10 @@ function Ecarts({
 }) {
   const { t } = useI18n()
   const [loading, setLoading] = useState(true)
+  // Sans catch, un échec (réseau, entre autres) laissait `loading` à `true`
+  // pour toujours — un chargement sans fin plutôt qu'un message (§3, spec
+  // 2.35).
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [references, setReferences] = useState<SyntheseReference[]>([])
   const [openRef, setOpenRef] = useState<string | null>(null)
   const [editingLigneId, setEditingLigneId] = useState<string | null>(null)
@@ -802,15 +816,21 @@ function Ecarts({
 
   useEffect(() => {
     let cancelled = false
-    getInventaireSynthese(inventaire).then((result) => {
-      if (cancelled) return
-      setReferences(result.references)
-      setLoading(false)
-    })
+    getInventaireSynthese(inventaire)
+      .then((result) => {
+        if (cancelled) return
+        setReferences(result.references)
+        setLoading(false)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setLoadError(extractErrorMessage(err, t.common.unknownError))
+        setLoading(false)
+      })
     return () => {
       cancelled = true
     }
-  }, [inventaire])
+  }, [inventaire, t])
 
   function startEdit(l: SyntheseLigneEmplacement) {
     setEditingLigneId(l.ligneId)
@@ -843,7 +863,7 @@ function Ecarts({
       setEditingLigneId(null)
       await refresh()
     } catch (err) {
-      setEditStatus({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
+      setEditStatus({ kind: 'error', message: extractErrorMessage(err, t.common.unknownError) })
     }
   }
 
@@ -858,7 +878,7 @@ function Ecarts({
       setEditingLigneId(null)
       await refresh()
     } catch (err) {
-      setEditStatus({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
+      setEditStatus({ kind: 'error', message: extractErrorMessage(err, t.common.unknownError) })
     }
   }
 
@@ -965,6 +985,8 @@ function Ecarts({
 
       {loading ? (
         <p className="form-status">{t.inventory.loading}</p>
+      ) : loadError ? (
+        <p className="form-status form-error">{loadError}</p>
       ) : (
         <>
           <h2>{t.inventory.syntheseTitle}</h2>

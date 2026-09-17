@@ -10,6 +10,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.21',
+    date: '2026-09-18',
+    items: [
+      'Correction : un échec d’enregistrement affichait parfois « [object Object] » au lieu du vrai message — Supabase ne renvoie pas une vraie erreur JavaScript, le message doit en être extrait explicitement, ce qui manquait à plusieurs endroits',
+      'Correction : lancer un inventaire hors réseau échouait sans aucun message ni indication ; l’écran des écarts pouvait rester bloqué sur « Chargement… » indéfiniment en cas d’échec réseau — les deux affichent maintenant l’erreur',
+      'Inventaire, saisie en marchant : retour au clavier texte normal sur le champ référence — l’usage réel a montré que les lettres servent trop souvent pour privilégier un clavier chiffré',
+      'Stock d’ouverture : le lot d’import est maintenant une étiquette que vous choisissez (ex. « ouverture-2026-09-18 ») plutôt qu’un identifiant technique du fichier — corriger une cellule et réexporter avant de réimporter ne compte donc plus le stock une seconde fois, tant que l’étiquette reste la même',
+      'Stock d’ouverture : rappel affiché que réimporter sous le même lot ne corrige pas une quantité déjà enregistrée — une correction passe par un mouvement ou une annulation',
+    ],
+  },
+  {
     version: '0.9.20',
     date: '2026-09-17',
     items: [

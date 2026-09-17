@@ -9,6 +9,7 @@ import {
   upsertReferenceWithConditionnements,
 } from '../lib/db'
 import { decodeImportFile } from '../lib/csvImport'
+import { extractErrorMessage } from '../lib/errors'
 import {
   commitClientsImport,
   commitReferencesImport,
@@ -95,7 +96,7 @@ function ClientsImportForm() {
       const text = await decodeImportFile(file)
       setState({ kind: 'previewed', preview: previewClientsImport(text) })
     } catch (err) {
-      setState({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
+      setState({ kind: 'error', message: extractErrorMessage(err, t.common.unknownError) })
     }
   }
 
@@ -110,7 +111,7 @@ function ClientsImportForm() {
         message: interpolate(t.settings.importDoneClients, { count: state.preview.valid.length }),
       })
     } catch (err) {
-      setState({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
+      setState({ kind: 'error', message: extractErrorMessage(err, t.common.unknownError) })
     }
   }
 
@@ -148,7 +149,7 @@ function ReferencesImportForm() {
       const text = await decodeImportFile(file)
       setState({ kind: 'previewed', preview: previewReferencesImport(text) })
     } catch (err) {
-      setState({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
+      setState({ kind: 'error', message: extractErrorMessage(err, t.common.unknownError) })
     }
   }
 
@@ -165,7 +166,7 @@ function ReferencesImportForm() {
       }
       setState({ kind: 'done', message: parts.join('\n') })
     } catch (err) {
-      setState({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
+      setState({ kind: 'error', message: extractErrorMessage(err, t.common.unknownError) })
     }
   }
 
@@ -214,11 +215,21 @@ type StockOuvertureState =
 // avec l'ampleur, pas rester plate.
 const OVERLAP_RATIO_REQUIRING_TYPED_CONFIRM = 1 / 3
 
+// Étiquette par défaut du jour (§7, spec 2.35) : un point de départ
+// raisonnable, mais éditable — un second comptage le même jour (une zone
+// recomptée séparément) a besoin d'un lot distinct.
+function defaultBatchLabel(): string {
+  const d = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `ouverture-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
 function StockOuvertureImportForm() {
   const { t } = useI18n()
   const [auteur, setAuteur] = useState<string | null>(null)
   const [state, setState] = useState<StockOuvertureState>({ kind: 'idle' })
   const [overlapConfirmText, setOverlapConfirmText] = useState('')
+  const [batchLabel, setBatchLabel] = useState(defaultBatchLabel)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setAuteur(data.session?.user.email ?? null))
@@ -227,13 +238,13 @@ function StockOuvertureImportForm() {
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     e.target.value = ''
-    if (!file) return
+    if (!file || !batchLabel.trim()) return
     setOverlapConfirmText('')
     try {
       const text = await decodeImportFile(file)
-      setState({ kind: 'previewed', preview: await previewStockOuvertureImport(text) })
+      setState({ kind: 'previewed', preview: await previewStockOuvertureImport(text, batchLabel.trim()) })
     } catch (err) {
-      setState({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
+      setState({ kind: 'error', message: extractErrorMessage(err, t.common.unknownError) })
     }
   }
 
@@ -249,7 +260,7 @@ function StockOuvertureImportForm() {
       void refreshReferentielCache()
       setState({ kind: 'done', message: interpolate(t.settings.importDoneStockOuverture, { count }) })
     } catch (err) {
-      setState({ kind: 'error', message: err instanceof Error ? err.message : String(err) })
+      setState({ kind: 'error', message: extractErrorMessage(err, t.common.unknownError) })
     }
   }
 
@@ -265,7 +276,21 @@ function StockOuvertureImportForm() {
   return (
     <form className="settings-form" onSubmit={(e) => e.preventDefault()}>
       <h2>{t.settings.importStockOuverture}</h2>
-      <input type="file" accept=".csv,text/csv" onChange={handleFile} disabled={state.kind === 'importing'} />
+      <label className="field-label">
+        {t.settings.importBatchLabel}
+        <input
+          value={batchLabel}
+          onChange={(e) => setBatchLabel(e.target.value)}
+          disabled={state.kind === 'importing'}
+        />
+      </label>
+      <p className="form-status">{t.settings.importReplayNote}</p>
+      <input
+        type="file"
+        accept=".csv,text/csv"
+        onChange={handleFile}
+        disabled={state.kind === 'importing' || !batchLabel.trim()}
+      />
       {(state.kind === 'previewed' || state.kind === 'importing') && (
         <>
           <p className="form-status">{interpolate(t.settings.importBatchId, { batchId: state.preview.batchId })}</p>
@@ -354,7 +379,7 @@ function ReferenceForm() {
       setLibelle('')
       setPieces('')
     } catch (err) {
-      setStatus({ kind: 'error', message: err instanceof Error ? err.message : t.settings.saveError })
+      setStatus({ kind: 'error', message: extractErrorMessage(err, t.settings.saveError) })
     }
   }
 
@@ -415,7 +440,7 @@ function ClientForm() {
       setCode('')
       setNom('')
     } catch (err) {
-      setStatus({ kind: 'error', message: err instanceof Error ? err.message : t.settings.saveError })
+      setStatus({ kind: 'error', message: extractErrorMessage(err, t.settings.saveError) })
     }
   }
 
@@ -479,7 +504,7 @@ function EmplacementGeneratorForm() {
       void refreshReferentielCache() // ne bloque jamais la confirmation d'une écriture réussie
       setStatus({ kind: 'done', ...result })
     } catch (err) {
-      setStatus({ kind: 'error', message: err instanceof Error ? err.message : t.settings.saveError })
+      setStatus({ kind: 'error', message: extractErrorMessage(err, t.settings.saveError) })
     }
   }
 
@@ -542,7 +567,7 @@ function EmplacementForm() {
       setCode('')
       setOrdre('')
     } catch (err) {
-      setStatus({ kind: 'error', message: err instanceof Error ? err.message : t.settings.saveError })
+      setStatus({ kind: 'error', message: extractErrorMessage(err, t.settings.saveError) })
     }
   }
 

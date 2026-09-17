@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent, type TouchEvent } from 'react'
 import { useI18n, interpolate, type MotifKey } from '../i18n'
 import { supabase } from '../lib/supabase'
+import { extractErrorMessage } from '../lib/errors'
 import {
   getStock,
   insertMouvements,
@@ -215,7 +216,7 @@ export default function Movement({ onBack }: { onBack: () => void }) {
       setMotif('')
       setDestinationCode(null)
     } catch (e) {
-      setStatus({ kind: 'error', message: e instanceof Error ? e.message : String(e) })
+      setStatus({ kind: 'error', message: extractErrorMessage(e, t.common.unknownError) })
     }
   }
 

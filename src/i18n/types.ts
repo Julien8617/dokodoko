@@ -53,6 +53,9 @@ export interface Dictionary {
     add: string
     save: string
     loading: string
+    // Repli EXPLICITE quand une erreur n'a pas de message exploitable
+    // (§3, spec 2.35) — jamais l'objet d'erreur lui-même.
+    unknownError: string
   }
   auth: {
     emailLabel: string
@@ -103,6 +106,7 @@ export interface Dictionary {
     importDoneReferences: string // {ok}
     importReferencesFailed: string // {count}
     importStockOuverture: string
+    importBatchLabel: string
     importBatchId: string // {batchId}
     importPreviewWarnings: string // {count}
     importDoneStockOuverture: string // {count}
@@ -112,6 +116,11 @@ export interface Dictionary {
     // complet plutôt qu'un chevauchement normal.
     importOverlapWord: string
     importOverlapWarning: string // {count}, {total}, {word}
+    // Corollaire explicite (§7, spec 2.35) : sous le même lot, une ligne
+    // déjà importée est ignorée même si sa quantité a changé — une
+    // correction passe par un mouvement ou une annulation, jamais par un
+    // réimport.
+    importReplayNote: string
   }
   movement: {
     title: string

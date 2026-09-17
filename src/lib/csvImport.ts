@@ -141,26 +141,18 @@ export function requireColumns(header: string[], required: string[]): void {
   if (missing.length > 0) throw new MissingColumnsError(missing)
 }
 
-// --- Identifiants déterministes (§7, spec 2.33) -------------------------
+// --- Identifiant déterministe de mouvement (§7, spec 2.33-2.35) --------
 //
 // Le stock d'ouverture écrit des mouvements : l'idempotence du rejeu ne
 // peut pas venir d'un simple upsert sur un code comme Clients/Références,
 // elle doit être CONSTRUITE dans l'id du mouvement lui-même.
-
-async function sha1Hex(text: string): Promise<string> {
-  const bytes = new TextEncoder().encode(text)
-  const digest = new Uint8Array(await crypto.subtle.digest('SHA-1', bytes))
-  return Array.from(digest, (b) => b.toString(16).padStart(2, '0')).join('')
-}
-
-// Identifie le lot UNE FOIS par fichier, affiché à l'aperçu pour que
-// Julien sache ce qu'il rejoue. Dérivé du CONTENU, pas d'un compteur ni
-// d'un tirage aléatoire : rejouer EXACTEMENT le même fichier doit
-// reproduire le même lot, donc les mêmes id de mouvement via
-// deriveMouvementId — c'est ce qui rend le rejeu sans effet de bord.
-export async function computeImportBatchId(text: string): Promise<string> {
-  return (await sha1Hex(text)).slice(0, 12)
-}
+//
+// Le lot lui-même n'est PLUS un hachage du contenu du fichier (revu en
+// spec 2.35) : un hachage protège seulement le rejeu OCTET POUR OCTET, et
+// échoue dans le cas le plus probable — corriger une cellule et
+// réexporter, exactement ce qu'un comptage sur le terrain produit. Le lot
+// est désormais une étiquette saisie par l'utilisateur (ex.
+// "ouverture-2026-09-18"), stable à travers les réexports.
 
 // UUID "façon v5" (bits de version/variante posés comme le voudrait la
 // RFC) mais dérivé d'un simple SHA-1 sur une clé texte plutôt que de la

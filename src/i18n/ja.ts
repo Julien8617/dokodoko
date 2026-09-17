@@ -30,6 +30,7 @@ const ja: Dictionary = {
     add: '追加',
     save: '保存',
     loading: '読み込み中…',
+    unknownError: '不明なエラーです — もう一度お試しください。繰り返す場合は状況を控えてください。',
   },
   auth: {
     emailLabel: 'メールアドレス',
@@ -89,12 +90,15 @@ const ja: Dictionary = {
     importDoneReferences: '{ok} 件の品番をインポートしました。',
     importReferencesFailed: '{count} 件の品番が失敗しました：',
     importStockOuverture: '期首在庫をインポート（CSV）',
+    importBatchLabel: 'インポート単位 — 修正したファイルを再インポートするときは同じ文字列を使ってください（二重計上を防ぎます）',
     importBatchId: 'インポート単位：{batchId}',
     importPreviewWarnings: '既に在庫がある行：{count} 件 — 続ける前に確認してください',
     importDoneStockOuverture: '{count} 件の入出庫を記録しました。',
     importOverlapWord: '確認',
     importOverlapWarning:
       '{total} 行中 {count} 行が既に在庫あり — 3分の1を超えており、通常の重複ではなく再読み込みの可能性があります。続けるには {word} と入力してください。',
+    importReplayNote:
+      '同じインポート単位での再インポートは修正になりません — ファイル内の数量を変えても、既にインポート済みの行は無視されます。修正する場合は入出庫または取消で行ってください。',
   },
   movement: {
     title: '入出庫',

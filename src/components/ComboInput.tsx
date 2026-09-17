@@ -20,12 +20,6 @@ interface ComboInputProps {
   // remplacer d'un coup, utile à une main sur un casier qui vient de
   // changer via les flèches de navigation.
   selectOnFocus?: boolean
-  // Mesure (spec 2.29, §6.2), pas un correctif : un inputMode n'empêche
-  // jamais la frappe d'une lettre (contrairement à type="number", qui l'a
-  // été à tort), donc aucune régression possible en le posant. Sert à
-  // constater sur l'appareil quel clavier iOS ouvre — décision déjà prise
-  // selon le résultat, voir la spec.
-  inputMode?: 'decimal'
 }
 
 // Zone de texte libre avec suggestions déroulantes. Contrairement à
@@ -44,7 +38,6 @@ export default function ComboInput({
   placeholder,
   disabled,
   selectOnFocus,
-  inputMode,
 }: ComboInputProps) {
   const [open, setOpen] = useState(false)
 
@@ -52,7 +45,6 @@ export default function ComboInput({
     <div className="search-select">
       <input
         type="text"
-        inputMode={inputMode}
         value={value}
         placeholder={placeholder}
         disabled={disabled}

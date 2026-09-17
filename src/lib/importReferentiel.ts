@@ -1,9 +1,9 @@
 import { supabase } from './supabase'
 import { insertMouvements, parseEmplacementCode, upsertReferenceWithConditionnements } from './db'
+import { extractErrorMessage } from './errors'
 import type { MouvementInsert } from './types'
 import {
   cellByName,
-  computeImportBatchId,
   deriveMouvementId,
   parseCsvTable,
   requireColumns,
@@ -179,7 +179,7 @@ export async function commitReferencesImport(rows: ReferenceImportRow[]): Promis
       )
       ok.push(reference)
     } catch (err) {
-      failed.push({ reference, error: err instanceof Error ? err.message : String(err) })
+      failed.push({ reference, error: extractErrorMessage(err, 'Erreur inconnue') })
     }
   }
   return { ok, failed }
@@ -215,10 +215,17 @@ const STOCK_OUVERTURE_REQUIRED = ['reference', 'emplacement']
 // Colonnes ambre non importées : compte_par, remarque (traçabilité papier
 // du comptage, sans colonne correspondante côté mouvements — ignorées, pas
 // rejetées, comme le reste des colonnes non listées ici).
-export async function previewStockOuvertureImport(text: string): Promise<StockOuverturePreview> {
+//
+// `batchId` est une étiquette saisie par l'utilisateur (§7, spec 2.35),
+// pas dérivée du fichier : un hachage de contenu ne protège que le rejeu
+// OCTET POUR OCTET et échoue dès qu'une cellule est corrigée puis
+// réexportée — exactement ce qu'un comptage sur le terrain produit.
+export async function previewStockOuvertureImport(
+  text: string,
+  batchId: string,
+): Promise<StockOuverturePreview> {
   const { header, rows } = parseCsvTable(text)
   requireColumns(header, STOCK_OUVERTURE_REQUIRED)
-  const batchId = await computeImportBatchId(text)
 
   const rawRows = rows.map(({ line, cells }) => ({
     line,
