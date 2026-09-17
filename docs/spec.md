@@ -1,6 +1,6 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.35 — 17 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.36 — 17 septembre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -38,6 +38,10 @@ L'indicateur du pilote est unique : l'écart entre l'app et le comptage physique
 - Front : React + TypeScript + Vite, PWA installée sur l'écran d'accueil de l'iPhone.
 - Lectures : cache local (IndexedDB) rafraîchi à l'ouverture et après chaque écriture, pour que la consultation reste instantanée dans les allées.
 - Écritures : envoyées à Supabase ; en cas d'échec réseau, mises en file dans IndexedDB et rejouées automatiquement. L'`id` UUID généré côté client rend le rejeu idempotent — c'est ce qui permet de rejouer sans jamais compter deux fois.
+**Ne jamais tester `err instanceof Error` sur un retour Supabase.** Le client renvoie `{data, error}` avec un objet brut, pas une instance d'`Error` : le test est donc faux pour la quasi-totalité des échecs, et le repli affiche l'objet. Une **fonction unique d'extraction du message**, appelée partout, avec un repli explicite quand il n'y a pas de message. Cause réelle du `(objet Objet)`, trouvée le 17 septembre à dix-huit endroits dans cinq fichiers.
+
+**Un chemin d'erreur ne se vérifie pas en lisant le code, il se vérifie en provoquant la panne.** L'audit du 15 septembre a lu les chemins qu'il connaissait et conclu que tout remontait ; le terrain a trouvé un message illisible partout, un `catch` absent sur le lancement d'inventaire, et un chargement sans fin sur l'écran des écarts. Trois défauts invisibles à la relecture. Tout audit de ce type se fait désormais en coupant le réseau et en cassant volontairement une entrée.
+
 **Tout échec s'affiche en clair.** L'audit du 15 septembre a vérifié que les erreurs remontent ; il n'a pas vérifié qu'elles sont **lisibles**. Un `(objet Objet)` est visible et inutilisable : il ne dit ni la cause ni la marche à suivre, et il masque le vrai message. Toute erreur affichée passe par l'extraction de son message, avec un repli explicite quand il n'y en a pas — jamais l'objet lui-même. Un écran qui refuse d'avancer sans rien dire, comme le lancement d'inventaire hors réseau, relève du même défaut.
 
 - L'état de la file hors ligne est **visible en permanence** : un bandeau « 3 mouvements en attente » tant que la file n'est pas vide. Un mouvement non remonté qu'on croit enregistré est le pire défaut possible pour ce genre d'outil.
