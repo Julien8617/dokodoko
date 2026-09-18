@@ -1,6 +1,6 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.52 — 19 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.53 — 19 septembre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -507,15 +507,26 @@ Vocabulaire à employer, pour que la feuille se lise comme un document d'entrep�
 | Case de contre-validation | 確認 |
 | Bas de page | 確認者 ／ 日付 |
 
-**Le titre se dérive du périmètre**, il ne se saisit pas : l'information existe déjà dans `inventaires.scope_kind` et ses dépendances.
+**Le titre nomme le type de document, le périmètre est un champ d'en-tête.** Correction du 19 septembre : j'avais confondu les deux, d'où un titre dérivé qui disait le périmètre sans dire ce qu'on tenait entre les mains. Les deux pages retrouvent une structure parallèle — un titre, puis 対象.
 
-| Périmètre | Titre |
+| Page | Titre |
 |---|---|
-| `tout` | 全体棚卸 |
-| `client` | 得意先棚卸 ― REUZEL |
-| `references` | 品目指定棚卸, suivi des codes : `REU003, REU004, REU008 他5件` au-delà de trois |
+| Synthèse | 棚卸差異報告 |
+| Contre-validation | 棚卸確認表 |
 
-**Deux dates, et elles ne disent pas la même chose.** 棚卸実施日 — la date de la première saisie, ou l'intervalle première/dernière si le comptage s'étale sur plusieurs jours : c'est la date du travail, celle qu'un lecteur cherche. 基準日時 — le `frozen_ts` du lancement : c'est la date contre laquelle le théorique est calculé, donc celle qui rend l'écart interprétable. Afficher l'une sans l'autre laisse un document ambigu dès la phase 2.
+Le périmètre se dérive de `inventaires.scope_kind` et alimente le champ 対象, sur les deux pages :
+
+| Périmètre | 対象 |
+|---|---|
+| `tout` | 全体 |
+| `client` | 得意先 REUZEL |
+| `references` | 品目指定（REU003, REU004, REU008 他5件） — trois codes puis le décompte |
+
+Ainsi disparaît aussi la redondance de « 対象：全体棚卸 », où le mot 棚卸 apparaissait deux fois.
+
+**Deux dates, et elles ne disent pas la même chose.** **棚卸実施日** — la date de la **première saisie**, une seule date, jamais un intervalle. **基準日時** — le `frozen_ts` du lancement, contre lequel le théorique est calculé : c'est elle qui rend l'écart interprétable. Afficher l'une sans l'autre laisse un document ambigu dès la phase 2.
+
+L'intervalle première/dernière était une addition de ma part, et c'est elle qui créait le défaut signalé le 19 septembre : une correction passée depuis l'écran des écarts quatre jours plus tard étirait la plage, et la feuille annonçait un comptage étalé sur quatre jours là où il y avait eu un après-midi plus une retouche. Une correction n'est pas du comptage. Le retour à une date unique supprime le défaut **sans aucune requête supplémentaire** — c'est le minimum des horodatages déjà en main, et les lignes non corrigées gardent celui du comptage.
 
 **Les glyphes japonais s'impriment correctement** — vérifié sur le PDF du 19 septembre. Les blancs observés venaient du lecteur qui l'a ouvert, pas du document. Point clos, à ne pas rouvrir.
 
