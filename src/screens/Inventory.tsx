@@ -47,18 +47,24 @@ type Phase = 'launch' | 'walk' | 'ecarts'
 // « corriger » une traduction ici, ces termes viennent de la spec telle
 // quelle.
 const PRINT_JA = {
+  // Le titre nomme le type de document, jamais le périmètre — confusion
+  // du 19 septembre, corrigée en spec 2.53 : les deux pages retrouvent une
+  // structure parallèle, titre puis 対象.
+  titreSynthese: '棚卸差異報告',
   statut: '進行中 ― 未確定',
   perimetre: '対象',
   dateImpression: '印刷日時',
-  // Titre dérivé du périmètre (spec 2.52) : jamais saisi, jamais un texte
-  // unique — l'information existe déjà dans `inventaires.scope_kind`.
-  titreTout: '全体棚卸',
-  titreClientPrefix: '得意先棚卸',
-  titreReferencesPrefix: '品目指定棚卸',
-  titreAuDela: '他{count}件', // {count} remplacé manuellement, pas interpolate() ici
-  // Deux dates qui ne disent pas la même chose (spec 2.52) : la date du
-  // travail (première saisie, ou intervalle si le comptage s'étale) et le
-  // frozen_ts qui rend l'écart interprétable.
+  // Valeur du champ 対象, dérivée de `inventaires.scope_kind` (spec 2.53) —
+  // jamais saisie. Raccourcie par rapport à 2.52 (「全体」 et non
+  // 「全体棚卸」) pour ne pas répéter 棚卸, déjà dans le titre.
+  perimetreTout: '全体',
+  perimetreClientPrefix: '得意先',
+  perimetreReferencesPrefix: '品目指定',
+  perimetreAuDela: '他{count}件', // {count} remplacé manuellement, pas interpolate() ici
+  // Deux dates qui ne disent pas la même chose (spec 2.52-2.53) : la date
+  // du comptage — une seule date, jamais un intervalle, le minimum des
+  // horodatages déjà en main — et le frozen_ts qui rend l'écart
+  // interprétable.
   dateComptage: '棚卸実施日',
   dateGel: '基準日時',
   totalLignes: '全{count}行', // {count} remplacé manuellement — repli sans dépendance si la pagination CSS ne s'affiche pas (spec 2.52)
@@ -114,26 +120,32 @@ function formatPrintDateOnly(iso: string | number | Date): string {
 // étalé qu'il ne l'a été. Obtenir le vrai premier `ts` par ligne
 // demanderait de lire le journal AVANT déduplication (nouvelle requête,
 // non demandée) — signalé tel quel plutôt que construit sans arbitrage.
+// Date unique (spec 2.53, revient sur l'intervalle de 2.52) : le minimum
+// des horodatages déjà en main, jamais un intervalle. L'intervalle
+// première/dernière était une addition non demandée, et c'est elle qui
+// étirait la plage dès qu'une correction passait depuis les Écarts
+// plusieurs jours après le comptage — une correction n'est pas du
+// comptage. Aucune requête supplémentaire : `saisies` (latest-wins) suffit
+// puisque les lignes non corrigées gardent l'horodatage du comptage.
 function workDateLabel(saisies: SaisieLine[], fallbackIso: string): string {
   if (saisies.length === 0) return formatPrintDateOnly(fallbackIso)
-  const timestamps = saisies.map((s) => s.ts).sort()
-  const first = formatPrintDateOnly(timestamps[0])
-  const last = formatPrintDateOnly(timestamps[timestamps.length - 1])
-  return first === last ? first : `${first}～${last}`
+  const earliest = saisies.reduce((min, s) => (s.ts < min ? s.ts : min), saisies[0].ts)
+  return formatPrintDateOnly(earliest)
 }
 
-// Titre dérivé du périmètre (spec 2.52) : jamais saisi, l'information
-// existe déjà dans `inventaires.scope_kind` et ses dépendances.
-function printTitle(inventaire: Inventaire, clients: Client[], referencesScope: string[] | undefined): string {
-  if (inventaire.scope_kind === 'tout') return PRINT_JA.titreTout
+// Valeur du champ 対象 (spec 2.53) : dérivée de `inventaires.scope_kind`,
+// jamais saisie. Le titre, lui, ne bouge pas — il nomme le document, pas
+// le périmètre (correction du 19 septembre : les deux avaient été confondus).
+function printScope(inventaire: Inventaire, clients: Client[], referencesScope: string[] | undefined): string {
+  if (inventaire.scope_kind === 'tout') return PRINT_JA.perimetreTout
   if (inventaire.scope_kind === 'client') {
     const nom = clients.find((c) => c.code === inventaire.scope_client_code)?.nom ?? inventaire.scope_client_code ?? ''
-    return `${PRINT_JA.titreClientPrefix} ― ${nom}`
+    return `${PRINT_JA.perimetreClientPrefix} ${nom}`
   }
   const codes = [...(referencesScope ?? [])].sort()
   const shown = codes.slice(0, 3).join(', ')
-  const rest = codes.length > 3 ? ` ${PRINT_JA.titreAuDela.replace('{count}', String(codes.length - 3))}` : ''
-  return `${PRINT_JA.titreReferencesPrefix} ${shown}${rest}`
+  const rest = codes.length > 3 ? ` ${PRINT_JA.perimetreAuDela.replace('{count}', String(codes.length - 3))}` : ''
+  return `${PRINT_JA.perimetreReferencesPrefix}（${shown}${rest}）`
 }
 
 // Module Inventaire v2 (brief 2026-09-14, révisé le même jour après retour
@@ -1240,7 +1252,7 @@ function Ecarts({
   // afficher la même heure d'impression pour rester traçables l'une à
   // l'autre, ce qu'un second `new Date()` au rendu ne garantirait pas.
   const printedAt = formatPrintDate(new Date())
-  const derivedTitle = printTitle(inventaire, clients, referencesScope)
+  const printScopeValue = printScope(inventaire, clients, referencesScope)
   const workDate = workDateLabel(saisies, inventaire.created_at)
   const frozenDate = formatPrintDate(inventaire.frozen_ts)
 
@@ -1321,8 +1333,11 @@ function Ecarts({
           imprimable (révision du 18 septembre) — d'où la mention non
           dissimulable, inconditionnelle tant que la clôture n'existe pas. */}
       <div className="print-summary">
-        <h1>{derivedTitle}</h1>
+        <h1>{PRINT_JA.titreSynthese}</h1>
         <p className="print-banner">{PRINT_JA.statut}</p>
+        <p>
+          {PRINT_JA.perimetre}：{printScopeValue}
+        </p>
         <p>
           {PRINT_JA.dateComptage}：{workDate}
         </p>
@@ -1366,7 +1381,7 @@ function Ecarts({
           </tbody>
         </table>
 
-        {/* Feuille de contre-validation (spec 2.49-2.52) : second document,
+        {/* Feuille de contre-validation (spec 2.49-2.53) : second document,
             un saut de page plus loin — le relevé complet du comptage, une
             ligne par saisie. Source : `saisies` (listInventaireSaisies),
             PAS `references`/`parEmplacement` — cette dernière est filtrée
@@ -1387,7 +1402,7 @@ function Ecarts({
         <div className="print-page-break">
           <h1>{PRINT_JA.titreConfirmation}</h1>
           <p>
-            {PRINT_JA.perimetre}：{derivedTitle}
+            {PRINT_JA.perimetre}：{printScopeValue}
           </p>
           <p>
             {PRINT_JA.dateComptage}：{workDate}

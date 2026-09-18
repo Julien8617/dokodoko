@@ -5,6 +5,11 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.26 — 2026-09-19
+
+- Document imprimé : le titre redevient fixe (棚卸差異報告 / 棚卸確認表) et nomme le document, le périmètre s’affiche à part dans son propre champ — corrige une confusion introduite la veille entre les deux
+- Document imprimé : la date du comptage (棚卸実施日) redevient une date unique, celle de la première saisie, plutôt qu’un intervalle qui pouvait s’élargir à tort après une correction tardive
+
 ## 0.9.25 — 2026-09-19
 
 - Document imprimé : le titre se déduit maintenant du périmètre de l’inventaire (entrepôt entier, un client, ou une liste de références) au lieu d’un intitulé unique — plus besoin de le deviner à la lecture

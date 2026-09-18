@@ -10,6 +10,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.26',
+    date: '2026-09-19',
+    items: [
+      'Document imprimé : le titre redevient fixe (棚卸差異報告 / 棚卸確認表) et nomme le document, le périmètre s’affiche à part dans son propre champ — corrige une confusion introduite la veille entre les deux',
+      'Document imprimé : la date du comptage (棚卸実施日) redevient une date unique, celle de la première saisie, plutôt qu’un intervalle qui pouvait s’élargir à tort après une correction tardive',
+    ],
+  },
+  {
     version: '0.9.25',
     date: '2026-09-19',
     items: [
