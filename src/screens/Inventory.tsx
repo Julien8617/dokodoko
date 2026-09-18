@@ -64,6 +64,11 @@ const PRINT_JA = {
   ecartTotal: '差異合計',
   confirmation: '確認',
   piedConfirmateur: '確認者 ／ 日付',
+  // Feuille de contre-validation (spec 2.50) : destinée à être détachée et
+  // emportée dans l'entrepôt — sans son propre titre et son propre bloc
+  // 対象/date, séparée de la page 1 elle redevient une liste anonyme de
+  // nombres, alors que c'est elle qui sera signée.
+  titreConfirmation: '棚卸確認表',
 }
 
 // Convention japonaise imposée pour le document imprimé (spec 2.49),
@@ -1176,6 +1181,12 @@ function Ecarts({
     )
   }
 
+  // Une seule capture (spec 2.50) : la feuille de contre-validation peut
+  // être détachée et emportée séparément de la page 1 — les deux doivent
+  // afficher la même heure d'impression pour rester traçables l'une à
+  // l'autre, ce qu'un second `new Date()` au rendu ne garantirait pas.
+  const printedAt = formatPrintDate(new Date())
+
   return (
     <main className="inventory">
       <div className="no-print">
@@ -1259,7 +1270,7 @@ function Ecarts({
           {PRINT_JA.perimetre}：{scopeLabel(inventaire, clients, ja)}
         </p>
         <p>
-          {PRINT_JA.dateImpression}：{formatPrintDate(new Date())}
+          {PRINT_JA.dateImpression}：{printedAt}
         </p>
         <div className="print-totals">
           <p>
@@ -1295,8 +1306,8 @@ function Ecarts({
           </tbody>
         </table>
 
-        {/* Feuille de contre-validation (spec 2.49) : second document, un
-            saut de page plus loin — le relevé complet du comptage, une
+        {/* Feuille de contre-validation (spec 2.49-2.50) : second document,
+            un saut de page plus loin — le relevé complet du comptage, une
             ligne par saisie. Source : `saisies` (listInventaireSaisies),
             PAS `references`/`parEmplacement` — cette dernière est filtrée
             par `getInventaireSynthese` sur `statut === 'clos'` (dette
@@ -1305,10 +1316,19 @@ function Ecarts({
             feuille censée être complète. `listInventaireSaisies` existe
             précisément sans ce filtre. Triée par emplacement dans l'ordre
             de tournée (§8), pas par référence — la personne qui contrôle
-            marche dans l'entrepôt. Pas de titre ici : aucun terme donné
-            pour ce document dans la spec, les en-têtes de colonnes
-            répétés suffisent à l'identifier. */}
+            marche dans l'entrepôt. Son propre titre et son propre bloc
+            対象/date (spec 2.50) : cette feuille est faite pour être
+            détachée et emportée dans l'entrepôt — sans eux, séparée de la
+            page 1, elle redevient une liste anonyme de nombres alors que
+            c'est elle qui sera signée. */}
         <div className="print-page-break">
+          <h1>{PRINT_JA.titreConfirmation}</h1>
+          <p>
+            {PRINT_JA.perimetre}：{scopeLabel(inventaire, clients, ja)}
+          </p>
+          <p>
+            {PRINT_JA.dateImpression}：{printedAt}
+          </p>
           <table>
             <thead>
               <tr>

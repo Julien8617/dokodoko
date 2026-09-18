@@ -622,14 +622,13 @@ body {
     background: #fff;
     color: #000;
   }
-  /* Code article et emplacement en colonne étroite de largeur fixe (spec
-     2.49, point 7) : même principe que l'écran des écarts, ce qu'on balaie
-     du regard doit être à position constante. En mm, pas en rem : au tirage
-     le rem se résout contre la taille d'impression du navigateur, pas
-     l'écran — à vérifier sur le PDF réel, cette largeur peut demander un
-     ajustement. */
+  /* Code article et emplacement à position constante (spec 2.49 point 7,
+     revu en 2.50) : `min-width`, jamais `width` — le jeu REUZEL plafonne à
+     six caractères aujourd'hui, une largeur fixe passerait mais casserait
+     en silence le jour où un code serait plus long. La colonne s'élargit
+     au besoin et pousse la désignation, qui absorbe sans dommage. */
   .print-col-code {
-    width: 16mm;
+    min-width: 16mm;
     white-space: nowrap;
   }
   .print-col-check {

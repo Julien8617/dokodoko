@@ -5,6 +5,11 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.24 — 2026-09-19
+
+- Document imprimé : la feuille de contre-validation porte maintenant son propre titre (棚卸確認表) et son propre bloc périmètre/date — pensée pour être détachée et emportée dans l’entrepôt, elle ne doit plus se lire comme une liste de nombres sans origine une fois séparée de la première page
+- Document imprimé : la colonne des codes (棚番/品番) s’élargit désormais si besoin au lieu d’une largeur fixe, pour ne pas tronquer un code plus long que ceux d’aujourd’hui
+
 ## 0.9.23 — 2026-09-19
 
 - Document imprimé de l’inventaire : toujours en japonais et au format 2026/09/18, quelle que soit la langue de l’interface — c’est un document pour les collègues, pas un écran pour l’opérateur. Vocabulaire d’entrepôt (棚番, 品番, 理論在庫, 実棚数量…) au lieu d’une traduction littérale

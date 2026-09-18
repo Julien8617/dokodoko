@@ -10,6 +10,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.24',
+    date: '2026-09-19',
+    items: [
+      'Document imprimé : la feuille de contre-validation porte maintenant son propre titre (棚卸確認表) et son propre bloc périmètre/date — pensée pour être détachée et emportée dans l’entrepôt, elle ne doit plus se lire comme une liste de nombres sans origine une fois séparée de la première page',
+      'Document imprimé : la colonne des codes (棚番/品番) s’élargit désormais si besoin au lieu d’une largeur fixe, pour ne pas tronquer un code plus long que ceux d’aujourd’hui',
+    ],
+  },
+  {
     version: '0.9.23',
     date: '2026-09-19',
     items: [
