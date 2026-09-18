@@ -1,6 +1,6 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.49 — 19 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.50 — 19 septembre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -521,9 +521,14 @@ La mention **進行中 ― 未確定** reste tant que la clôture n'existe pas :
 
 Second document, après un saut de page : **le relevé complet du comptage**, une ligne par saisie, avec une case à cocher en tête de ligne.
 
+**Il porte son propre bloc d'en-tête**, ajouté le 19 septembre : titre **棚卸確認表**, puis 対象 et la date, comme la première page. Cette feuille est faite pour être détachée et emportée dans l'entrepôt ; séparée de la page 1, sans titre ni périmètre, elle n'est plus qu'une liste anonyme de nombres avec des cases — et c'est pourtant elle qui sera signée.
+
+**Sa source doit être dédupliquée en dernière-valeur-gagne.** Lire le journal des saisies plutôt que l'agrégat de l'écran des écarts est le bon choix — l'agrégat passe par le statut de casier que le §14 signale comme surchargé, et un document destiné à être signé ne peut pas dépendre d'un filtre douteux. Mais le journal conserve chaque correction à côté de la saisie d'origine : sans un `distinct on (casier, référence, conditionnement)` trié par `ts` puis `id` décroissants, une référence corrigée apparaîtra **deux fois** sur la feuille, avec deux quantités différentes. Exactement le piège traité dans la requête CSV, sur la même table.
+
 - Colonnes : 確認 (case vide), 棚番, 品番, 品名, ケース, バラ, 合計.
 - **Trié par emplacement, dans l'ordre de tournée** (§8) — zone, baie, niveau. La personne qui contrôle marche dans l'entrepôt ; un tri par référence lui ferait faire des allers-retours.
 - Case à cocher dessinée en carré vide, assez grande pour être cochée au stylo.
+- **Colonnes de codes en `white-space: nowrap` avec une largeur minimale, jamais une largeur fixe.** Une largeur fixe tronque ou coupe en silence le jour où un code dépasse la longueur observée aujourd'hui — six caractères sur le jeu REUZEL. La colonne doit pouvoir s'élargir et pousser la désignation, qui absorbe sans dommage.
 - En-têtes répétés sur chaque page, comme ci-dessus.
 - Ligne 確認者 ／ 日付 en pied de la dernière page.
 
