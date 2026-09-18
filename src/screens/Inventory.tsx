@@ -14,6 +14,7 @@ import {
   resolveEmplacementInput,
 } from '../lib/db'
 import {
+  abandonInventaire,
   createInventaire,
   deleteCasierLignesForRef,
   getActiveInventaire,
@@ -56,12 +57,28 @@ export default function Inventory({ onBack }: { onBack: () => void }) {
     setPhase('walk')
   }
 
+  // Abandon (spec 2.46 §6.5) : ferme le comptage sans laisser l'app sur un
+  // inventaire qui n'existe plus — retour au lancement, qui ne trouvera
+  // alors plus aucun inventaire `en_cours` et proposera d'en ouvrir un
+  // nouveau (le comptage suivant en dépend, cf. one_inventaire_en_cours).
+  function handleAbandoned() {
+    setInventaire(null)
+    setPhase('launch')
+  }
+
   if (phase === 'launch' || !inventaire) {
     return <Launch onBack={onBack} onReady={handleReady} />
   }
 
   if (phase === 'ecarts') {
-    return <Ecarts inventaire={inventaire} auteur={auteur} onBack={() => setPhase('walk')} />
+    return (
+      <Ecarts
+        inventaire={inventaire}
+        auteur={auteur}
+        onBack={() => setPhase('walk')}
+        onAbandoned={handleAbandoned}
+      />
+    )
   }
 
   return <Walk inventaire={inventaire} auteur={auteur} onDone={() => setPhase('ecarts')} onBack={onBack} />
@@ -98,6 +115,31 @@ function Launch({ onBack, onReady }: { onBack: () => void; onReady: (inv: Invent
   // silencieusement à `busy: false` sans qu'aucun message n'ait jamais été
   // affiché (§3, spec 2.35) — le bouton semble juste n'avoir rien fait.
   const [launchError, setLaunchError] = useState<string | null>(null)
+  // Abandon accessible dès cet écran (spec 2.46 §6.5, revu après relecture
+  // advisor) : sans lui, un inventaire resté ouvert d'une session
+  // précédente n'a comme seule sortie visible que « Reprendre » — il
+  // faudrait entrer dans la marche puis atteindre les écarts juste pour
+  // fermer un comptage qu'on ne veut pas continuer. Même fonction que sur
+  // l'écran des écarts, un second appelant, pas une seconde logique.
+  const [showAbandon, setShowAbandon] = useState(false)
+  const [abandonMotif, setAbandonMotif] = useState('')
+  const [abandonStatus, setAbandonStatus] = useState<
+    { kind: 'idle' } | { kind: 'saving' } | { kind: 'error'; message: string }
+  >({ kind: 'idle' })
+
+  async function handleAbandon() {
+    if (!active || active === 'loading' || !abandonMotif.trim()) return
+    setAbandonStatus({ kind: 'saving' })
+    try {
+      await abandonInventaire(active.id, abandonMotif.trim())
+      setActive(null)
+      setShowAbandon(false)
+      setAbandonMotif('')
+      setAbandonStatus({ kind: 'idle' })
+    } catch (err) {
+      setAbandonStatus({ kind: 'error', message: extractErrorMessage(err, t.common.unknownError) })
+    }
+  }
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setAuteur(data.session?.user.email ?? null))
@@ -146,6 +188,33 @@ function Launch({ onBack, onReady }: { onBack: () => void; onReady: (inv: Invent
         <button className="arm-button" onClick={() => onReady(active)}>
           {t.inventory.resumeButton}
         </button>
+        {!showAbandon ? (
+          <button type="button" className="back-link" onClick={() => setShowAbandon(true)}>
+            {t.inventory.abandonButton}
+          </button>
+        ) : (
+          <div className="settings-form">
+            <p className="quantity-formula">{t.inventory.abandonHint}</p>
+            <label className="field-label">
+              {t.inventory.abandonMotifLabel}
+              <input
+                value={abandonMotif}
+                onChange={(e) => setAbandonMotif(e.target.value)}
+                placeholder={t.inventory.abandonMotifPlaceholder}
+                disabled={abandonStatus.kind === 'saving'}
+              />
+            </label>
+            <button
+              type="button"
+              className="arm-button"
+              onClick={handleAbandon}
+              disabled={!abandonMotif.trim() || abandonStatus.kind === 'saving'}
+            >
+              {t.inventory.abandonButton}
+            </button>
+            {abandonStatus.kind === 'error' && <p className="form-status form-error">{abandonStatus.message}</p>}
+          </div>
+        )}
       </main>
     )
   }
@@ -774,9 +843,15 @@ function Walk({
         </ul>
       )}
 
-      <button className="arm-button" onClick={onDone}>
-        {t.inventory.viewEcarts}
-      </button>
+      {/* Barre d'action collante (spec 2.46 §6.5) : ce bouton sortait de
+          l'écran après quelques saisies et obligeait à faire défiler
+          jusqu'au bord — utilisé chaque vendredi, ce frottement se répète
+          chaque semaine. Fixé en bas, dans la zone sûre. */}
+      <div className="sticky-bottom-bar">
+        <button className="arm-button" onClick={onDone}>
+          {t.inventory.viewEcarts}
+        </button>
+      </div>
     </main>
   )
 }
@@ -789,10 +864,12 @@ function Ecarts({
   inventaire,
   auteur,
   onBack,
+  onAbandoned,
 }: {
   inventaire: Inventaire
   auteur: string | null
   onBack: () => void
+  onAbandoned: () => void
 }) {
   const { t } = useI18n()
   const [loading, setLoading] = useState(true)
@@ -801,11 +878,24 @@ function Ecarts({
   // 2.35).
   const [loadError, setLoadError] = useState<string | null>(null)
   const [references, setReferences] = useState<SyntheseReference[]>([])
+  const [clients, setClients] = useState<Client[]>([])
   const [openRef, setOpenRef] = useState<string | null>(null)
   const [editingLigneId, setEditingLigneId] = useState<string | null>(null)
   const [editCartons, setEditCartons] = useState('')
   const [editPieces, setEditPieces] = useState('')
   const [editStatus, setEditStatus] = useState<
+    { kind: 'idle' } | { kind: 'saving' } | { kind: 'error'; message: string }
+  >({ kind: 'idle' })
+  // Filtre de recherche en tête (spec 2.46 §6.5) : sur une gamme entière,
+  // atteindre une référence par défilement n'est pas tenable. Même filtre
+  // partagé que Recherche/Mouvement/Inventaire (§6.2), pas une logique
+  // propre à cet écran.
+  const [query, setQuery] = useState('')
+  // Abandon (spec 2.46 §6.5, échéance 25/09) : seule sortie possible en
+  // phase 1, la clôture écrivant des ajustements qu'on ne veut pas tant
+  // qu'aucun stock d'ouverture n'est amorcé.
+  const [abandonMotif, setAbandonMotif] = useState('')
+  const [abandonStatus, setAbandonStatus] = useState<
     { kind: 'idle' } | { kind: 'saving' } | { kind: 'error'; message: string }
   >({ kind: 'idle' })
 
@@ -816,6 +906,9 @@ function Ecarts({
 
   useEffect(() => {
     let cancelled = false
+    listClients().then((list) => {
+      if (!cancelled) setClients(list)
+    }).catch(() => {})
     getInventaireSynthese(inventaire)
       .then((result) => {
         if (cancelled) return
@@ -882,11 +975,37 @@ function Ecarts({
     }
   }
 
+  // Ferme le comptage sans écrire aucun mouvement (spec 2.46 §6.5) : seule
+  // sortie possible en phase 1, la clôture restant hors périmètre tant
+  // qu'aucun stock d'ouverture n'est amorcé (§2). Les lignes de comptage ne
+  // sont pas touchées — seul `inventaires.statut` change.
+  async function handleAbandon() {
+    if (!abandonMotif.trim()) return
+    setAbandonStatus({ kind: 'saving' })
+    try {
+      await abandonInventaire(inventaire.id, abandonMotif.trim())
+      onAbandoned()
+    } catch (err) {
+      setAbandonStatus({ kind: 'error', message: extractErrorMessage(err, t.common.unknownError) })
+    }
+  }
+
   // Un casier théorique jamais compté vaut 0 dans le calcul (règle du
   // 2026-09-14 : "je compte ce que je compte, si ce n'est pas compté, c'est
   // un écart") — pas de statut "en attente" séparé, l'écart parle seul.
-  const enEcart = references.filter((r) => r.ecartTotal !== 0 || r.compense)
-  const sansEcart = references.filter((r) => r.ecartTotal === 0 && !r.compense)
+  // Filtre de recherche (spec 2.46 §6.5) appliqué avant la répartition en
+  // deux listes, sur le même filtre partagé que le reste de l'app (§6.2).
+  const matchedCodes = query.trim()
+    ? new Set(
+        matchReferences(
+          query,
+          references.map((r) => ({ code: r.refCode, libelle: r.refLibelle, client_code: '' })),
+        ).map((r) => r.code),
+      )
+    : null
+  const visibleReferences = matchedCodes ? references.filter((r) => matchedCodes.has(r.refCode)) : references
+  const enEcart = visibleReferences.filter((r) => r.ecartTotal !== 0 || r.compense)
+  const sansEcart = visibleReferences.filter((r) => r.ecartTotal === 0 && !r.compense)
 
   // Fonction (pas un composant JSX) : une réf corrigée depuis ce même écran
   // peut passer d'"en écart" à "sans écart" après `refresh()`, donc les deux
@@ -894,32 +1013,44 @@ function Ecarts({
   // disparaisse ni perde son état déplié (2026-09-14, retour terrain).
   function renderReferenceRow(ref: SyntheseReference) {
     const key = `${ref.refCode}|${ref.conditionnementId}`
+    // Mise en page revue (spec 2.46 §6.5, retour terrain du 18 septembre) :
+    // un libellé long et souvent bilingue repoussait « 0 → 72 (+72) » dans
+    // une colonne étroite qui se coupait en trois. Les chiffres passent
+    // désormais sur leur propre ligne, sous le libellé, à position
+    // horizontale fixe d'une ligne à l'autre — ce qui permet de balayer la
+    // colonne du regard plutôt que de la chercher à chaque ligne.
     return (
       <div className="inventory-line" key={key}>
         <button
           type="button"
-          className="casier-row"
+          className="ecart-row"
           onClick={() => setOpenRef(openRef === key ? null : key)}
         >
-          <span>
+          <span className="ecart-row-title">
             {ref.refCode}
             {(() => {
               const suffix = [ref.refLibelle, ref.conditionnementLabel].filter(Boolean).join(' · ')
               return suffix ? ` — ${suffix}` : ''
             })()}
           </span>
-          <span className="casier-status">
-            {ref.theoriqueTotal} → {ref.compteTotal} ({ref.ecartTotal > 0 ? '+' : ''}
-            {ref.ecartTotal})
+          <span className="ecart-row-numbers">
+            <span>
+              {ref.theoriqueTotal} → {ref.compteTotal} ({ref.ecartTotal > 0 ? '+' : ''}
+              {ref.ecartTotal})
+            </span>
+            <span
+              className={`ecart-badge${
+                ref.compense ? ' ecart-compense' : ref.ecartTotal !== 0 ? ' ecart-reel' : ''
+              }`}
+            >
+              {ref.compense
+                ? t.inventory.ecartCompense
+                : ref.ecartTotal !== 0
+                  ? t.inventory.ecartReel
+                  : t.inventory.sansEcartLabel}
+            </span>
           </span>
         </button>
-        <p className="quantity-formula">
-          {ref.compense
-            ? t.inventory.ecartCompense
-            : ref.ecartTotal !== 0
-              ? t.inventory.ecartReel
-              : t.inventory.sansEcartLabel}
-        </p>
 
         {openRef === key && (
           <div className="settings-form">
@@ -975,32 +1106,117 @@ function Ecarts({
     )
   }
 
+  const ecartTotalPieces = references.reduce((sum, r) => sum + r.ecartTotal, 0)
+
   return (
     <main className="inventory">
-      <button className="back-link" onClick={onBack}>
-        ← {t.inventory.back}
-      </button>
-      <h1>{t.inventory.ecartsTitle}</h1>
-      <p className="login-hint">{t.inventory.phase1Notice}</p>
+      <div className="no-print">
+        <button className="back-link" onClick={onBack}>
+          ← {t.inventory.back}
+        </button>
+        <h1>{t.inventory.ecartsTitle}</h1>
+        <p className="login-hint">{t.inventory.phase1Notice}</p>
 
-      {loading ? (
-        <p className="form-status">{t.inventory.loading}</p>
-      ) : loadError ? (
-        <p className="form-status form-error">{loadError}</p>
-      ) : (
-        <>
-          <h2>{t.inventory.syntheseTitle}</h2>
-          {enEcart.length === 0 && <p className="form-status">{t.inventory.noEcart}</p>}
-          {enEcart.map(renderReferenceRow)}
+        <div className="quantity-row">
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t.inventory.referenceSearch}
+          />
+          <button type="button" onClick={() => window.print()}>
+            {t.inventory.printButton}
+          </button>
+        </div>
 
-          {sansEcart.length > 0 && (
-            <>
-              <h2>{t.inventory.sansEcartLabel}</h2>
-              {sansEcart.map(renderReferenceRow)}
-            </>
-          )}
-        </>
-      )}
+        {loading ? (
+          <p className="form-status">{t.inventory.loading}</p>
+        ) : loadError ? (
+          <p className="form-status form-error">{loadError}</p>
+        ) : (
+          <>
+            <h2>{t.inventory.syntheseTitle}</h2>
+            {enEcart.length === 0 && <p className="form-status">{t.inventory.noEcart}</p>}
+            {enEcart.map(renderReferenceRow)}
+
+            {sansEcart.length > 0 && (
+              <>
+                <h2>{t.inventory.sansEcartLabel}</h2>
+                {sansEcart.map(renderReferenceRow)}
+              </>
+            )}
+          </>
+        )}
+
+        {/* Abandon (spec 2.46 §6.5, échéance ferme le 25 septembre) : sans
+            lui, cet inventaire reste `en_cours` et bloque le comptage du
+            vendredi suivant. Aucun mouvement écrit, les saisies restent. */}
+        <div className="settings-form">
+          <h2>{t.inventory.abandonTitle}</h2>
+          <p className="quantity-formula">{t.inventory.abandonHint}</p>
+          <label className="field-label">
+            {t.inventory.abandonMotifLabel}
+            <input
+              value={abandonMotif}
+              onChange={(e) => setAbandonMotif(e.target.value)}
+              placeholder={t.inventory.abandonMotifPlaceholder}
+              disabled={abandonStatus.kind === 'saving'}
+            />
+          </label>
+          <button
+            type="button"
+            className="arm-button"
+            onClick={handleAbandon}
+            disabled={!abandonMotif.trim() || abandonStatus.kind === 'saving'}
+          >
+            {t.inventory.abandonButton}
+          </button>
+          {abandonStatus.kind === 'error' && <p className="form-status form-error">{abandonStatus.message}</p>}
+        </div>
+      </div>
+
+      {/* Synthèse imprimable (spec 2.46 §6.5) : masquée à l'écran, visible
+          seulement via @media print — la seule partie de l'écran qui reste
+          visible à l'impression (voir global.css). Un inventaire en cours
+          est imprimable aussi (révision du 18 septembre) : le besoin de
+          justifier un comptage auprès de collègues n'attend pas la
+          clôture, qui n'existe pas encore — d'où la mention non
+          dissimulable ci-dessous, inconditionnelle tant que la clôture
+          n'existe pas. */}
+      <div className="print-summary">
+        <h1>{t.inventory.printTitle}</h1>
+        <p className="print-banner">{t.inventory.printNotClosed}</p>
+        <p>{interpolate(t.inventory.resumeSubtitle, { scope: scopeLabel(inventaire, clients, t), date: new Date(inventaire.created_at).toLocaleDateString() })}</p>
+        <p>{interpolate(t.inventory.printDate, { date: new Date().toLocaleString() })}</p>
+        <p>{interpolate(t.inventory.printEcartTotal, { total: ecartTotalPieces })}</p>
+        <table>
+          <thead>
+            <tr>
+              <th>{t.inventory.reference}</th>
+              <th>{t.inventory.printTheorique}</th>
+              <th>{t.inventory.printCompte}</th>
+              <th>{t.inventory.printEcart}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {references.map((r) => (
+              <tr key={`${r.refCode}|${r.conditionnementId}`}>
+                <td>
+                  {r.refCode}
+                  {[r.refLibelle, r.conditionnementLabel].filter(Boolean).length > 0
+                    ? ` — ${[r.refLibelle, r.conditionnementLabel].filter(Boolean).join(' · ')}`
+                    : ''}
+                </td>
+                <td>{r.theoriqueTotal}</td>
+                <td>{r.compteTotal}</td>
+                <td>
+                  {r.ecartTotal > 0 ? '+' : ''}
+                  {r.ecartTotal}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </main>
   )
 }

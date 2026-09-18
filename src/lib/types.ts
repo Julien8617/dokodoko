@@ -78,7 +78,11 @@ export interface Inventaire {
   scope_kind: ScopeKind
   scope_client_code: string | null
   frozen_ts: string
-  statut: 'en_cours' | 'clos'
+  // 'abandonne' (spec 2.46 §6.5) : ferme un comptage sans écrire aucun
+  // mouvement — le régime de la phase 1, tant qu'aucun stock d'ouverture
+  // n'est amorcé et que tout écart y est positif par construction.
+  statut: 'en_cours' | 'clos' | 'abandonne'
+  abandon_motif: string | null
   auteur: string
   created_at: string
 }

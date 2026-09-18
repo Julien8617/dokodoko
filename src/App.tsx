@@ -10,6 +10,7 @@ import Settings from './screens/Settings'
 import Movement from './screens/Movement'
 import Inventory from './screens/Inventory'
 import Search from './screens/Search'
+import Catalogue from './screens/Catalogue'
 import VersionFooter from './components/VersionFooter'
 
 const LOCALES: { code: Locale; label: string }[] = [
@@ -18,7 +19,7 @@ const LOCALES: { code: Locale; label: string }[] = [
   { code: 'en', label: 'EN' },
 ]
 
-type Screen = 'home' | 'movement' | 'inventory' | 'settings' | 'search'
+type Screen = 'home' | 'movement' | 'inventory' | 'settings' | 'search' | 'catalogue'
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('home')
@@ -42,6 +43,7 @@ export default function App() {
   if (screen === 'movement') return <Movement onBack={() => setScreen('home')} />
   if (screen === 'inventory') return <Inventory onBack={() => setScreen('home')} />
   if (screen === 'search') return <Search onBack={() => setScreen('home')} />
+  if (screen === 'catalogue') return <Catalogue onBack={() => setScreen('home')} />
   return <Home onNavigate={setScreen} />
 }
 
@@ -77,6 +79,9 @@ function Home({ onNavigate }: { onNavigate: (screen: Screen) => void }) {
         </button>
         <button className="home-action" onClick={() => onNavigate('inventory')}>
           {t.nav.inventory}
+        </button>
+        <button className="home-action" onClick={() => onNavigate('catalogue')}>
+          {t.nav.catalogue}
         </button>
         <button className="home-action" onClick={() => onNavigate('settings')}>
           {t.nav.settings}

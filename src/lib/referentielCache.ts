@@ -176,6 +176,23 @@ export async function getConditionnementsForRef(refCode: string): Promise<Condit
     .sort((a, b) => Number(b.a_ecouler) - Number(a.a_ecouler))
 }
 
+// Conditionnements de toutes les références, regroupés — Catalogue (§6.8)
+// affiche la colonne "conditionnements" sur chaque ligne de la liste, pas
+// seulement à l'ouverture d'une fiche : un filtre par référence pour
+// chacune referait un passage complet du cache autant de fois qu'il y a de
+// références.
+export async function getConditionnementsByRef(): Promise<Map<string, Conditionnement[]>> {
+  await ensureLoaded()
+  const byRef = new Map<string, Conditionnement[]>()
+  for (const c of cache.conditionnements) {
+    const list = byRef.get(c.ref_code)
+    if (list) list.push(c)
+    else byRef.set(c.ref_code, [c])
+  }
+  for (const list of byRef.values()) list.sort((a, b) => Number(b.a_ecouler) - Number(a.a_ecouler))
+  return byRef
+}
+
 export async function getStockAtEmplacement(emplacementCode: string): Promise<StockRow[]> {
   await ensureLoaded()
   return cache.stock.filter((row) => row.emplacement_code === emplacementCode && row.quantite_pieces !== 0)
@@ -184,4 +201,17 @@ export async function getStockAtEmplacement(emplacementCode: string): Promise<St
 export async function getStockByReference(refCode: string): Promise<StockRow[]> {
   await ensureLoaded()
   return cache.stock.filter((row) => row.ref_code === refCode && row.quantite_pieces !== 0)
+}
+
+// Stock total en pièces par référence, tous emplacements et conditionnements
+// confondus — affichage informatif du Catalogue (§6.8), même régime que le
+// reste de ce fichier : instantané du cache, jamais un chiffre qui bloque une
+// écriture.
+export async function getStockTotalsByReference(): Promise<Map<string, number>> {
+  await ensureLoaded()
+  const totals = new Map<string, number>()
+  for (const row of cache.stock) {
+    totals.set(row.ref_code, (totals.get(row.ref_code) ?? 0) + row.quantite_pieces)
+  }
+  return totals
 }

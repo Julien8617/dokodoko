@@ -1,13 +1,7 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useI18n } from '../i18n'
 import { interpolate } from '../i18n/format'
-import {
-  generateEmplacements,
-  insertClient,
-  insertEmplacement,
-  listClients,
-  upsertReferenceWithConditionnements,
-} from '../lib/db'
+import { generateEmplacements, insertClient, insertEmplacement } from '../lib/db'
 import { decodeImportFile } from '../lib/csvImport'
 import { extractErrorMessage } from '../lib/errors'
 import {
@@ -24,9 +18,7 @@ import {
 import type { ImportPreview } from '../lib/csvImport'
 import { refreshReferentielCache } from '../lib/referentielCache'
 import { supabase } from '../lib/supabase'
-import type { Client } from '../lib/types'
 import VersionFooter from '../components/VersionFooter'
-import SearchSelect from '../components/SearchSelect'
 
 // Socle minimal de l'étape 2 de l'ordre de livraison (§12) : saisie manuelle
 // unitaire, un élément à la fois (§7, §6.6). Les imports CSV et les exports
@@ -40,7 +32,6 @@ export default function Settings({ onBack }: { onBack: () => void }) {
         ← {t.movement.back}
       </button>
       <h1>{t.settings.title}</h1>
-      <ReferenceForm />
       <EmplacementGeneratorForm />
       <EmplacementForm />
       <ClientForm />
@@ -341,83 +332,6 @@ function StockOuvertureImportForm() {
       )}
       {state.kind === 'done' && <p className="form-status">{state.message}</p>}
       {state.kind === 'error' && <p className="form-status form-error">{state.message}</p>}
-    </form>
-  )
-}
-
-function ReferenceForm() {
-  const { t } = useI18n()
-  const [clients, setClients] = useState<Client[]>([])
-  const [clientCode, setClientCode] = useState<string | null>(null)
-  const [code, setCode] = useState('')
-  const [libelle, setLibelle] = useState('')
-  const [pieces, setPieces] = useState('')
-  const [status, setStatus] = useState<
-    { kind: 'idle' } | { kind: 'saving' } | { kind: 'saved' } | { kind: 'error'; message: string }
-  >({ kind: 'idle' })
-
-  useEffect(() => {
-    listClients().then(setClients).catch(() => {})
-  }, [status])
-
-  const clientOptions = useMemo(
-    () => clients.map((c) => ({ value: c.code, label: c.nom })),
-    [clients],
-  )
-
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault()
-    if (!clientCode) return
-    setStatus({ kind: 'saving' })
-    try {
-      await upsertReferenceWithConditionnements(code.trim(), libelle.trim(), clientCode, [
-        { piecesParCarton: Number(pieces) },
-      ])
-      void refreshReferentielCache() // ne bloque jamais la confirmation d'une écriture réussie
-      setStatus({ kind: 'saved' })
-      setCode('')
-      setLibelle('')
-      setPieces('')
-    } catch (err) {
-      setStatus({ kind: 'error', message: extractErrorMessage(err, t.settings.saveError) })
-    }
-  }
-
-  return (
-    <form className="settings-form" onSubmit={handleSubmit}>
-      <h2>{t.settings.addReference}</h2>
-      <label className="field-label">
-        {t.settings.client}
-        <SearchSelect
-          options={clientOptions}
-          value={clientCode}
-          onChange={setClientCode}
-          placeholder={t.settings.clientSearch}
-        />
-      </label>
-      <label>
-        {t.settings.code}
-        <input value={code} onChange={(e) => setCode(e.target.value)} required />
-      </label>
-      <label>
-        {t.settings.libelle}
-        <input value={libelle} onChange={(e) => setLibelle(e.target.value)} />
-      </label>
-      <label>
-        {t.settings.piecesParCarton}
-        <input
-          type="number"
-          min={1}
-          value={pieces}
-          onChange={(e) => setPieces(e.target.value)}
-          required
-        />
-      </label>
-      <button type="submit" disabled={status.kind === 'saving' || !clientCode}>
-        {t.common.save}
-      </button>
-      {status.kind === 'saved' && <p className="form-status">{t.settings.saved}</p>}
-      {status.kind === 'error' && <p className="form-status form-error">{status.message}</p>}
     </form>
   )
 }

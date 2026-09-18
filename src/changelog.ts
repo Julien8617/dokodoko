@@ -10,6 +10,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.22',
+    date: '2026-09-19',
+    items: [
+      'Inventaire : nouveau bouton « Abandonner l’inventaire », accessible depuis l’écran de reprise et depuis l’écran des écarts — ferme le comptage sans écrire aucun mouvement (motif libre demandé), ce qui débloque le comptage suivant. C’est le régime normal tant qu’aucun stock d’ouverture n’est amorcé',
+      'Écran des écarts : les chiffres (théorique → compté, écart) passent sur leur propre ligne, sous le libellé, à position fixe d’une ligne à l’autre — un libellé long ne les repousse plus hors de vue. Ajout d’un filtre de recherche en tête d’écran et d’un bouton Imprimer (synthèse en A4, avec la mention « en cours, non clôturé »)',
+      'Inventaire, saisie en marchant : le bouton « voir les écarts » reste maintenant accessible en bas de l’écran même après avoir fait défiler la liste des saisies',
+      'Nouvel écran Catalogue : liste, recherche et filtre par client sur toutes les références, avec conditionnements et stock total affichés directement. La création et la modification d’une référence (libellé, client) se font désormais ici plutôt que dans Réglages',
+      'Catalogue : une référence peut être supprimée si elle ne porte aucun mouvement ni ligne de comptage — sinon l’app indique combien (ex. « 3 mouvements, 12 lignes de comptage ») plutôt que de refuser sans explication',
+    ],
+  },
+  {
     version: '0.9.21',
     date: '2026-09-18',
     items: [

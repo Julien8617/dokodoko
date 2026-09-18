@@ -1,11 +1,13 @@
 import { supabase } from './supabase'
 import {
   getClients,
+  getConditionnementsByRef,
   getConditionnementsForRef,
   getEmplacements,
   getReferences,
   getStockAtEmplacement,
   getStockByReference,
+  getStockTotalsByReference,
 } from './referentielCache'
 import type {
   Client,
@@ -44,6 +46,20 @@ export async function listConditionnements(refCode: string): Promise<Conditionne
   // à écouler en premier (§4.1 : proposé en priorité sur une sortie) —
   // tri appliqué dans referentielCache.ts, au même endroit que le filtre.
   return getConditionnementsForRef(refCode)
+}
+
+// Catalogue (§6.8) : conditionnements de toutes les références, pour la
+// colonne éponyme de la liste — un seul passage du cache plutôt qu'un
+// listConditionnements par ligne.
+export async function listConditionnementsByRef(): Promise<Map<string, Conditionnement[]>> {
+  return getConditionnementsByRef()
+}
+
+// Catalogue (§6.8) : stock total en pièces par référence, pour la colonne
+// éponyme de la liste. Instantané du cache — affichage informatif, jamais
+// une donnée qui bloque une écriture (voir le commentaire sur `getStock`).
+export async function listStockTotalsByReference(): Promise<Map<string, number>> {
+  return getStockTotalsByReference()
 }
 
 // Stock = vue, jamais une colonne. Absence de ligne = 0 (§4). VOLONTAIREMENT
@@ -415,6 +431,52 @@ export async function listStockAtEmplacement(emplacementCode: string): Promise<S
 // le cache que ci-dessus.
 export async function listStockByReference(refCode: string): Promise<StockByReferenceLine[]> {
   return getStockByReference(refCode)
+}
+
+// Suppression d'une référence (§4, §6.8) : refusée tant qu'un mouvement ou
+// une ligne de comptage la référence — sinon la supprimer effacerait de
+// l'histoire, ce qui n'est jamais permis (§4 "aucune modification, aucune
+// suppression"). Porte les deux compteurs pour que l'app dise pourquoi
+// plutôt que de refuser en silence : « 3 mouvements, 12 lignes de
+// comptage ».
+export class ReferenceInUseError extends Error {
+  mouvements: number
+  comptageLignes: number
+  constructor(mouvements: number, comptageLignes: number) {
+    super(`reference in use: ${mouvements} mouvement(s), ${comptageLignes} ligne(s) de comptage`)
+    this.mouvements = mouvements
+    this.comptageLignes = comptageLignes
+  }
+}
+
+export async function countReferenceUsage(code: string): Promise<{ mouvements: number; comptageLignes: number }> {
+  const [mouvementsRes, comptageLignesRes] = await Promise.all([
+    supabase.from('mouvements').select('id', { count: 'exact', head: true }).eq('ref_code', code),
+    supabase.from('comptage_lignes').select('id', { count: 'exact', head: true }).eq('ref_code', code),
+  ])
+  if (mouvementsRes.error) throw mouvementsRes.error
+  if (comptageLignesRes.error) throw comptageLignesRes.error
+  return { mouvements: mouvementsRes.count ?? 0, comptageLignes: comptageLignesRes.count ?? 0 }
+}
+
+// Une référence sans mouvement ni ligne de comptage ne porte aucune
+// histoire (§4) : la supprimer et la recréer sous le bon code est plus
+// simple et plus sûr qu'un renommage en cascade, impossible puisque le
+// code est la clé de tout l'historique. `inventaire_references` n'est
+// qu'un périmètre (pas un fait d'audit) et se nettoie sans condition.
+// Revérifie l'usage ici même si l'appelant l'a déjà vérifié à l'ouverture
+// de la fiche : l'état affiché peut être périmé de quelques secondes.
+export async function deleteReference(code: string): Promise<void> {
+  const usage = await countReferenceUsage(code)
+  if (usage.mouvements > 0 || usage.comptageLignes > 0) {
+    throw new ReferenceInUseError(usage.mouvements, usage.comptageLignes)
+  }
+  const { error: invRefError } = await supabase.from('inventaire_references').delete().eq('ref_code', code)
+  if (invRefError) throw invRefError
+  const { error: condError } = await supabase.from('conditionnements').delete().eq('ref_code', code)
+  if (condError) throw condError
+  const { error: refError } = await supabase.from('references').delete().eq('code', code)
+  if (refError) throw refError
 }
 
 export async function insertMouvements(rows: MouvementInsert[]): Promise<void> {

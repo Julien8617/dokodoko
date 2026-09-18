@@ -27,6 +27,7 @@ export interface Dictionary {
     search: string
     movement: string
     inventory: string
+    catalogue: string
     settings: string
   }
   home: {
@@ -212,5 +213,39 @@ export interface Dictionary {
     detailByEmplacement: string
     notAllVisited: string
     phase1Notice: string
+    // Abandon (spec 2.46 §6.5, échéance ferme le 25 septembre) : seule
+    // sortie possible en phase 1 (aucun stock d'ouverture amorcé, tout
+    // écart y est positif par construction — une clôture polluerait
+    // l'indicateur du pilote).
+    abandonTitle: string
+    abandonHint: string
+    abandonMotifLabel: string
+    abandonMotifPlaceholder: string
+    abandonButton: string
+    // Synthèse imprimable (spec 2.46 §6.5) : visible seulement via @media
+    // print (global.css). Bannière non dissimulable tant que la clôture
+    // n'existe pas — un document d'inventaire sans son statut circulerait
+    // comme s'il était définitif.
+    printButton: string
+    printTitle: string
+    printNotClosed: string
+    printDate: string // {date}
+    printEcartTotal: string // {total}
+    printTheorique: string
+    printCompte: string
+    printEcart: string
+  }
+  catalogue: {
+    title: string
+    searchPlaceholder: string
+    clientFilterAll: string
+    noResults: string
+    editTitle: string
+    codeLabel: string // {code}
+    // {mouvements}, {comptageLignes} — §4 : "l'app dit pourquoi", jamais un
+    // refus muet.
+    usageBlocking: string
+    deleteButton: string
+    deleteArmed: string
   }
 }

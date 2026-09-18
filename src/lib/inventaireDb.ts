@@ -36,10 +36,12 @@ async function stockAsOf(frozenTs: string, refCodes?: string[]): Promise<StockAs
   return [...totals.values()].filter((row) => row.quantite_pieces !== 0)
 }
 
+const INVENTAIRE_COLUMNS = 'id, scope_kind, scope_client_code, frozen_ts, statut, abandon_motif, auteur, created_at'
+
 export async function getActiveInventaire(): Promise<Inventaire | null> {
   const { data, error } = await supabase
     .from('inventaires')
-    .select('id, scope_kind, scope_client_code, frozen_ts, statut, auteur, created_at')
+    .select(INVENTAIRE_COLUMNS)
     .eq('statut', 'en_cours')
     .maybeSingle()
   if (error) throw error
@@ -58,7 +60,7 @@ export async function createInventaire(
       scope_client_code: scopeKind === 'client' ? (options.clientCode ?? null) : null,
       auteur,
     })
-    .select('id, scope_kind, scope_client_code, frozen_ts, statut, auteur, created_at')
+    .select(INVENTAIRE_COLUMNS)
     .single()
   if (error) throw error
 
@@ -70,6 +72,21 @@ export async function createInventaire(
   }
 
   return data
+}
+
+// Abandon d'un inventaire (spec 2.46 §6.5) : ferme sans écrire aucun
+// mouvement, `statut = 'abandonne'`, motif libre conservé, lignes de
+// comptage inchangées. Seul régime possible en phase 1 (aucun stock
+// d'ouverture amorcé) : une clôture écrirait des `ajustement_inventaire`
+// qui seraient en réalité du stock d'ouverture, et polluerait l'indicateur
+// de fin de pilote. L'index partiel `one_inventaire_en_cours` se libère de
+// lui-même, un inventaire abandonné n'étant plus `en_cours`.
+export async function abandonInventaire(inventaireId: string, motif: string): Promise<void> {
+  const { error } = await supabase
+    .from('inventaires')
+    .update({ statut: 'abandonne', abandon_motif: motif })
+    .eq('id', inventaireId)
+  if (error) throw error
 }
 
 async function scopeRefCodes(inventaire: Inventaire): Promise<string[] | undefined> {
