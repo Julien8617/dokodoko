@@ -1,6 +1,6 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.50 — 19 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.52 — 19 septembre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -507,6 +507,16 @@ Vocabulaire à employer, pour que la feuille se lise comme un document d'entrep�
 | Case de contre-validation | 確認 |
 | Bas de page | 確認者 ／ 日付 |
 
+**Le titre se dérive du périmètre**, il ne se saisit pas : l'information existe déjà dans `inventaires.scope_kind` et ses dépendances.
+
+| Périmètre | Titre |
+|---|---|
+| `tout` | 全体棚卸 |
+| `client` | 得意先棚卸 ― REUZEL |
+| `references` | 品目指定棚卸, suivi des codes : `REU003, REU004, REU008 他5件` au-delà de trois |
+
+**Deux dates, et elles ne disent pas la même chose.** 棚卸実施日 — la date de la première saisie, ou l'intervalle première/dernière si le comptage s'étale sur plusieurs jours : c'est la date du travail, celle qu'un lecteur cherche. 基準日時 — le `frozen_ts` du lancement : c'est la date contre laquelle le théorique est calculé, donc celle qui rend l'écart interprétable. Afficher l'une sans l'autre laisse un document ambigu dès la phase 2.
+
 **Les glyphes japonais s'impriment correctement** — vérifié sur le PDF du 19 septembre. Les blancs observés venaient du lecteur qui l'a ouvert, pas du document. Point clos, à ne pas rouvrir.
 
 **Un seul format de document, celui de la phase 2, construit dès maintenant.** Les colonnes 理論在庫 et 差異 restent même quand le théorique est nul : les lecteurs de la feuille savent que l'app est en développement et lisent le total compté. Construire une variante de phase 1 reviendrait à la jeter au moment de l'amorçage, et à refaire la mise en page au pire moment — quand le stock réel arrive. Le document est donc prêt pour le jour J.
@@ -515,7 +525,13 @@ Vocabulaire à employer, pour que la feuille se lise comme un document d'entrep�
 
 La mention **進行中 ― 未確定** reste tant que la clôture n'existe pas : elle décrit le statut de l'inventaire, pas le format du document, et elle servira aussi en phase 2 pour un inventaire imprimé avant sa clôture.
 
-**Mise en page.** Fond blanc et texte noir imposés en `@media print` — le fond gris de l'écran ne doit pas partir à l'impression. Corps de table à 9 ou 10 pt. `break-inside: avoid` sur chaque ligne, une ligne coupée entre deux pages étant illisible. `thead` en `display: table-header-group` pour que les en-têtes de colonnes se répètent sur chaque page : sur l'essai, la deuxième page n'est qu'une suite de nombres sans titre. Code article et désignation en **deux colonnes distinctes**, la première étroite et de largeur fixe pour que les codes s'alignent.
+**Mise en page.** Fond blanc et texte noir imposés en `@media print` — le fond gris de l'écran ne doit pas partir à l'impression. Corps de table à 9 ou 10 pt. `break-inside: avoid` sur chaque ligne, une ligne coupée entre deux pages étant illisible. `thead` en `display: table-header-group` pour que les en-têtes de colonnes se répètent sur chaque page : sur l'essai, la deuxième page n'est qu'une suite de nombres sans titre. Code article et désignation en **deux colonnes distinctes**, la première étroite pour que les codes s'alignent.
+
+**Marges réduites à 10–12 mm**, pour rendre de la largeur à la désignation. Pas en deçà : les imprimantes ont une zone non imprimable de l'ordre de 5 à 10 mm, et descendre plus bas fait rogner le contenu sur certaines d'entre elles sans prévenir.
+
+**Pagination — à mesurer avant de promettre.** Les compteurs `counter(page)` dans les boîtes de marge `@page` relèvent d'une spécification que les navigateurs, WebKit en particulier, n'implémentent pas. Essayer d'abord, constater sur l'appareil, et **dire si ça ne marche pas** plutôt que de livrer un numéro de page qui ne s'affiche jamais — la leçon de l'épisode `inputMode`.
+
+Si la pagination CSS est inopérante, le repli ne consiste pas à ajouter une bibliothèque de mise en page paginée. Le besoin réel, sur un document signé, est de **détecter une page manquante** : il est couvert en imprimant le nombre total de lignes en tête — `全 47 行` — ce qui fonctionne partout et sans dépendance.
 
 #### La feuille de contre-validation
 
@@ -526,8 +542,10 @@ Second document, après un saut de page : **le relevé complet du comptage**, un
 **Sa source doit être dédupliquée en dernière-valeur-gagne.** Lire le journal des saisies plutôt que l'agrégat de l'écran des écarts est le bon choix — l'agrégat passe par le statut de casier que le §14 signale comme surchargé, et un document destiné à être signé ne peut pas dépendre d'un filtre douteux. Mais le journal conserve chaque correction à côté de la saisie d'origine : sans un `distinct on (casier, référence, conditionnement)` trié par `ts` puis `id` décroissants, une référence corrigée apparaîtra **deux fois** sur la feuille, avec deux quantités différentes. Exactement le piège traité dans la requête CSV, sur la même table.
 
 - Colonnes : 確認 (case vide), 棚番, 品番, 品名, ケース, バラ, 合計.
-- **Trié par emplacement, dans l'ordre de tournée** (§8) — zone, baie, niveau. La personne qui contrôle marche dans l'entrepôt ; un tri par référence lui ferait faire des allers-retours.
+- **Trié par référence, puis par emplacement** — révision du 19 septembre. J'avais prescrit l'ordre de tournée en supposant un contrôle en marchant ; l'usage réel est la **revérification ciblée** d'une ligne qui paraît fautive, et pour cela on part de la référence. Deux bénéfices qui confirment le choix : une référence présente dans plusieurs casiers occupe des lignes consécutives, ce qui donne sa dispersion d'un coup d'œil ; et l'ordre devient **le même qu'en page 1**, donc une ligne repérée sur la synthèse se retrouve à la même position relative sur le détail.
+- L'ordre de tournée ne redeviendrait pertinent que si cette feuille servait un jour à un parcours physique complet. Le cas échéant, ce serait une option de tri, pas un changement de règle.
 - Case à cocher dessinée en carré vide, assez grande pour être cochée au stylo.
+- **Une seule heure d'impression, capturée une fois et partagée par les deux pages.** La feuille détachée reste ainsi prouvablement issue de la même impression que la page 1 — deux horodatages distincts sur un document en deux parties suffiraient à en faire douter.
 - **Colonnes de codes en `white-space: nowrap` avec une largeur minimale, jamais une largeur fixe.** Une largeur fixe tronque ou coupe en silence le jour où un code dépasse la longueur observée aujourd'hui — six caractères sur le jeu REUZEL. La colonne doit pouvoir s'élargir et pousser la désignation, qui absorbe sans dommage.
 - En-têtes répétés sur chaque page, comme ci-dessus.
 - Ligne 確認者 ／ 日付 en pied de la dernière page.
@@ -1046,7 +1064,7 @@ L'app s'appelle **どこどこ**. Dépôt public `dokodoko` — le nom du dépô
 - **Suivi de l'historique casier par casier entre inventaires** : hors périmètre (§6.5).
 
 - **`comptages.inventaire_id` nullable.** Un comptage orphelin est invisible de tous les inventaires, donc ses lignes ne comptent dans aucun écart. Coût : un trou silencieux dans le calcul de l'indicateur du pilote. Se referme à la migration du chantier de clôture (§6.5).
-- **Pas de contrainte d'unicité sur `(inventaire_id, emplacement_code)`.** Coût : deux comptages possibles pour un même casier, lignes réparties entre les deux, écart faux. Vérification en lecture seule à faire tout de suite ; correction à la même migration.
+- **Pas de contrainte d'unicité sur `(inventaire_id, emplacement_code)`.** Coût : deux comptages possibles pour un même casier, lignes réparties entre les deux, écart faux. Vérifié le 17 septembre : aucun doublon en base à ce jour. Conséquence découverte le 19 septembre, qui en relève la portée — la déduplication de la feuille 棚卸確認表 s'appuie sur « un comptage = un casier » pour que sa clé effective soit bien (casier, référence, conditionnement). Ce postulat est aujourd'hui tenu par la discipline, pas par une contrainte : deux comptages sur un même casier produiraient des lignes en double sur un document destiné à être signé. Correction à la migration du chantier de clôture.
 - **Ordre des lignes de comptage dépendant de l'horloge du téléphone** (§3). Coût : sur un appareil à la mauvaise date, une correction peut être datée avant l'original et le *latest-wins* retenir la mauvaise valeur. Atténué par l'avertissement de dérive au démarrage. Se referme avec le compteur monotone par appareil, à la migration du chantier de clôture.
 - **Création de casier hors file** (§3). Coût : un inventaire neuf est impossible hors réseau, puisque tous ses casiers sont neufs. Acceptable uniquement si la couverture en allée est vérifiée bonne. Correctif sans DDL disponible si elle ne l'est pas : identifiant de casier déterministe.
 - **« Supprimer » est un vrai `DELETE` dans un journal en dernière-valeur-gagne.** C'est un générateur de bugs : toute suppression doit raisonner sur l'ensemble des lignes d'un couple casier × référence × conditionnement, pas sur la dernière. Coût : chaque nouvel appelant peut réintroduire le défaut. La réponse structurelle est une **ligne d'absence** — un marqueur, comme l'annulation dans `mouvements` — plutôt qu'une suppression de lignes ; elle rendrait aussi sans objet la question de la policy `DELETE` (§3). Candidate pour la migration du chantier de clôture, qui restructure déjà cette table. Pas avant.
