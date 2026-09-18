@@ -89,7 +89,10 @@ export async function abandonInventaire(inventaireId: string, motif: string): Pr
   if (error) throw error
 }
 
-async function scopeRefCodes(inventaire: Inventaire): Promise<string[] | undefined> {
+// Exportée pour le titre du document imprimé (spec 2.52, §6.5) : le titre
+// se dérive de `scope_kind`, jamais saisi — pour le périmètre "références",
+// il faut la liste explicite des codes du périmètre.
+export async function scopeRefCodes(inventaire: Inventaire): Promise<string[] | undefined> {
   if (inventaire.scope_kind === 'tout') return undefined
   if (inventaire.scope_kind === 'client') {
     const { data, error } = await supabase

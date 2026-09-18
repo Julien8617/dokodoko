@@ -1,6 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useI18n, interpolate } from '../i18n'
-import ja from '../i18n/ja'
 import { supabase } from '../lib/supabase'
 import { extractErrorMessage } from '../lib/errors'
 import {
@@ -26,6 +25,7 @@ import {
   listLatestCasierLignes,
   markCasierVisite,
   saveCasierLigne,
+  scopeRefCodes,
   type SaisieLine,
   type SyntheseLigneEmplacement,
   type SyntheseReference,
@@ -47,10 +47,21 @@ type Phase = 'launch' | 'walk' | 'ecarts'
 // « corriger » une traduction ici, ces termes viennent de la spec telle
 // quelle.
 const PRINT_JA = {
-  titre: '棚卸差異報告',
   statut: '進行中 ― 未確定',
   perimetre: '対象',
   dateImpression: '印刷日時',
+  // Titre dérivé du périmètre (spec 2.52) : jamais saisi, jamais un texte
+  // unique — l'information existe déjà dans `inventaires.scope_kind`.
+  titreTout: '全体棚卸',
+  titreClientPrefix: '得意先棚卸',
+  titreReferencesPrefix: '品目指定棚卸',
+  titreAuDela: '他{count}件', // {count} remplacé manuellement, pas interpolate() ici
+  // Deux dates qui ne disent pas la même chose (spec 2.52) : la date du
+  // travail (première saisie, ou intervalle si le comptage s'étale) et le
+  // frozen_ts qui rend l'écart interprétable.
+  dateComptage: '棚卸実施日',
+  dateGel: '基準日時',
+  totalLignes: '全{count}行', // {count} remplacé manuellement — repli sans dépendance si la pagination CSS ne s'affiche pas (spec 2.52)
   emplacement: '棚番',
   codeArticle: '品番',
   designation: '品名',
@@ -78,6 +89,51 @@ function formatPrintDate(iso: string | number | Date): string {
   const d = new Date(iso)
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+// Même convention, date seule — 棚卸実施日 est "la date du travail", pas un
+// horodatage (spec 2.52).
+function formatPrintDateOnly(iso: string | number | Date): string {
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())}`
+}
+
+// 棚卸実施日 (spec 2.52) : date de la première saisie, ou intervalle
+// première/dernière si le comptage s'étale sur plusieurs jours — la date
+// que cherche un lecteur, distincte de `frozen_ts` (基準日時) qui rend
+// l'écart interprétable. Repli sur la date de lancement si rien n'a encore
+// été saisi (cas non prévu par la spec — un inventaire tout juste ouvert).
+//
+// Approximation connue, non résolue : `saisies` vient de
+// listInventaireSaisies -> listLatestCasierLignes, qui NE GARDE QUE la
+// dernière valeur par triplet (latest-wins, par construction). Une
+// correction faite depuis l'écran des Écarts plusieurs jours après le
+// comptage remplace le `ts` d'origine par celui de la correction : la
+// borne haute de l'intervalle avance, faisant paraître le comptage plus
+// étalé qu'il ne l'a été. Obtenir le vrai premier `ts` par ligne
+// demanderait de lire le journal AVANT déduplication (nouvelle requête,
+// non demandée) — signalé tel quel plutôt que construit sans arbitrage.
+function workDateLabel(saisies: SaisieLine[], fallbackIso: string): string {
+  if (saisies.length === 0) return formatPrintDateOnly(fallbackIso)
+  const timestamps = saisies.map((s) => s.ts).sort()
+  const first = formatPrintDateOnly(timestamps[0])
+  const last = formatPrintDateOnly(timestamps[timestamps.length - 1])
+  return first === last ? first : `${first}～${last}`
+}
+
+// Titre dérivé du périmètre (spec 2.52) : jamais saisi, l'information
+// existe déjà dans `inventaires.scope_kind` et ses dépendances.
+function printTitle(inventaire: Inventaire, clients: Client[], referencesScope: string[] | undefined): string {
+  if (inventaire.scope_kind === 'tout') return PRINT_JA.titreTout
+  if (inventaire.scope_kind === 'client') {
+    const nom = clients.find((c) => c.code === inventaire.scope_client_code)?.nom ?? inventaire.scope_client_code ?? ''
+    return `${PRINT_JA.titreClientPrefix} ― ${nom}`
+  }
+  const codes = [...(referencesScope ?? [])].sort()
+  const shown = codes.slice(0, 3).join(', ')
+  const rest = codes.length > 3 ? ` ${PRINT_JA.titreAuDela.replace('{count}', String(codes.length - 3))}` : ''
+  return `${PRINT_JA.titreReferencesPrefix} ${shown}${rest}`
 }
 
 // Module Inventaire v2 (brief 2026-09-14, révisé le même jour après retour
@@ -924,11 +980,6 @@ function Ecarts({
   const [loadError, setLoadError] = useState<string | null>(null)
   const [references, setReferences] = useState<SyntheseReference[]>([])
   const [clients, setClients] = useState<Client[]>([])
-  // Ordre de tournée (§8 : zone/baie/niveau, celui de `listEmplacements`) —
-  // sert uniquement à trier la feuille de contre-validation (spec 2.49) :
-  // la personne qui contrôle marche dans l'entrepôt, un tri par référence
-  // lui ferait faire des allers-retours.
-  const [emplacementOrder, setEmplacementOrder] = useState<string[]>([])
   // Feuille de contre-validation (spec 2.49) : source = journal complet des
   // saisies, PAS `references`/`parEmplacement` (filtrée par
   // getInventaireSynthese sur statut === 'clos', dette §14) — un document
@@ -936,6 +987,10 @@ function Ecarts({
   const [saisies, setSaisies] = useState<SaisieLine[]>([])
   const [refLibelleByCode, setRefLibelleByCode] = useState<Map<string, string | null>>(new Map())
   const [conditionnementById, setConditionnementById] = useState<Map<string, Conditionnement>>(new Map())
+  // Titre du document imprimé (spec 2.52) : liste explicite des codes du
+  // périmètre pour scope_kind === 'references' — undefined pour les deux
+  // autres périmètres, sans signification particulière dans ces cas.
+  const [referencesScope, setReferencesScope] = useState<string[] | undefined>(undefined)
   const [openRef, setOpenRef] = useState<string | null>(null)
   const [editingLigneId, setEditingLigneId] = useState<string | null>(null)
   const [editCartons, setEditCartons] = useState('')
@@ -966,9 +1021,6 @@ function Ecarts({
     listClients().then((list) => {
       if (!cancelled) setClients(list)
     }).catch(() => {})
-    listEmplacements().then((list) => {
-      if (!cancelled) setEmplacementOrder(list.map((e) => e.code))
-    }).catch(() => {})
     // Groupées avec la synthèse (pas en best-effort séparé) : ce sont les
     // données de la feuille de contre-validation, un document destiné à
     // être signé — un échec silencieux de `listConditionnementsByRef`
@@ -979,8 +1031,9 @@ function Ecarts({
       listInventaireSaisies(inventaire.id),
       listReferences(),
       listConditionnementsByRef(),
+      scopeRefCodes(inventaire),
     ])
-      .then(([synthese, saisieList, refList, condByRef]) => {
+      .then(([synthese, saisieList, refList, condByRef, refScope]) => {
         if (cancelled) return
         setReferences(synthese.references)
         setSaisies(saisieList)
@@ -988,6 +1041,7 @@ function Ecarts({
         const byId = new Map<string, Conditionnement>()
         for (const list of condByRef.values()) for (const c of list) byId.set(c.id, c)
         setConditionnementById(byId)
+        setReferencesScope(inventaire.scope_kind === 'references' ? refScope : undefined)
         setLoading(false)
       })
       .catch((err) => {
@@ -1186,6 +1240,9 @@ function Ecarts({
   // afficher la même heure d'impression pour rester traçables l'une à
   // l'autre, ce qu'un second `new Date()` au rendu ne garantirait pas.
   const printedAt = formatPrintDate(new Date())
+  const derivedTitle = printTitle(inventaire, clients, referencesScope)
+  const workDate = workDateLabel(saisies, inventaire.created_at)
+  const frozenDate = formatPrintDate(inventaire.frozen_ts)
 
   return (
     <main className="inventory">
@@ -1264,10 +1321,13 @@ function Ecarts({
           imprimable (révision du 18 septembre) — d'où la mention non
           dissimulable, inconditionnelle tant que la clôture n'existe pas. */}
       <div className="print-summary">
-        <h1>{PRINT_JA.titre}</h1>
+        <h1>{derivedTitle}</h1>
         <p className="print-banner">{PRINT_JA.statut}</p>
         <p>
-          {PRINT_JA.perimetre}：{scopeLabel(inventaire, clients, ja)}
+          {PRINT_JA.dateComptage}：{workDate}
+        </p>
+        <p>
+          {PRINT_JA.dateGel}：{frozenDate}
         </p>
         <p>
           {PRINT_JA.dateImpression}：{printedAt}
@@ -1306,7 +1366,7 @@ function Ecarts({
           </tbody>
         </table>
 
-        {/* Feuille de contre-validation (spec 2.49-2.50) : second document,
+        {/* Feuille de contre-validation (spec 2.49-2.52) : second document,
             un saut de page plus loin — le relevé complet du comptage, une
             ligne par saisie. Source : `saisies` (listInventaireSaisies),
             PAS `references`/`parEmplacement` — cette dernière est filtrée
@@ -1314,21 +1374,35 @@ function Ecarts({
             §14 sur `comptages.statut`), donc un casier dont le marquage
             "visité" aurait échoué disparaîtrait silencieusement d'une
             feuille censée être complète. `listInventaireSaisies` existe
-            précisément sans ce filtre. Triée par emplacement dans l'ordre
-            de tournée (§8), pas par référence — la personne qui contrôle
-            marche dans l'entrepôt. Son propre titre et son propre bloc
-            対象/date (spec 2.50) : cette feuille est faite pour être
-            détachée et emportée dans l'entrepôt — sans eux, séparée de la
-            page 1, elle redevient une liste anonyme de nombres alors que
-            c'est elle qui sera signée. */}
+            précisément sans ce filtre. Triée par RÉFÉRENCE puis
+            emplacement (révision du 19 septembre, spec 2.52) : l'usage
+            réel est la revérification ciblée d'une ligne fautive, qui part
+            de la référence — pas un contrôle en marchant, qui aurait voulu
+            l'ordre de tournée. Bénéfice supplémentaire : même ordre qu'en
+            page 1. Son propre titre et son propre bloc 対象/date (spec
+            2.50) : cette feuille est faite pour être détachée et emportée
+            dans l'entrepôt — sans eux, séparée de la page 1, elle redevient
+            une liste anonyme de nombres alors que c'est elle qui sera
+            signée. */}
         <div className="print-page-break">
           <h1>{PRINT_JA.titreConfirmation}</h1>
           <p>
-            {PRINT_JA.perimetre}：{scopeLabel(inventaire, clients, ja)}
+            {PRINT_JA.perimetre}：{derivedTitle}
+          </p>
+          <p>
+            {PRINT_JA.dateComptage}：{workDate}
+          </p>
+          <p>
+            {PRINT_JA.dateGel}：{frozenDate}
           </p>
           <p>
             {PRINT_JA.dateImpression}：{printedAt}
           </p>
+          {/* Repli sans dépendance pour détecter une page manquante (spec
+              2.52) si counter(page)/counter(pages) ne s'affiche pas — voir
+              le commentaire sur .print-page-number en CSS pour l'état
+              (non vérifié) de cette tentative. */}
+          <p>{PRINT_JA.totalLignes.replace('{count}', String(saisies.length))}</p>
           <table>
             <thead>
               <tr>
@@ -1343,7 +1417,6 @@ function Ecarts({
             </thead>
             <tbody>
               {(() => {
-                const orderIndex = new Map(emplacementOrder.map((code, i) => [code, i]))
                 const rows = saisies.map((s) => {
                   const cond = conditionnementById.get(s.conditionnementId)
                   const pieceRate = cond?.pieces_par_carton ?? 0
@@ -1359,14 +1432,12 @@ function Ecarts({
                     total: s.cartons * pieceRate + s.pieces,
                   }
                 })
-                rows.sort((a, b) => {
-                  const ia = orderIndex.get(a.emplacementCode) ?? Number.MAX_SAFE_INTEGER
-                  const ib = orderIndex.get(b.emplacementCode) ?? Number.MAX_SAFE_INTEGER
-                  if (ia !== ib) return ia - ib
-                  return (
-                    a.emplacementCode.localeCompare(b.emplacementCode) || a.refCode.localeCompare(b.refCode)
-                  )
-                })
+                // Référence puis emplacement (spec 2.52) : révision de
+                // l'ordre de tournée, voir le commentaire au-dessus.
+                rows.sort(
+                  (a, b) =>
+                    a.refCode.localeCompare(b.refCode) || a.emplacementCode.localeCompare(b.emplacementCode),
+                )
                 return rows.map((row, i) => (
                   <tr key={`${row.emplacementCode}|${row.refCode}|${i}`}>
                     <td className="print-col-check">

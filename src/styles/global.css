@@ -583,6 +583,25 @@ body {
   gap: 1rem;
 }
 
+/* Marges réduites (spec 2.52), pour rendre de la largeur à la désignation.
+   Pas en deçà de 10mm : la zone non imprimable de certaines imprimantes
+   est de cet ordre, descendre plus bas rognerait le contenu sans le dire. */
+@page {
+  margin: 12mm;
+  /* Numérotation de page — À VÉRIFIER SUR L'APPAREIL (spec 2.52) :
+     `counter(page)`/`counter(pages)` dans les boîtes de marge @page
+     relèvent d'une spécification que WebKit n'implémente pas à ce jour.
+     Laissée en place au cas où elle serait honorée ; si rien ne s'affiche
+     en bas de page à l'impression, c'est attendu et sans conséquence — le
+     repli sans dépendance (`全N行` en tête de la feuille de
+     contre-validation) couvre déjà le besoin réel : détecter une page
+     manquante sur un document signé. */
+  @bottom-right {
+    content: counter(page) ' / ' counter(pages);
+    font-size: 8pt;
+  }
+}
+
 @media print {
   .no-print {
     display: none !important;

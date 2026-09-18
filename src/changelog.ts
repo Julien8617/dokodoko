@@ -10,6 +10,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.25',
+    date: '2026-09-19',
+    items: [
+      'Document imprimé : le titre se déduit maintenant du périmètre de l’inventaire (entrepôt entier, un client, ou une liste de références) au lieu d’un intitulé unique — plus besoin de le deviner à la lecture',
+      'Document imprimé : deux dates ajoutées en tête — la date du comptage lui-même (棚卸実施日) et celle du gel du théorique (基準日時) — en plus de la date d’impression',
+      'Document imprimé : marges réduites pour redonner de la place à la désignation des articles ; la feuille de contre-validation indique désormais le nombre total de lignes, pour repérer une page manquante à l’impression',
+      'Feuille de contre-validation : tri par référence puis par emplacement plutôt que par ordre de parcours de l’entrepôt — pensé pour revérifier une ligne précise, pas pour un contrôle en marchant',
+    ],
+  },
+  {
     version: '0.9.24',
     date: '2026-09-19',
     items: [
