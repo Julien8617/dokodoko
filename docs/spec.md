@@ -1,6 +1,6 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.46 — 18 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.49 — 19 septembre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -148,6 +148,8 @@ Un site statique public expose forcément sa clé Supabase `anon`. Sans protecti
 
 Tester explicitement : ouvrir l'URL en navigation privée sans se connecter doit ne rien renvoyer.
 
+**Friction opératoire à anticiper** : les instructions `create policy` sont refusées par le classifieur d'auto-mode des sessions de développement — constaté deux fois. Elles doivent donc être préparées à l'avance et exécutées à la main dans l'éditeur SQL de Supabase. Une fonctionnalité qui suppose une nouvelle policy n'est pas terminée quand le code est poussé : elle l'est quand la policy est jouée. À dire dans le rapport, jamais à découvrir au premier essai.
+
 ## 4. Modèle de données
 
 ```sql
@@ -291,7 +293,12 @@ L'immuabilité ci-dessus vise `mouvements` et `comptage_lignes`, c'est-à-dire c
 
 **Jamais modifiable : le code lui-même**, qui est l'identité et la clé étrangère de tout l'historique. Le renommer demanderait une cascade sur les mouvements, c'est-à-dire réécrire le passé.
 
-**Supprimable tant que rien ne la référence** : une référence sans aucun mouvement **ni aucune ligne de comptage** ne porte aucune histoire. La supprimer et la recréer sous le bon code est plus simple et plus sûr qu'un renommage en cascade. Au-delà, la suppression est refusée, et l'app dit **pourquoi** — « 3 mouvements, 12 lignes de comptage » — au lieu d'un refus muet.
+**Supprimable tant que rien ne la référence** : une référence sans aucun mouvement **ni aucune ligne de comptage** ne porte aucune histoire.
+
+Troisième lien à ne pas oublier, ajouté le 19 septembre : `inventaire_references`, qui enregistre le **périmètre** d'un inventaire. Une référence peut y figurer sans avoir jamais été comptée — elle était dans le périmètre, on ne l'a pas trouvée. La supprimer efface alors, en cascade et en silence, une partie du procès-verbal de cet inventaire. Deux règles :
+
+- Le décompte affiché en cas de refus mentionne aussi ce lien — « présente dans le périmètre de 2 inventaires » — pour que l'on sache ce que l'on efface.
+- **Dès que la clôture existera, la suppression sera refusée si la référence appartient au périmètre d'un inventaire clos.** Le périmètre d'un inventaire clos est une donnée d'audit ; celui d'un inventaire en cours ou abandonné ne l'est pas. La supprimer et la recréer sous le bon code est plus simple et plus sûr qu'un renommage en cascade. Au-delà, la suppression est refusée, et l'app dit **pourquoi** — « 3 mouvements, 12 lignes de comptage » — au lieu d'un refus muet.
 
 Conséquence pratique constatée le 18 septembre : une référence mal saisie puis comptée le matin même porte des lignes de comptage. Elle ne redevient supprimable qu'une fois ces lignes retirées, ce que l'inventaire en cours autorise (§3). L'ordre est donc : retirer les saisies, puis supprimer la référence.
 
@@ -472,6 +479,57 @@ La synthèse des écarts se base alors sur la présence d'au moins une ligne de 
 **Clôture** : un inventaire ne se clôture que lorsque chaque casier du périmètre porte une saisie — chiffrée ou confirmée vide — et que chaque écart restant est soit corrigé, soit justifié par un motif saisi. La clôture écrit alors un mouvement `ajustement_inventaire` par couple référence × conditionnement écarté, portant le `comptage_id`. Aucun écart, aucun mouvement.
 
 **Résultat imprimable** : synthèse d'un inventaire — périmètre, dates, couverture, écarts avec leur justification, écart total en pièces — en page A4 via `@media print`, d'où l'iPhone produit un PDF par le partage.
+
+#### Le document imprimé — retour d'essai du 19 septembre
+
+`window.print()` fonctionne depuis la PWA installée : la question ouverte est close, et le repli Safari comme la piste d'une dépendance PDF deviennent sans objet.
+
+**Le document est toujours en japonais, quelle que soit la langue de l'interface.** L'interface sert l'opérateur, le document sert ses lecteurs — ce sont deux publics différents. La feuille est rendue avec le dictionnaire `ja` de façon figée, et les dates suivent la convention japonaise `2026/09/18`, sans secondes. Les libellés produits, déjà bilingues en base, restent tels quels.
+
+Vocabulaire à employer, pour que la feuille se lise comme un document d'entrepôt japonais plutôt que comme une traduction :
+
+| Rôle | Terme |
+|---|---|
+| Titre, comptage sans théorique | 棚卸結果報告 |
+| Titre, avec théorique | 棚卸差異報告 |
+| Mention de statut | 進行中 ― 未確定 |
+| Périmètre | 対象 |
+| Date d'impression | 印刷日時 |
+| Emplacement | 棚番 |
+| Code article | 品番 |
+| Désignation | 品名 |
+| Stock théorique | 理論在庫 |
+| Quantité comptée | 実棚数量 |
+| Écart | 差異 |
+| Cartons | ケース |
+| Pièces | バラ |
+| Total | 合計 |
+| Case de contre-validation | 確認 |
+| Bas de page | 確認者 ／ 日付 |
+
+**Les glyphes japonais s'impriment correctement** — vérifié sur le PDF du 19 septembre. Les blancs observés venaient du lecteur qui l'a ouvert, pas du document. Point clos, à ne pas rouvrir.
+
+**Un seul format de document, celui de la phase 2, construit dès maintenant.** Les colonnes 理論在庫 et 差異 restent même quand le théorique est nul : les lecteurs de la feuille savent que l'app est en développement et lisent le total compté. Construire une variante de phase 1 reviendrait à la jeter au moment de l'amorçage, et à refaire la mise en page au pire moment — quand le stock réel arrive. Le document est donc prêt pour le jour J.
+
+**Une addition d'une ligne qui lève l'ambiguïté sans variante.** La feuille totalise **合計数量** — la quantité comptée — *et* **差異合計** — le total des écarts, côte à côte. Aujourd'hui la première vaut 58 151 et la seconde autant, ce qui se lit correctement au lieu d'annoncer une disparition massive. En phase 2 les deux divergent et disent chacune quelque chose. Le total compté figure de toute façon sur un 棚卸 japonais : ce n'est pas une béquille de phase 1.
+
+La mention **進行中 ― 未確定** reste tant que la clôture n'existe pas : elle décrit le statut de l'inventaire, pas le format du document, et elle servira aussi en phase 2 pour un inventaire imprimé avant sa clôture.
+
+**Mise en page.** Fond blanc et texte noir imposés en `@media print` — le fond gris de l'écran ne doit pas partir à l'impression. Corps de table à 9 ou 10 pt. `break-inside: avoid` sur chaque ligne, une ligne coupée entre deux pages étant illisible. `thead` en `display: table-header-group` pour que les en-têtes de colonnes se répètent sur chaque page : sur l'essai, la deuxième page n'est qu'une suite de nombres sans titre. Code article et désignation en **deux colonnes distinctes**, la première étroite et de largeur fixe pour que les codes s'alignent.
+
+#### La feuille de contre-validation
+
+Second document, après un saut de page : **le relevé complet du comptage**, une ligne par saisie, avec une case à cocher en tête de ligne.
+
+- Colonnes : 確認 (case vide), 棚番, 品番, 品名, ケース, バラ, 合計.
+- **Trié par emplacement, dans l'ordre de tournée** (§8) — zone, baie, niveau. La personne qui contrôle marche dans l'entrepôt ; un tri par référence lui ferait faire des allers-retours.
+- Case à cocher dessinée en carré vide, assez grande pour être cochée au stylo.
+- En-têtes répétés sur chaque page, comme ci-dessus.
+- Ligne 確認者 ／ 日付 en pied de la dernière page.
+
+**Une réserve à connaître, puisqu'elle porte sur ce que le document prouve.** Les quantités y étant imprimées, celui qui contrôle voit la réponse avant de compter — c'est un dispositif de **vérification**, rapide et utile pour un contrôle par sondage ou pour une signature, mais pas un recomptage indépendant. Un vrai recomptage demanderait la même feuille avec les quantités laissées vides. C'est la même distinction qu'entre compter à l'aveugle et compter vers une cible (§6.5). La variante à colonnes vides est le même document moins trois colonnes : à offrir en option le jour où le besoin d'un second comptage réellement indépendant se présente.
+
+**Le repli « ouvrir dans Safari » n'est pas gratuit.** Une PWA installée sur l'écran d'accueil et Safari ont des stockages séparés : la session Supabase ne suit pas, et imprimer depuis Safari impose de se reconnecter par code e-mail à chaque fois. Si `window.print()` ne fonctionne pas en mode autonome, ce n'est donc pas une solution de repli acceptable au quotidien. La bonne réponse serait alors de ne rien bricoler en phase 1 — la sortie CSV couvre le besoin de chiffres — et de traiter l'impression avec l'export `.xlsx` de phase 2, plutôt que d'ajouter une dépendance de génération PDF pour combler un mois.
 
 **Un inventaire en cours est imprimable aussi**, révision du 18 septembre : le besoin de justifier un comptage auprès de collègues n'attend pas la clôture, qui n'existe pas encore. La feuille porte alors une mention **« en cours, non clôturé »** en tête, non dissimulable — un document d'inventaire sans son statut se met à circuler comme s'il était définitif.
 
