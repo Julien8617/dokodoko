@@ -222,18 +222,10 @@ export interface Dictionary {
     abandonMotifLabel: string
     abandonMotifPlaceholder: string
     abandonButton: string
-    // Synthèse imprimable (spec 2.46 §6.5) : visible seulement via @media
-    // print (global.css). Bannière non dissimulable tant que la clôture
-    // n'existe pas — un document d'inventaire sans son statut circulerait
-    // comme s'il était définitif.
+    // Le bouton reste dans le dictionnaire (chrome d'interface, traduit) ;
+    // le contenu du document imprimé lui-même est fixé en japonais
+    // (PRINT_JA, Inventory.tsx) — voir spec 2.49 §6.5.
     printButton: string
-    printTitle: string
-    printNotClosed: string
-    printDate: string // {date}
-    printEcartTotal: string // {total}
-    printTheorique: string
-    printCompte: string
-    printEcart: string
   }
   catalogue: {
     title: string

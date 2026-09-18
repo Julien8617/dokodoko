@@ -10,6 +10,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.23',
+    date: '2026-09-19',
+    items: [
+      'Document imprimé de l’inventaire : toujours en japonais et au format 2026/09/18, quelle que soit la langue de l’interface — c’est un document pour les collègues, pas un écran pour l’opérateur. Vocabulaire d’entrepôt (棚番, 品番, 理論在庫, 実棚数量…) au lieu d’une traduction littérale',
+      'Document imprimé : deux totaux séparés (quantité comptée et total des écarts) plutôt qu’un seul, pour ne pas laisser croire à une disparition de stock avant l’amorçage du stock d’ouverture',
+      'Document imprimé : mise en page revue pour l’impression — fond blanc, texte noir, en-têtes de colonnes répétés sur chaque page, plus de ligne coupée entre deux pages, code article dans une colonne étroite alignée',
+      'Nouveau second document après l’impression : la feuille de contre-validation, une ligne par saisie avec une case à cocher, triée dans l’ordre de tournée de l’entrepôt plutôt que par référence',
+    ],
+  },
+  {
     version: '0.9.22',
     date: '2026-09-19',
     items: [

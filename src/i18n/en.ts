@@ -190,13 +190,6 @@ const en: Dictionary = {
     abandonMotifPlaceholder: 'e.g. weekly count on 09/19',
     abandonButton: 'Abandon the inventory',
     printButton: 'Print',
-    printTitle: 'Inventory summary',
-    printNotClosed: 'IN PROGRESS — NOT CLOSED',
-    printDate: 'Printed on {date}',
-    printEcartTotal: 'Total difference: {total} pieces',
-    printTheorique: 'Expected',
-    printCompte: 'Counted',
-    printEcart: 'Difference',
   },
   catalogue: {
     title: 'Catalogue',

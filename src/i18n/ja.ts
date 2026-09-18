@@ -190,13 +190,6 @@ const ja: Dictionary = {
     abandonMotifPlaceholder: '例：9/19の週次棚卸',
     abandonButton: '棚卸を中止する',
     printButton: '印刷',
-    printTitle: '棚卸サマリー',
-    printNotClosed: '進行中 — 未確定',
-    printDate: '印刷日：{date}',
-    printEcartTotal: '差異合計：{total} ピース',
-    printTheorique: '理論値',
-    printCompte: '実測値',
-    printEcart: '差異',
   },
   catalogue: {
     title: '品目台帳',

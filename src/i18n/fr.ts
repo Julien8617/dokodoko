@@ -190,13 +190,6 @@ const fr: Dictionary = {
     abandonMotifPlaceholder: 'ex. comptage hebdomadaire du 19/09',
     abandonButton: 'Abandonner l’inventaire',
     printButton: 'Imprimer',
-    printTitle: 'Synthèse d’inventaire',
-    printNotClosed: 'EN COURS — NON CLÔTURÉ',
-    printDate: 'Imprimé le {date}',
-    printEcartTotal: 'Écart total : {total} pièces',
-    printTheorique: 'Théorique',
-    printCompte: 'Compté',
-    printEcart: 'Écart',
   },
   catalogue: {
     title: 'Catalogue',

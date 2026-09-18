@@ -1,11 +1,13 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useI18n, interpolate } from '../i18n'
+import ja from '../i18n/ja'
 import { supabase } from '../lib/supabase'
 import { extractErrorMessage } from '../lib/errors'
 import {
   ensureEmplacement,
   listClients,
   listConditionnements,
+  listConditionnementsByRef,
   listEmplacements,
   listReferences,
   matchEmplacements,
@@ -34,6 +36,44 @@ import ComboInput from '../components/ComboInput'
 import CountStepper from '../components/CountStepper'
 
 type Phase = 'launch' | 'walk' | 'ecarts'
+
+// Document imprimé (spec 2.49, §6.5) : toujours en japonais, quelle que
+// soit la langue de l'interface — l'interface sert l'opérateur, le
+// document sert ses lecteurs, deux publics différents. Volontairement HORS
+// du dictionnaire `Dictionary` (donc pas dans fr.ts/en.ts) : ce n'est pas
+// une chaîne d'interface traduisible mais un vocabulaire d'entrepôt fixe,
+// même régime que les en-têtes de fichiers d'import/export (CLAUDE.md) —
+// ne jamais le faire dépendre du sélecteur de langue, ne jamais
+// « corriger » une traduction ici, ces termes viennent de la spec telle
+// quelle.
+const PRINT_JA = {
+  titre: '棚卸差異報告',
+  statut: '進行中 ― 未確定',
+  perimetre: '対象',
+  dateImpression: '印刷日時',
+  emplacement: '棚番',
+  codeArticle: '品番',
+  designation: '品名',
+  stockTheorique: '理論在庫',
+  quantiteComptee: '実棚数量',
+  ecart: '差異',
+  cartons: 'ケース',
+  pieces: 'バラ',
+  total: '合計',
+  quantiteTotale: '合計数量',
+  ecartTotal: '差異合計',
+  confirmation: '確認',
+  piedConfirmateur: '確認者 ／ 日付',
+}
+
+// Convention japonaise imposée pour le document imprimé (spec 2.49),
+// indépendante de la langue de l'interface — "2026/09/18 14:32", sans
+// secondes.
+function formatPrintDate(iso: string | number | Date): string {
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
 
 // Module Inventaire v2 (brief 2026-09-14, révisé le même jour après retour
 // terrain) : une palette déplacée sans le signaler ne peut jamais apparaître
@@ -879,6 +919,18 @@ function Ecarts({
   const [loadError, setLoadError] = useState<string | null>(null)
   const [references, setReferences] = useState<SyntheseReference[]>([])
   const [clients, setClients] = useState<Client[]>([])
+  // Ordre de tournée (§8 : zone/baie/niveau, celui de `listEmplacements`) —
+  // sert uniquement à trier la feuille de contre-validation (spec 2.49) :
+  // la personne qui contrôle marche dans l'entrepôt, un tri par référence
+  // lui ferait faire des allers-retours.
+  const [emplacementOrder, setEmplacementOrder] = useState<string[]>([])
+  // Feuille de contre-validation (spec 2.49) : source = journal complet des
+  // saisies, PAS `references`/`parEmplacement` (filtrée par
+  // getInventaireSynthese sur statut === 'clos', dette §14) — un document
+  // censé être complet ne peut pas hériter de ce filtre fragile.
+  const [saisies, setSaisies] = useState<SaisieLine[]>([])
+  const [refLibelleByCode, setRefLibelleByCode] = useState<Map<string, string | null>>(new Map())
+  const [conditionnementById, setConditionnementById] = useState<Map<string, Conditionnement>>(new Map())
   const [openRef, setOpenRef] = useState<string | null>(null)
   const [editingLigneId, setEditingLigneId] = useState<string | null>(null)
   const [editCartons, setEditCartons] = useState('')
@@ -909,10 +961,28 @@ function Ecarts({
     listClients().then((list) => {
       if (!cancelled) setClients(list)
     }).catch(() => {})
-    getInventaireSynthese(inventaire)
-      .then((result) => {
+    listEmplacements().then((list) => {
+      if (!cancelled) setEmplacementOrder(list.map((e) => e.code))
+    }).catch(() => {})
+    // Groupées avec la synthèse (pas en best-effort séparé) : ce sont les
+    // données de la feuille de contre-validation, un document destiné à
+    // être signé — un échec silencieux de `listConditionnementsByRef`
+    // ferait imprimer un 合計 tronqué (taux manquant = 0) sans que rien ne
+    // le signale.
+    Promise.all([
+      getInventaireSynthese(inventaire),
+      listInventaireSaisies(inventaire.id),
+      listReferences(),
+      listConditionnementsByRef(),
+    ])
+      .then(([synthese, saisieList, refList, condByRef]) => {
         if (cancelled) return
-        setReferences(result.references)
+        setReferences(synthese.references)
+        setSaisies(saisieList)
+        setRefLibelleByCode(new Map(refList.map((r) => [r.code, r.libelle])))
+        const byId = new Map<string, Conditionnement>()
+        for (const list of condByRef.values()) for (const c of list) byId.set(c.id, c)
+        setConditionnementById(byId)
         setLoading(false)
       })
       .catch((err) => {
@@ -1106,8 +1176,6 @@ function Ecarts({
     )
   }
 
-  const ecartTotalPieces = references.reduce((sum, r) => sum + r.ecartTotal, 0)
-
   return (
     <main className="inventory">
       <div className="no-print">
@@ -1174,38 +1242,48 @@ function Ecarts({
         </div>
       </div>
 
-      {/* Synthèse imprimable (spec 2.46 §6.5) : masquée à l'écran, visible
+      {/* Document imprimé (spec 2.49 §6.5) : masqué à l'écran, visible
           seulement via @media print — la seule partie de l'écran qui reste
-          visible à l'impression (voir global.css). Un inventaire en cours
-          est imprimable aussi (révision du 18 septembre) : le besoin de
-          justifier un comptage auprès de collègues n'attend pas la
-          clôture, qui n'existe pas encore — d'où la mention non
-          dissimulable ci-dessous, inconditionnelle tant que la clôture
-          n'existe pas. */}
+          visible à l'impression (voir global.css). Toujours en japonais
+          (PRINT_JA), quelle que soit la langue de l'interface — l'écran
+          sert l'opérateur, le document sert ses lecteurs. Format unique,
+          celui de la phase 2, construit dès maintenant : les colonnes
+          théorique/écart restent même à zéro, pour ne pas devoir refaire
+          la mise en page à l'amorçage. Un inventaire en cours reste
+          imprimable (révision du 18 septembre) — d'où la mention non
+          dissimulable, inconditionnelle tant que la clôture n'existe pas. */}
       <div className="print-summary">
-        <h1>{t.inventory.printTitle}</h1>
-        <p className="print-banner">{t.inventory.printNotClosed}</p>
-        <p>{interpolate(t.inventory.resumeSubtitle, { scope: scopeLabel(inventaire, clients, t), date: new Date(inventaire.created_at).toLocaleDateString() })}</p>
-        <p>{interpolate(t.inventory.printDate, { date: new Date().toLocaleString() })}</p>
-        <p>{interpolate(t.inventory.printEcartTotal, { total: ecartTotalPieces })}</p>
+        <h1>{PRINT_JA.titre}</h1>
+        <p className="print-banner">{PRINT_JA.statut}</p>
+        <p>
+          {PRINT_JA.perimetre}：{scopeLabel(inventaire, clients, ja)}
+        </p>
+        <p>
+          {PRINT_JA.dateImpression}：{formatPrintDate(new Date())}
+        </p>
+        <div className="print-totals">
+          <p>
+            {PRINT_JA.quantiteTotale}：{references.reduce((sum, r) => sum + r.compteTotal, 0)}
+          </p>
+          <p>
+            {PRINT_JA.ecartTotal}：{references.reduce((sum, r) => sum + r.ecartTotal, 0)}
+          </p>
+        </div>
         <table>
           <thead>
             <tr>
-              <th>{t.inventory.reference}</th>
-              <th>{t.inventory.printTheorique}</th>
-              <th>{t.inventory.printCompte}</th>
-              <th>{t.inventory.printEcart}</th>
+              <th className="print-col-code">{PRINT_JA.codeArticle}</th>
+              <th>{PRINT_JA.designation}</th>
+              <th>{PRINT_JA.stockTheorique}</th>
+              <th>{PRINT_JA.quantiteComptee}</th>
+              <th>{PRINT_JA.ecart}</th>
             </tr>
           </thead>
           <tbody>
             {references.map((r) => (
               <tr key={`${r.refCode}|${r.conditionnementId}`}>
-                <td>
-                  {r.refCode}
-                  {[r.refLibelle, r.conditionnementLabel].filter(Boolean).length > 0
-                    ? ` — ${[r.refLibelle, r.conditionnementLabel].filter(Boolean).join(' · ')}`
-                    : ''}
-                </td>
+                <td className="print-col-code">{r.refCode}</td>
+                <td>{[r.refLibelle, r.conditionnementLabel].filter(Boolean).join(' · ')}</td>
                 <td>{r.theoriqueTotal}</td>
                 <td>{r.compteTotal}</td>
                 <td>
@@ -1216,6 +1294,77 @@ function Ecarts({
             ))}
           </tbody>
         </table>
+
+        {/* Feuille de contre-validation (spec 2.49) : second document, un
+            saut de page plus loin — le relevé complet du comptage, une
+            ligne par saisie. Source : `saisies` (listInventaireSaisies),
+            PAS `references`/`parEmplacement` — cette dernière est filtrée
+            par `getInventaireSynthese` sur `statut === 'clos'` (dette
+            §14 sur `comptages.statut`), donc un casier dont le marquage
+            "visité" aurait échoué disparaîtrait silencieusement d'une
+            feuille censée être complète. `listInventaireSaisies` existe
+            précisément sans ce filtre. Triée par emplacement dans l'ordre
+            de tournée (§8), pas par référence — la personne qui contrôle
+            marche dans l'entrepôt. Pas de titre ici : aucun terme donné
+            pour ce document dans la spec, les en-têtes de colonnes
+            répétés suffisent à l'identifier. */}
+        <div className="print-page-break">
+          <table>
+            <thead>
+              <tr>
+                <th className="print-col-check">{PRINT_JA.confirmation}</th>
+                <th className="print-col-code">{PRINT_JA.emplacement}</th>
+                <th className="print-col-code">{PRINT_JA.codeArticle}</th>
+                <th>{PRINT_JA.designation}</th>
+                <th>{PRINT_JA.cartons}</th>
+                <th>{PRINT_JA.pieces}</th>
+                <th>{PRINT_JA.total}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(() => {
+                const orderIndex = new Map(emplacementOrder.map((code, i) => [code, i]))
+                const rows = saisies.map((s) => {
+                  const cond = conditionnementById.get(s.conditionnementId)
+                  const pieceRate = cond?.pieces_par_carton ?? 0
+                  const label = [refLibelleByCode.get(s.refCode), cond?.libelle_court]
+                    .filter(Boolean)
+                    .join(' · ')
+                  return {
+                    emplacementCode: s.emplacementCode,
+                    refCode: s.refCode,
+                    refLibelle: label,
+                    cartons: s.cartons,
+                    pieces: s.pieces,
+                    total: s.cartons * pieceRate + s.pieces,
+                  }
+                })
+                rows.sort((a, b) => {
+                  const ia = orderIndex.get(a.emplacementCode) ?? Number.MAX_SAFE_INTEGER
+                  const ib = orderIndex.get(b.emplacementCode) ?? Number.MAX_SAFE_INTEGER
+                  if (ia !== ib) return ia - ib
+                  return (
+                    a.emplacementCode.localeCompare(b.emplacementCode) || a.refCode.localeCompare(b.refCode)
+                  )
+                })
+                return rows.map((row, i) => (
+                  <tr key={`${row.emplacementCode}|${row.refCode}|${i}`}>
+                    <td className="print-col-check">
+                      <span className="print-checkbox" />
+                    </td>
+                    <td className="print-col-code">{row.emplacementCode}</td>
+                    <td className="print-col-code">{row.refCode}</td>
+                    <td>{row.refLibelle}</td>
+                    <td>{row.cartons}</td>
+                    <td>{row.pieces}</td>
+                    <td>{row.total}</td>
+                  </tr>
+                ))
+              })()}
+            </tbody>
+          </table>
+          <p className="print-footer">{PRINT_JA.piedConfirmateur}：＿＿＿＿＿＿＿＿＿＿ ／ ＿＿＿＿＿＿</p>
+        </div>
       </div>
     </main>
   )

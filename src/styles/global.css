@@ -587,20 +587,76 @@ body {
   .no-print {
     display: none !important;
   }
+  /* Fond blanc, texte noir imposés (spec 2.49) : le fond gris de l'écran
+     ne doit pas partir à l'impression et consommer de l'encre pour rien.
+     Pas d'ombres, pas de pastilles pleines — contours seulement. */
+  html, body {
+    background: #fff !important;
+  }
   .print-summary {
     display: block;
+    background: #fff;
+    color: #000;
   }
   .print-summary table {
     width: 100%;
     border-collapse: collapse;
     margin-top: 1rem;
   }
+  /* En-têtes répétés sur chaque page (spec 2.49) : sans ça, une page pleine
+     de nombres sans titre de colonne est illisible reçue seule. */
+  .print-summary thead {
+    display: table-header-group;
+  }
+  /* Une ligne coupée entre deux pages est illisible (retour d'essai du
+     19 septembre). */
+  .print-summary tr {
+    break-inside: avoid;
+  }
   .print-summary th,
   .print-summary td {
     border: 1px solid #999;
-    padding: 0.35rem 0.5rem;
+    padding: 0.3rem 0.4rem;
     text-align: left;
-    font-size: 0.85rem;
+    font-size: 9pt;
+    background: #fff;
+    color: #000;
+  }
+  /* Code article et emplacement en colonne étroite de largeur fixe (spec
+     2.49, point 7) : même principe que l'écran des écarts, ce qu'on balaie
+     du regard doit être à position constante. En mm, pas en rem : au tirage
+     le rem se résout contre la taille d'impression du navigateur, pas
+     l'écran — à vérifier sur le PDF réel, cette largeur peut demander un
+     ajustement. */
+  .print-col-code {
+    width: 16mm;
+    white-space: nowrap;
+  }
+  .print-col-check {
+    width: 8mm;
+    text-align: center;
+  }
+  /* Case de contre-validation : carré vide, assez grand pour être coché au
+     stylo — contour seulement, jamais rempli. */
+  .print-checkbox {
+    display: inline-block;
+    width: 0.9rem;
+    height: 0.9rem;
+    border: 1px solid #111;
+  }
+  .print-totals {
+    display: flex;
+    gap: 2rem;
+  }
+  .print-totals p {
+    font-weight: 700;
+  }
+  .print-footer {
+    margin-top: 1.5rem;
+  }
+  /* Second document (feuille de contre-validation) sur une nouvelle page. */
+  .print-page-break {
+    break-before: page;
   }
   /* Non dissimulable (§6.5, révision du 18 septembre) : un document
      d'inventaire sans son statut circulerait comme s'il était définitif. */
