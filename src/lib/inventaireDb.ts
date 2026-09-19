@@ -74,6 +74,22 @@ export async function createInventaire(
   return data
 }
 
+// Extension du périmètre en cours de route (spec 2.54, §6.5) : sans danger
+// parce que le théorique n'est jamais une copie figée au lancement — il se
+// recalcule sur `ts < frozen_ts` — donc une référence ajoutée après coup
+// est comparée au même instant que les autres. `ignoreDuplicates` rend
+// l'appel rejouable si la référence a déjà été ajoutée entre-temps (autre
+// onglet, ou ligne hors périmètre existante ajoutée deux fois).
+export async function addReferenceToScope(inventaireId: string, refCode: string): Promise<void> {
+  const { error } = await supabase
+    .from('inventaire_references')
+    .upsert(
+      { inventaire_id: inventaireId, ref_code: refCode },
+      { onConflict: 'inventaire_id,ref_code', ignoreDuplicates: true },
+    )
+  if (error) throw error
+}
+
 // Abandon d'un inventaire (spec 2.46 §6.5) : ferme sans écrire aucun
 // mouvement, `statut = 'abandonne'`, motif libre conservé, lignes de
 // comptage inchangées. Seul régime possible en phase 1 (aucun stock

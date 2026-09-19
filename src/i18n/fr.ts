@@ -190,6 +190,13 @@ const fr: Dictionary = {
     abandonMotifPlaceholder: 'ex. comptage hebdomadaire du 19/09',
     abandonButton: 'Abandonner l’inventaire',
     printButton: 'Imprimer',
+    scopeExtensionQuestion: '{refCode} n’est pas dans le périmètre de cet inventaire. L’ajouter ?',
+    scopeChecklistTitle: 'Références à compter',
+    scopeNotCounted: 'non comptée',
+    scopeCountedIn: 'comptée dans {count} casier(s)',
+    scopeOutOfPerimeter: 'hors périmètre',
+    scopeAddButton: 'Ajouter au périmètre',
+    scopeLoadError: 'Périmètre de l’inventaire injoignable — vérifiez la connexion et réessayez avant de saisir cette référence.',
   },
   catalogue: {
     title: 'Catalogue',

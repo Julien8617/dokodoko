@@ -10,6 +10,23 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.29',
+    date: '2026-09-19',
+    items: [
+      'Inventaire sur une liste de références : si le périmètre ne peut pas être chargé (réseau), la saisie est bloquée avec un message plutôt que d’accepter silencieusement une référence hors périmètre',
+    ],
+  },
+  {
+    version: '0.9.28',
+    date: '2026-09-19',
+    items: [
+      'Inventaire sur une liste de références : les suggestions de saisie ne proposent plus que les références du périmètre — un code complet reste toujours accepté',
+      'Inventaire sur une liste de références : saisir une référence qui n’est pas dans le périmètre déclenche une question (« l’ajouter ? ») au lieu de l’enregistrer sans le dire ; refuser n’écrit rien',
+      'Inventaire sur une liste de références : nouveau rappel des références à compter, avec leur état (non comptée / comptée dans N casiers)',
+      'Écran des écarts : les saisies hors périmètre déjà enregistrées (avant cette mise à jour, elles n’étaient jamais perdues mais rien ne les signalait) sont maintenant marquées comme telles, avec la même possibilité de les ajouter au périmètre',
+    ],
+  },
+  {
     version: '0.9.27',
     date: '2026-09-19',
     items: [

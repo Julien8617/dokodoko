@@ -5,6 +5,17 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.29 — 2026-09-19
+
+- Inventaire sur une liste de références : si le périmètre ne peut pas être chargé (réseau), la saisie est bloquée avec un message plutôt que d’accepter silencieusement une référence hors périmètre
+
+## 0.9.28 — 2026-09-19
+
+- Inventaire sur une liste de références : les suggestions de saisie ne proposent plus que les références du périmètre — un code complet reste toujours accepté
+- Inventaire sur une liste de références : saisir une référence qui n’est pas dans le périmètre déclenche une question (« l’ajouter ? ») au lieu de l’enregistrer sans le dire ; refuser n’écrit rien
+- Inventaire sur une liste de références : nouveau rappel des références à compter, avec leur état (non comptée / comptée dans N casiers)
+- Écran des écarts : les saisies hors périmètre déjà enregistrées (avant cette mise à jour, elles n’étaient jamais perdues mais rien ne les signalait) sont maintenant marquées comme telles, avec la même possibilité de les ajouter au périmètre
+
 ## 0.9.27 — 2026-09-19
 
 - Document imprimé : retrait de la tentative de numéroter les pages (counter(page)) — vérifiée sur l’appareil, elle ne s’affichait pas. Le nombre total de lignes en tête de la feuille de contre-validation couvre déjà le besoin de détecter une page manquante

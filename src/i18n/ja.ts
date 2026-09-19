@@ -190,6 +190,13 @@ const ja: Dictionary = {
     abandonMotifPlaceholder: '例：9/19の週次棚卸',
     abandonButton: '棚卸を中止する',
     printButton: '印刷',
+    scopeExtensionQuestion: '{refCode} はこの棚卸の対象外です。追加しますか？',
+    scopeChecklistTitle: '対象品番一覧',
+    scopeNotCounted: '未計測',
+    scopeCountedIn: '{count} 箇所で計測済み',
+    scopeOutOfPerimeter: '対象外',
+    scopeAddButton: '対象に追加',
+    scopeLoadError: '対象範囲を取得できません — 接続を確認してから、このリファレンスを入力し直してください。',
   },
   catalogue: {
     title: '品目台帳',

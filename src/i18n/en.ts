@@ -190,6 +190,13 @@ const en: Dictionary = {
     abandonMotifPlaceholder: 'e.g. weekly count on 09/19',
     abandonButton: 'Abandon the inventory',
     printButton: 'Print',
+    scopeExtensionQuestion: '{refCode} is not in this inventory’s scope. Add it?',
+    scopeChecklistTitle: 'References to count',
+    scopeNotCounted: 'not counted',
+    scopeCountedIn: 'counted in {count} location(s)',
+    scopeOutOfPerimeter: 'out of scope',
+    scopeAddButton: 'Add to scope',
+    scopeLoadError: 'Could not reach the inventory scope — check your connection and try again before entering this reference.',
   },
   catalogue: {
     title: 'Catalogue',

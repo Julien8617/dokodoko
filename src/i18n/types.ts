@@ -226,6 +226,23 @@ export interface Dictionary {
     // le contenu du document imprimé lui-même est fixé en japonais
     // (PRINT_JA, Inventory.tsx) — voir spec 2.49 §6.5.
     printButton: string
+    // Inventaire partiel (spec 2.54, §6.5) : la saisie libre garde comme
+    // cible l'emplacement, jamais une référence hors périmètre — proposer
+    // d'étendre, jamais enregistrer en silence.
+    scopeExtensionQuestion: string // {refCode}
+    // Rappel des références à compter, en inventaire partiel uniquement —
+    // jamais "terminée", jamais l'emplacement attendu (ce serait le
+    // théorique, donc compter vers une cible).
+    scopeChecklistTitle: string
+    scopeNotCounted: string
+    scopeCountedIn: string // {count}
+    // Marque une saisie déjà enregistrée hors périmètre, sur l'écran des
+    // écarts — même action "ajouter au périmètre" que côté saisie.
+    scopeOutOfPerimeter: string
+    scopeAddButton: string
+    // Le périmètre n'a pas pu être chargé (réseau) — bloque la saisie
+    // plutôt que de la laisser passer sans filtre ni question d'extension.
+    scopeLoadError: string
   }
   catalogue: {
     title: string

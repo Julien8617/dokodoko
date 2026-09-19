@@ -16,6 +16,7 @@ import {
 } from '../lib/db'
 import {
   abandonInventaire,
+  addReferenceToScope,
   createInventaire,
   deleteCasierLignesForRef,
   getActiveInventaire,
@@ -475,6 +476,14 @@ interface PendingDuplicate extends EntryKey {
   piecesValue: number
 }
 
+// Saisie en attente de la confirmation d'extension de périmètre (spec
+// 2.54, point 2) — posée avant même la résolution du casier/comptage,
+// donc pas de `comptageId` ici contrairement à PendingDuplicate.
+interface PendingScopeExtension extends EntryKey {
+  cartonsValue: number
+  piecesValue: number
+}
+
 // Pas de liste à cocher, pas d'auto-complétion : l'opérateur marche à son
 // rythme et tape ce qu'il voit, où qu'il le voie — y compris une réf qui n'a
 // théoriquement aucun stock à cet endroit. C'est ce qui rend une palette
@@ -517,6 +526,15 @@ function Walk({
   // — sans elle, deux lignes de la même réf sur deux conditionnements
   // distincts semblent identiques dans la liste.
   const [conditionnementLabels, setConditionnementLabels] = useState<Map<string, string>>(new Map())
+  // Inventaire partiel (spec 2.54, §6.5) : liste explicite du périmètre
+  // quand scope_kind === 'references' — undefined pour les deux autres
+  // périmètres, sans signification particulière dans ces cas (pas
+  // d'inventaire partiel à signaler sur un inventaire complet ou par
+  // client, §6.5 "rien ne change").
+  const [referencesScope, setReferencesScope] = useState<string[] | undefined>(undefined)
+  // Confirmation avant d'écrire une référence hors périmètre (spec 2.54,
+  // point 2) : jamais en silence.
+  const [pendingScopeExtension, setPendingScopeExtension] = useState<PendingScopeExtension | null>(null)
 
   useEffect(() => {
     listEmplacements()
@@ -524,7 +542,10 @@ function Walk({
       .catch(() => {})
     listReferences().then(setAllReferences).catch(() => {})
     listInventaireSaisies(inventaire.id).then(setSaisies).catch(() => {})
-  }, [inventaire.id])
+    scopeRefCodes(inventaire)
+      .then((codes) => setReferencesScope(inventaire.scope_kind === 'references' ? codes : undefined))
+      .catch(() => {})
+  }, [inventaire])
 
   // Ne relit les conditionnements que pour les réf effectivement présentes
   // dans la liste — pas à chaque frappe, seulement quand l'ensemble des réf
@@ -563,10 +584,20 @@ function Walk({
       : matchEmplacements(emplacementCode, knownEmplacements)
   ).map((code) => ({ value: code, label: code }))
 
+  // Inventaire partiel (spec 2.54, point 1) : la liste déroulante ne
+  // propose que les références du périmètre — mais le champ reste libre,
+  // un code tapé en entier est toujours accepté (voir handleSave, qui
+  // propose d'étendre le périmètre plutôt que de refuser). Sans objet sur
+  // un inventaire complet ou par client (`referencesScope` reste undefined).
+  const suggestableReferences =
+    inventaire.scope_kind === 'references' && referencesScope
+      ? allReferences.filter((r) => referencesScope.includes(r.code))
+      : allReferences
+
   // matchReferences (db.ts) : code ("65"/"265"/"REU26" trouvent "REU265",
   // pas seulement au clavier chiffres) ET libellé par jetons normalisés
   // (§6.2, spec 2.20) — même recherche que Recherche et Mouvement.
-  const referenceSuggestions = matchReferences(refCode, allReferences)
+  const referenceSuggestions = matchReferences(refCode, suggestableReferences)
     .slice(0, 8)
     .map((r) => ({
       value: r.code,
@@ -619,6 +650,7 @@ function Walk({
     setPieces('')
     setEditingKey(null)
     setPendingDuplicate(null)
+    setPendingScopeExtension(null)
   }
 
   const selectedConditionnement = conditionnements.find((c) => c.id === conditionnementId) ?? null
@@ -626,6 +658,19 @@ function Walk({
     ? (Number(cartons) || 0) * selectedConditionnement.pieces_par_carton + (Number(pieces) || 0)
     : null
   const matchedReference = allReferences.find((r) => r.code === refCode.trim().toUpperCase()) ?? null
+
+  // Partagée entre handleSave (chemin normal) et confirmScopeExtension
+  // (après avoir accepté d'étendre le périmètre) : le contrôle de doublon
+  // ne change pas selon la façon dont on y arrive.
+  function checkDuplicateThenSave(key: EntryKey, cartonsValue: number, piecesValue: number): Promise<void> {
+    const existing = editingKey && sameKey(editingKey, key) ? null : saisies.find((s) => sameKey(s, key))
+    if (existing) {
+      setStatus({ kind: 'idle' })
+      setPendingDuplicate({ ...key, comptageId: existing.comptageId, cartonsValue, piecesValue })
+      return Promise.resolve()
+    }
+    return commitSave(key, cartonsValue, piecesValue)
+  }
 
   async function handleSave(e: FormEvent) {
     e.preventDefault()
@@ -667,22 +712,31 @@ function Walk({
       const piecesValue = Number(pieces) || 0
       const key: EntryKey = { emplacementCode: empl, refCode: code, conditionnementId: condId }
 
-      // "modifier" cliqué sur exactement ce couple : la resoumission est la
-      // correction attendue, jamais un doublon à trancher — même si le
-      // couple existe déjà dans `saisies` (c'est justement la ligne qu'on
-      // corrige). Un couple différent de celui chargé (casier ou réf changé
-      // entre-temps) retombe dans le cas normal ci-dessous.
-      const existing = editingKey && sameKey(editingKey, key)
-        ? null
-        : saisies.find((s) => sameKey(s, key))
-
-      if (existing) {
-        setStatus({ kind: 'idle' })
-        setPendingDuplicate({ ...key, comptageId: existing.comptageId, cartonsValue, piecesValue })
+      // Inventaire partiel : tant que le périmètre n'a pas fini de charger
+      // (ou que son chargement a échoué — même état côté state, `undefined`
+      // dans les deux cas), bloquer plutôt que d'être permissif par défaut.
+      // Sans ce garde, le contrôle ci-dessous (`referencesScope &&`) est
+      // simplement ignoré pendant que `referencesScope` vaut `undefined`,
+      // et une référence hors périmètre s'enregistrerait en silence — le
+      // défaut que spec 2.54 point 2 interdit explicitement.
+      if (inventaire.scope_kind === 'references' && !referencesScope) {
+        setStatus({ kind: 'error', message: t.inventory.scopeLoadError })
         return
       }
 
-      await commitSave(key, cartonsValue, piecesValue)
+      // Inventaire partiel (spec 2.54, point 2) : jamais enregistrer une
+      // référence hors périmètre en silence — proposer d'étendre le
+      // périmètre d'abord. Priorité sur le contrôle de doublon ci-dessous :
+      // tant que la référence n'est pas dans le périmètre, la question à
+      // trancher est "appartient-elle à cet inventaire", pas "remplacer ou
+      // ajouter".
+      if (inventaire.scope_kind === 'references' && referencesScope && !referencesScope.includes(code)) {
+        setStatus({ kind: 'idle' })
+        setPendingScopeExtension({ ...key, cartonsValue, piecesValue })
+        return
+      }
+
+      await checkDuplicateThenSave(key, cartonsValue, piecesValue)
     } catch (err) {
       setStatus({ kind: 'error', message: extractErrorMessage(err, t.common.unknownError) })
     }
@@ -774,6 +828,31 @@ function Walk({
     setStatus({ kind: 'idle' })
   }
 
+  // "Oui" à « ajouter au périmètre » (spec 2.54, point 2) : la référence
+  // entre dans inventaire_references, puis la saisie suit son chemin
+  // normal (contrôle de doublon inclus — une référence hors périmètre
+  // ajoutée peut très bien être une correction d'une saisie déjà là).
+  async function confirmScopeExtension() {
+    if (!pendingScopeExtension) return
+    const { cartonsValue, piecesValue, ...key } = pendingScopeExtension
+    setStatus({ kind: 'saving' })
+    try {
+      await addReferenceToScope(inventaire.id, key.refCode)
+      setReferencesScope((prev) => (prev ? [...prev, key.refCode] : [key.refCode]))
+      setPendingScopeExtension(null)
+      await checkDuplicateThenSave(key, cartonsValue, piecesValue)
+    } catch (err) {
+      setStatus({ kind: 'error', message: extractErrorMessage(err, t.common.unknownError) })
+    }
+  }
+
+  // "Non" : rien n'est écrit (spec 2.54, point 2) — jamais en silence,
+  // jamais forcé non plus.
+  function cancelScopeExtension() {
+    setPendingScopeExtension(null)
+    setStatus({ kind: 'idle' })
+  }
+
   async function undo(entry: SaisieLine) {
     await deleteCasierLignesForRef(entry.comptageId, entry.refCode, entry.conditionnementId)
     setSaisies((prev) => prev.filter((s) => !sameKey(s, entry)))
@@ -792,6 +871,7 @@ function Walk({
     setPieces(String(entry.pieces))
     setStatus({ kind: 'idle' })
     setPendingDuplicate(null)
+    setPendingScopeExtension(null)
     setEditingKey({
       emplacementCode: entry.emplacementCode,
       refCode: entry.refCode,
@@ -809,6 +889,37 @@ function Walk({
       </button>
       <h1>{t.inventory.title}</h1>
 
+      {/* Rappel des références à compter (spec 2.54, point 3) : en
+          inventaire partiel uniquement — sur un périmètre complet ou par
+          client, ce serait une liste de trois cents lignes, du bruit.
+          Jamais "terminée" (seul l'opérateur sait quand il a fini de
+          chercher une référence) ni l'emplacement attendu (ce serait
+          afficher le théorique, donc compter vers une cible). */}
+      {inventaire.scope_kind === 'references' && referencesScope && (
+        <div className="settings-form">
+          <h2>{t.inventory.scopeChecklistTitle}</h2>
+          <ul className="casier-list">
+            {[...referencesScope].sort().map((code) => {
+              const libelle = allReferences.find((r) => r.code === code)?.libelle
+              const casiers = new Set(saisies.filter((s) => s.refCode === code).map((s) => s.emplacementCode))
+              return (
+                <li key={code} className="casier-row">
+                  <span>
+                    {code}
+                    {libelle ? ` — ${libelle}` : ''}
+                  </span>
+                  <span className="casier-status">
+                    {casiers.size === 0
+                      ? t.inventory.scopeNotCounted
+                      : interpolate(t.inventory.scopeCountedIn, { count: casiers.size })}
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
+
       <form className="settings-form" onSubmit={handleSave}>
         <label className="field-label">
           {t.inventory.casier}
@@ -817,7 +928,7 @@ function Walk({
               type="button"
               className="step-button"
               onClick={() => stepEmplacement(-1)}
-              disabled={status.kind === 'saving' || pendingDuplicate !== null}
+              disabled={status.kind === 'saving' || pendingDuplicate !== null || pendingScopeExtension !== null}
               aria-label={t.inventory.previousCasier}
             >
               ←
@@ -827,14 +938,14 @@ function Walk({
               onChange={setEmplacementCode}
               suggestions={emplacementSuggestions}
               placeholder={t.inventory.casierPlaceholder}
-              disabled={status.kind === 'saving' || pendingDuplicate !== null}
+              disabled={status.kind === 'saving' || pendingDuplicate !== null || pendingScopeExtension !== null}
               selectOnFocus
             />
             <button
               type="button"
               className="step-button"
               onClick={() => stepEmplacement(1)}
-              disabled={status.kind === 'saving' || pendingDuplicate !== null}
+              disabled={status.kind === 'saving' || pendingDuplicate !== null || pendingScopeExtension !== null}
               aria-label={t.inventory.nextCasier}
             >
               →
@@ -850,7 +961,7 @@ function Walk({
             onBlur={() => lookupReference()}
             suggestions={referenceSuggestions}
             placeholder={t.inventory.referencePlaceholder}
-            disabled={status.kind === 'saving' || pendingDuplicate !== null}
+            disabled={status.kind === 'saving' || pendingDuplicate !== null || pendingScopeExtension !== null}
           />
         </label>
         {/* Confirmation avant écriture (§6.2, spec 2.23) : ComboInput se
@@ -889,7 +1000,7 @@ function Walk({
           </label>
         </div>
         {totalPieces !== null && <p className="quantity-formula">{totalPieces} pièces</p>}
-        <button type="submit" disabled={status.kind === 'saving' || pendingDuplicate !== null}>
+        <button type="submit" disabled={status.kind === 'saving' || pendingDuplicate !== null || pendingScopeExtension !== null}>
           {t.common.save}
         </button>
         {status.kind === 'error' && <p className="form-status form-error">{status.message}</p>}
@@ -910,6 +1021,25 @@ function Walk({
             {t.inventory.addEntry}
           </button>
           <button type="button" className="back-link" onClick={cancelDuplicate} disabled={status.kind === 'saving'}>
+            {t.common.cancel}
+          </button>
+        </div>
+      )}
+
+      {pendingScopeExtension && (
+        <div className="form-status">
+          <p>
+            {interpolate(t.inventory.scopeExtensionQuestion, { refCode: pendingScopeExtension.refCode })}
+          </p>
+          <button type="button" onClick={confirmScopeExtension} disabled={status.kind === 'saving'}>
+            {t.common.confirm}
+          </button>
+          <button
+            type="button"
+            className="back-link"
+            onClick={cancelScopeExtension}
+            disabled={status.kind === 'saving'}
+          >
             {t.common.cancel}
           </button>
         </div>
@@ -1026,6 +1156,22 @@ function Ecarts({
   async function refresh() {
     const result = await getInventaireSynthese(inventaire)
     setReferences(result.references)
+  }
+
+  // Inventaire partiel (spec 2.54, point 2/4) : une saisie hors périmètre
+  // déjà enregistrée n'est jamais ignorée (voir getInventaireSynthese, qui
+  // bucketise toute référence réellement comptée) — elle est marquée
+  // "hors périmètre" ici, avec la même action que côté saisie.
+  const [scopeActionError, setScopeActionError] = useState<string | null>(null)
+  async function addToScope(refCode: string) {
+    setScopeActionError(null)
+    try {
+      await addReferenceToScope(inventaire.id, refCode)
+      setReferencesScope((prev) => (prev ? [...prev, refCode] : [refCode]))
+      await refresh()
+    } catch (err) {
+      setScopeActionError(extractErrorMessage(err, t.common.unknownError))
+    }
   }
 
   useEffect(() => {
@@ -1154,6 +1300,12 @@ function Ecarts({
   // disparaisse ni perde son état déplié (2026-09-14, retour terrain).
   function renderReferenceRow(ref: SyntheseReference) {
     const key = `${ref.refCode}|${ref.conditionnementId}`
+    // Inventaire partiel (spec 2.54, points 2 et 4) : une saisie hors
+    // périmètre n'est jamais ignorée par cet écran (voir getInventaireSynthese),
+    // mais rien ne la distinguait d'un écart ordinaire — marquée ici, avec
+    // la même action "ajouter au périmètre" que côté saisie.
+    const outOfScope =
+      inventaire.scope_kind === 'references' && referencesScope !== undefined && !referencesScope.includes(ref.refCode)
     // Mise en page revue (spec 2.46 §6.5, retour terrain du 18 septembre) :
     // un libellé long et souvent bilingue repoussait « 0 → 72 (+72) » dans
     // une colonne étroite qui se coupait en trois. Les chiffres passent
@@ -1192,6 +1344,15 @@ function Ecarts({
             </span>
           </span>
         </button>
+
+        {outOfScope && (
+          <div className="quantity-row">
+            <span className="ecart-badge ecart-reel">{t.inventory.scopeOutOfPerimeter}</span>
+            <button type="button" onClick={() => addToScope(ref.refCode)}>
+              {t.inventory.scopeAddButton}
+            </button>
+          </div>
+        )}
 
         {openRef === key && (
           <div className="settings-form">
@@ -1275,6 +1436,7 @@ function Ecarts({
             {t.inventory.printButton}
           </button>
         </div>
+        {scopeActionError && <p className="form-status form-error">{scopeActionError}</p>}
 
         {loading ? (
           <p className="form-status">{t.inventory.loading}</p>
