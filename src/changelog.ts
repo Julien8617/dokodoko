@@ -10,6 +10,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.27',
+    date: '2026-09-19',
+    items: [
+      'Document imprimé : retrait de la tentative de numéroter les pages (counter(page)) — vérifiée sur l’appareil, elle ne s’affichait pas. Le nombre total de lignes en tête de la feuille de contre-validation couvre déjà le besoin de détecter une page manquante',
+    ],
+  },
+  {
     version: '0.9.26',
     date: '2026-09-19',
     items: [

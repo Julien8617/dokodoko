@@ -5,6 +5,10 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.27 — 2026-09-19
+
+- Document imprimé : retrait de la tentative de numéroter les pages (counter(page)) — vérifiée sur l’appareil, elle ne s’affichait pas. Le nombre total de lignes en tête de la feuille de contre-validation couvre déjà le besoin de détecter une page manquante
+
 ## 0.9.26 — 2026-09-19
 
 - Document imprimé : le titre redevient fixe (棚卸差異報告 / 棚卸確認表) et nomme le document, le périmètre s’affiche à part dans son propre champ — corrige une confusion introduite la veille entre les deux

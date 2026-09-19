@@ -588,19 +588,15 @@ body {
    est de cet ordre, descendre plus bas rognerait le contenu sans le dire. */
 @page {
   margin: 12mm;
-  /* Numérotation de page — À VÉRIFIER SUR L'APPAREIL (spec 2.52) :
-     `counter(page)`/`counter(pages)` dans les boîtes de marge @page
-     relèvent d'une spécification que WebKit n'implémente pas à ce jour.
-     Laissée en place au cas où elle serait honorée ; si rien ne s'affiche
-     en bas de page à l'impression, c'est attendu et sans conséquence — le
-     repli sans dépendance (`全N行` en tête de la feuille de
-     contre-validation) couvre déjà le besoin réel : détecter une page
-     manquante sur un document signé. */
-  @bottom-right {
-    content: counter(page) ' / ' counter(pages);
-    font-size: 8pt;
-  }
 }
+/* Numérotation de page essayée puis retirée (spec 2.52 -> 2.54) :
+   `counter(page)`/`counter(pages)` dans une boîte de marge `@page` ne
+   s'affichait pas à l'essai sur l'appareil — WebKit ne l'implémente pas.
+   Une règle sans effet laissée dans le dépôt ferait croire au lecteur
+   suivant qu'elle fonctionne. Le besoin réel — détecter une page
+   manquante sur un document signé — reste couvert sans dépendance par le
+   nombre total de lignes en tête de la feuille de contre-validation
+   (`全N行`, voir PRINT_JA.totalLignes dans Inventory.tsx). */
 
 @media print {
   .no-print {
