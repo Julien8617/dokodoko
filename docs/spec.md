@@ -1,6 +1,6 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.54 — 19 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.56 — 19 septembre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -460,7 +460,17 @@ La saisie libre reste la règle du module, parce qu'elle seule révèle une pale
 
 En inventaire complet ou par client, rien ne change : le rappel serait une liste de trois cents lignes, du bruit.
 
-**4. Les saisies hors périmètre déjà enregistrées ne doivent pas disparaître.** Il en existe au moins une depuis le 19 septembre. À vérifier en priorité : l'écran des écarts les ignore-t-il aujourd'hui ? Si oui, c'est une perte silencieuse d'une donnée saisie — le seul défaut réellement grave de ce point. Elles doivent apparaître marquées **hors périmètre**, avec la même action « ajouter au périmètre », pour que rien ne soit orphelin.
+**4. Les saisies hors périmètre déjà enregistrées ne doivent pas disparaître.** Vérifié le 19 septembre : aucune n'était perdue. Elles figuraient déjà à l'écran des écarts et sur la feuille imprimée, avec un théorique nul — le défaut était un manque de signalement, pas une perte. Elles apparaissent désormais marquées **hors périmètre**, avec la même action « ajouter au périmètre ».
+
+**Deux gardes, et c'est la seconde qui fait foi.** À la saisie, le contrôle de périmètre dépend d'une valeur chargée en mémoire ; il **échoue fermé** — si le périmètre n'est pas confirmé chargé, la saisie est refusée avec un message plutôt qu'acceptée par défaut. Correct, mais un contrôle côté client peut toujours être contourné par un chemin de code qu'on n'a pas prévu. Le marquage « hors périmètre » sur l'écran des écarts, lui, lit **ce qui est réellement en base** : il rattrape tout ce qui aurait passé la première garde. Si les deux divergent un jour, c'est l'écran des écarts qu'il faut croire.
+
+**Une garde qui échoue fermée doit savoir se rouvrir.** Constaté le 19 septembre : après une coupure puis le retour du réseau, la saisie restait refusée — le périmètre n'était jamais rechargé. La correction de la veille avait transformé une erreur passagère en blocage permanent, et le message « vérifiez votre connexion et réessayez » promettait une reprise que l'app ne faisait pas : un message qui ment, de la même famille que le « tout est synchronisé » codé en dur.
+
+Règle : **toute tentative de saisie qui trouve le périmètre non chargé tente d'abord de le recharger**, et ne refuse que si cette tentative échoue elle-même. Le rechargement se déclenche aussi à l'événement `online`. La garde se répare alors d'elle-même dès que le réseau revient, sans quitter l'écran.
+
+Leçon de méthode, valable au-delà de ce cas : tester qu'une garde se ferme ne suffit pas ; il faut tester qu'elle se rouvre. La première moitié du test aurait laissé passer ce défaut.
+
+**Étendre le périmètre engage à compter la référence partout — à dire en phase 2.** En phase 1 le théorique est nul et l'extension n'a aucun effet de bord. En phase 2, ajouter une référence au périmètre rend attendus **tous** ses emplacements théoriques : ceux qui ne seront pas visités apparaîtront en écart. C'est le comportement juste, mais une extension faite au passage, pour une référence aperçue par hasard dans un casier, produirait des écarts déroutants. La question devra alors le dire : « Ses autres emplacements deviendront attendus. »
 
 #### Écran des écarts — mise en page et navigation
 
