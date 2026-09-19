@@ -1,6 +1,6 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.53 — 19 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.54 — 19 septembre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -444,6 +444,24 @@ Ces flèches sont le retour, à leur bonne place, de la navigation prévue par l
 
 **Correction** : une saisie se modifie ou se retire depuis l'écran des écarts, sans repasser par la saisie.
 
+#### Inventaire partiel — le périmètre doit se voir pendant le comptage
+
+Défaut constaté le 19 septembre sur un inventaire à périmètre `references` : toutes les références apparaissent dans les suggestions, rien ne rappelle celles à compter, et une référence hors périmètre a pu être saisie. C'est le cas d'usage de chaque vendredi — le comptage hebdomadaire porte sur les références sorties dans la semaine.
+
+La saisie libre reste la règle du module, parce qu'elle seule révèle une palette déplacée. Mais elle vise **l'emplacement** : une référence du périmètre trouvée dans un casier inattendu. Une référence **hors périmètre** est une autre question — non pas où elle se trouve, mais si elle appartient à cet inventaire.
+
+**1. Suggestions filtrées au périmètre.** En inventaire partiel, la liste déroulante ne propose que les références du périmètre. Le champ reste libre : un code tapé en entier est toujours accepté, ce qui préserve le principe des suggestions jamais restrictives. Taper un code complet est déjà un geste délibéré.
+
+**2. Référence hors périmètre : proposer d'étendre, jamais enregistrer en silence.** Question explicite — « REU050 n'est pas dans le périmètre de cet inventaire. L'ajouter ? ». Oui : la référence entre dans `inventaire_references`, puis la saisie s'enregistre normalement. Non : rien n'est écrit.
+
+Étendre un périmètre en cours de route est **sans danger**, et c'est une décision antérieure qui le rend possible : le théorique n'est jamais une copie figée au lancement, il se recalcule sur `ts < frozen_ts` (§6.5). Une référence ajoutée après coup est comparée au même instant que les autres. Avec un théorique copié au lancement, l'extension aurait été impossible.
+
+**3. Rappel des références à compter**, en inventaire partiel uniquement. Liste du périmètre, chaque référence avec son état : **non comptée**, ou **comptée dans N casiers**. Jamais « terminée » : une référence peut se trouver dans un casier de plus, et seul l'opérateur sait quand il a fini de la chercher. Et **jamais l'emplacement attendu** — ce serait afficher le théorique, donc compter vers une cible (§6.5).
+
+En inventaire complet ou par client, rien ne change : le rappel serait une liste de trois cents lignes, du bruit.
+
+**4. Les saisies hors périmètre déjà enregistrées ne doivent pas disparaître.** Il en existe au moins une depuis le 19 septembre. À vérifier en priorité : l'écran des écarts les ignore-t-il aujourd'hui ? Si oui, c'est une perte silencieuse d'une donnée saisie — le seul défaut réellement grave de ce point. Elles doivent apparaître marquées **hors périmètre**, avec la même action « ajouter au périmètre », pour que rien ne soit orphelin.
+
 #### Écran des écarts — mise en page et navigation
 
 Le premier inventaire réel, le 18 septembre sur les références sorties dans la semaine, a montré un écran conçu pour une liste courte et utilisé au-delà — des libellés longs, souvent bilingues, qui repoussent les chiffres hors de portée du regard. Quatre corrections, toutes de même nature : **les chiffres sont ce qu'on vient lire, ils doivent être trouvables sans effort.**
@@ -541,6 +559,8 @@ La mention **進行中 ― 未確定** reste tant que la clôture n'existe pas :
 **Marges réduites à 10–12 mm**, pour rendre de la largeur à la désignation. Pas en deçà : les imprimantes ont une zone non imprimable de l'ordre de 5 à 10 mm, et descendre plus bas fait rogner le contenu sur certaines d'entre elles sans prévenir.
 
 **Pagination — à mesurer avant de promettre.** Les compteurs `counter(page)` dans les boîtes de marge `@page` relèvent d'une spécification que les navigateurs, WebKit en particulier, n'implémentent pas. Essayer d'abord, constater sur l'appareil, et **dire si ça ne marche pas** plutôt que de livrer un numéro de page qui ne s'affiche jamais — la leçon de l'épisode `inputMode`.
+
+**Constaté le 19 septembre : aucun numéro de page ne s'affiche** sur l'iPhone. La règle `counter(page)` est donc retirée du code — une règle sans effet qui reste dans le dépôt fait croire au lecteur suivant qu'elle fonctionne. Seul le repli ci-dessous subsiste.
 
 Si la pagination CSS est inopérante, le repli ne consiste pas à ajouter une bibliothèque de mise en page paginée. Le besoin réel, sur un document signé, est de **détecter une page manquante** : il est couvert en imprimant le nombre total de lignes en tête — `全 47 行` — ce qui fonctionne partout et sans dépendance.
 
@@ -1016,21 +1036,22 @@ Deux choses seulement, et ce ne sont pas des chantiers :
 Révisé le 18 septembre. L'app est un outil de comptage jusqu'à fin octobre : **tout ce qui concerne le stock cesse d'être urgent**, et seul ce qui sert le comptage hebdomadaire compte. C'est une liste nettement plus courte qu'avant, et c'est voulu.
 
 1. **Abandon d'inventaire** (§6.5). **Échéance ferme : avant le vendredi 25 septembre.** Un comptage a lieu chaque vendredi, celui du 18 est ouvert, et rien ne permet de le fermer — sans l'abandon, le comptage suivant est impossible. Premier point du projet à porter une vraie date.
-2. **Écran des écarts** (§6.5) : chiffres sur leur propre ligne à position fixe, barre d'action collante, filtre de recherche. Absorbe les corrections d'ergonomie relevées le 17 septembre — même écran, une seule passe. Utilisé chaque vendredi : ce qui a coûté du temps une fois en coûtera chaque semaine.
-3. **Catalogue, noyau seulement** (§6.8) : liste, recherche, modification des attributs descriptifs, suppression si aucun mouvement ni ligne de comptage ne référence la ligne. Remonté en phase 1 contre l'arbitrage précédent : la gêne est immédiate — des références mal saisies encombrent les sélecteurs de chaque comptage hebdomadaire — et la suppression est **plus facile maintenant** qu'après l'amorçage, puisque aucune référence ne porte encore de mouvement. Le drapeau `actif` et les champs tarif/dimensions restent en phase 2.
-4. **Sauvegarde et propriété du compte Supabase** (§ Sauvegarde) — trente minutes, **sans code, côté Julien**. À faire avant le déplacement : c'est là que la mise en pause du plan gratuit se manifestera.
-5. **Synthèse imprimable** (§6.5), y compris pour un inventaire en cours avec sa mention de statut. Sert à justifier un comptage auprès des collègues, et à laisser des chiffres lisibles derrière soi pendant une absence.
-6. **Sortie du comptage en CSV.** Requête en lecture seule sur `comptage_lignes`, en `distinct on` pour ne retenir que la dernière valeur par casier × référence × conditionnement — sans quoi une correction serait comptée deux fois. Rend cheap la comparaison hebdomadaire avec l'Excel, qui est l'unique mesure de la phase 1.
+2. **Inventaire partiel** (§6.5) : suggestions filtrées au périmètre, extension du périmètre proposée pour une référence hors liste, rappel des références à compter. **Échéance : avant le vendredi 25 septembre** — le comptage hebdomadaire est un inventaire partiel. Commencer par vérifier si les saisies hors périmètre existantes sont ignorées par l'écran des écarts : c'est la seule perte de donnée possible du lot.
+3. **Écran des écarts** (§6.5) : chiffres sur leur propre ligne à position fixe, barre d'action collante, filtre de recherche. Absorbe les corrections d'ergonomie relevées le 17 septembre — même écran, une seule passe. Utilisé chaque vendredi : ce qui a coûté du temps une fois en coûtera chaque semaine.
+4. **Catalogue, noyau seulement** (§6.8) : liste, recherche, modification des attributs descriptifs, suppression si aucun mouvement ni ligne de comptage ne référence la ligne. Remonté en phase 1 contre l'arbitrage précédent : la gêne est immédiate — des références mal saisies encombrent les sélecteurs de chaque comptage hebdomadaire — et la suppression est **plus facile maintenant** qu'après l'amorçage, puisque aucune référence ne porte encore de mouvement. Le drapeau `actif` et les champs tarif/dimensions restent en phase 2.
+5. **Sauvegarde et propriété du compte Supabase** (§ Sauvegarde) — trente minutes, **sans code, côté Julien**. À faire avant le déplacement : c'est là que la mise en pause du plan gratuit se manifestera.
+6. **Synthèse imprimable** (§6.5), y compris pour un inventaire en cours avec sa mention de statut. Sert à justifier un comptage auprès des collègues, et à laisser des chiffres lisibles derrière soi pendant une absence.
+7. **Sortie du comptage en CSV.** Requête en lecture seule sur `comptage_lignes`, en `distinct on` pour ne retenir que la dernière valeur par casier × référence × conditionnement — sans quoi une correction serait comptée deux fois. Rend cheap la comparaison hebdomadaire avec l'Excel, qui est l'unique mesure de la phase 1.
 
 ### Phase 2 — à partir de l'amorçage, fin octobre
 
-7. **Catalogue, compléments** (§6.8) : drapeau `actif` avec sa règle de stock nul, puis les champs `code_tarifaire`, `famille_melange` et dimensions quand leurs tables existeront.
-8. **Fin du blocage sur stock négatif** (§6.4) : avertissement et confirmation à la place du refus, liste d'anomalies, confirmation proportionnée au risque, correction en un geste. Sans objet tant qu'aucun stock n'existe ; nécessaire dès le premier jour où il en existe.
-9. **Export `.xlsx`** : l'instrument de comparaison avec l'Excel tenu en parallèle.
-10. **Clôture d'inventaire**, dans cet ordre interne : découplage de `comptages.statut` (§6.5) d'abord, puis policy `DELETE` conditionnée (§3), puis couverture, justification des écarts, écriture des `ajustement_inventaire`. Y rattacher l'affichage « vide » face à « non enregistré » dans la Recherche (§6.2), les **mouvements postérieurs au gel**, et la **résolution des écarts compensés** en transfert (§6.5) — c'est une seule conversation. Sans objet en phase 1, où chaque comptage se termine par un abandon.
-11. **File d'écriture** et bandeau « n en attente depuis ». Descendue après le test de couverture du 17 septembre : la 4G passe partout dans le bâtiment (§3). Prérequis conservé : le point 7.
-12. **Import des dimensions de cartons**, quand la table `cartons` existera. Jusque-là, les colonnes du modèle Excel sont remplies et conservées dans le fichier, qui fait office de stockage intermédiaire et reste réimportable.
-13. **Tests unitaires des deux fonctions pures à bugs subtils** : `matchReferences` et la résolution des codes d'emplacement abrégés. Trois appelants chacune, quatre bugs déjà trouvés entre elles, et ce sont les seules parties du code testables sans base ni écran. Un fichier de test qui **importe** la fonction, pas une copie exécutée à part : une copie prouve qu'un extrait fonctionne, pas que le code livré fonctionne, et elle cesse d'être fidèle au premier changement.
+8. **Catalogue, compléments** (§6.8) : drapeau `actif` avec sa règle de stock nul, puis les champs `code_tarifaire`, `famille_melange` et dimensions quand leurs tables existeront.
+9. **Fin du blocage sur stock négatif** (§6.4) : avertissement et confirmation à la place du refus, liste d'anomalies, confirmation proportionnée au risque, correction en un geste. Sans objet tant qu'aucun stock n'existe ; nécessaire dès le premier jour où il en existe.
+10. **Export `.xlsx`** : l'instrument de comparaison avec l'Excel tenu en parallèle.
+11. **Clôture d'inventaire**, dans cet ordre interne : découplage de `comptages.statut` (§6.5) d'abord, puis policy `DELETE` conditionnée (§3), puis couverture, justification des écarts, écriture des `ajustement_inventaire`. Y rattacher l'affichage « vide » face à « non enregistré » dans la Recherche (§6.2), les **mouvements postérieurs au gel**, et la **résolution des écarts compensés** en transfert (§6.5) — c'est une seule conversation. Sans objet en phase 1, où chaque comptage se termine par un abandon.
+12. **File d'écriture** et bandeau « n en attente depuis ». Descendue après le test de couverture du 17 septembre : la 4G passe partout dans le bâtiment (§3). Prérequis conservé : le point 7.
+13. **Import des dimensions de cartons**, quand la table `cartons` existera. Jusque-là, les colonnes du modèle Excel sont remplies et conservées dans le fichier, qui fait office de stockage intermédiaire et reste réimportable.
+14. **Tests unitaires des deux fonctions pures à bugs subtils** : `matchReferences` et la résolution des codes d'emplacement abrégés. Trois appelants chacune, quatre bugs déjà trouvés entre elles, et ce sont les seules parties du code testables sans base ni écran. Un fichier de test qui **importe** la fonction, pas une copie exécutée à part : une copie prouve qu'un extrait fonctionne, pas que le code livré fonctionne, et elle cesse d'être fidèle au premier changement.
 
 ### Repoussé
 
