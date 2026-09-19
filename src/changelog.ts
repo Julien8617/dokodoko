@@ -10,6 +10,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.30',
+    date: '2026-09-19',
+    items: [
+      'Inventaire sur une liste de références : après une coupure réseau, la saisie retente automatiquement de recharger le périmètre (à la prochaine saisie, et dès le retour du réseau) au lieu de rester bloquée jusqu’à quitter l’écran',
+    ],
+  },
+  {
     version: '0.9.29',
     date: '2026-09-19',
     items: [

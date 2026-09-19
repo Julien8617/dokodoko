@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { useI18n, interpolate } from '../i18n'
 import { supabase } from '../lib/supabase'
 import { extractErrorMessage } from '../lib/errors'
@@ -536,16 +536,39 @@ function Walk({
   // point 2) : jamais en silence.
   const [pendingScopeExtension, setPendingScopeExtension] = useState<PendingScopeExtension | null>(null)
 
+  // Extrait pour être réappelable : au montage, sur l'événement `online`, et
+  // à la volée depuis handleSave si la garde de périmètre trouve `undefined`
+  // (spec 2.56 : une garde qui échoue fermé doit savoir se rouvrir). Renvoie
+  // la valeur fraîchement chargée — jamais l'état React, qui ne serait à
+  // jour qu'au rendu suivant et laisserait handleSave juger sur une valeur
+  // périmée dans le même appel.
+  const loadReferencesScope = useCallback(async (): Promise<string[] | undefined> => {
+    const codes = await scopeRefCodes(inventaire)
+    const resolved = inventaire.scope_kind === 'references' ? codes : undefined
+    setReferencesScope(resolved)
+    return resolved
+  }, [inventaire])
+
   useEffect(() => {
     listEmplacements()
       .then((list) => setKnownEmplacements(list.map((e) => e.code)))
       .catch(() => {})
     listReferences().then(setAllReferences).catch(() => {})
     listInventaireSaisies(inventaire.id).then(setSaisies).catch(() => {})
-    scopeRefCodes(inventaire)
-      .then((codes) => setReferencesScope(inventaire.scope_kind === 'references' ? codes : undefined))
-      .catch(() => {})
-  }, [inventaire])
+    loadReferencesScope().catch(() => {})
+  }, [inventaire, loadReferencesScope])
+
+  // Rechargement au retour réseau (spec 2.56) : sans lui, une coupure
+  // pendant la marche laissait la garde refusée en permanence — le
+  // périmètre n'était rechargé qu'au montage de l'écran, jamais ensuite.
+  useEffect(() => {
+    if (inventaire.scope_kind !== 'references') return
+    const onOnline = () => {
+      loadReferencesScope().catch(() => {})
+    }
+    window.addEventListener('online', onOnline)
+    return () => window.removeEventListener('online', onOnline)
+  }, [inventaire, loadReferencesScope])
 
   // Ne relit les conditionnements que pour les réf effectivement présentes
   // dans la liste — pas à chaque frappe, seulement quand l'ensemble des réf
@@ -712,16 +735,20 @@ function Walk({
       const piecesValue = Number(pieces) || 0
       const key: EntryKey = { emplacementCode: empl, refCode: code, conditionnementId: condId }
 
-      // Inventaire partiel : tant que le périmètre n'a pas fini de charger
-      // (ou que son chargement a échoué — même état côté state, `undefined`
-      // dans les deux cas), bloquer plutôt que d'être permissif par défaut.
-      // Sans ce garde, le contrôle ci-dessous (`referencesScope &&`) est
-      // simplement ignoré pendant que `referencesScope` vaut `undefined`,
-      // et une référence hors périmètre s'enregistrerait en silence — le
-      // défaut que spec 2.54 point 2 interdit explicitement.
-      if (inventaire.scope_kind === 'references' && !referencesScope) {
-        setStatus({ kind: 'error', message: t.inventory.scopeLoadError })
-        return
+      // Inventaire partiel (spec 2.56) : si le périmètre n'a pas fini de
+      // charger (ou que son chargement a échoué), tenter d'abord de le
+      // recharger — ne refuser que si cette tentative échoue elle-même.
+      // `scope` (variable locale), jamais `referencesScope` (état React),
+      // sert de base au reste de cet appel : un `setState` ne relit pas
+      // dans la même fermeture, un contrôle fait juste après sur
+      // `referencesScope` verrait encore `undefined` même en cas de succès.
+      let scope = referencesScope
+      if (inventaire.scope_kind === 'references' && !scope) {
+        scope = await loadReferencesScope().catch(() => undefined)
+        if (!scope) {
+          setStatus({ kind: 'error', message: t.inventory.scopeLoadError })
+          return
+        }
       }
 
       // Inventaire partiel (spec 2.54, point 2) : jamais enregistrer une
@@ -730,7 +757,7 @@ function Walk({
       // tant que la référence n'est pas dans le périmètre, la question à
       // trancher est "appartient-elle à cet inventaire", pas "remplacer ou
       // ajouter".
-      if (inventaire.scope_kind === 'references' && referencesScope && !referencesScope.includes(code)) {
+      if (inventaire.scope_kind === 'references' && scope && !scope.includes(code)) {
         setStatus({ kind: 'idle' })
         setPendingScopeExtension({ ...key, cartonsValue, piecesValue })
         return

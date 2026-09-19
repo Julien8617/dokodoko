@@ -5,6 +5,10 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.30 — 2026-09-19
+
+- Inventaire sur une liste de références : après une coupure réseau, la saisie retente automatiquement de recharger le périmètre (à la prochaine saisie, et dès le retour du réseau) au lieu de rester bloquée jusqu’à quitter l’écran
+
 ## 0.9.29 — 2026-09-19
 
 - Inventaire sur une liste de références : si le périmètre ne peut pas être chargé (réseau), la saisie est bloquée avec un message plutôt que d’accepter silencieusement une référence hors périmètre
