@@ -10,6 +10,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.31',
+    date: '2026-09-23',
+    items: [
+      'Liste des saisies (marche d’inventaire) : boutons « Modifier » (contour jaune) et « Annuler » (contour rouge) — annuler exige un double appui, comme une confirmation de mouvement',
+      'Écran des écarts, panneau d’édition par emplacement : le bouton de suppression a maintenant son propre libellé (« Supprimer cette saisie »), distinct du bouton « Annuler » de la liste des saisies pour éviter toute confusion',
+      'Rappel des références à compter : déplacé dans une fenêtre ouverte depuis un bouton, au lieu d’occuper le haut de l’écran au-dessus du formulaire',
+      'Cibles tactiles et espacement entre actions revus sur plusieurs écrans (présentation uniquement, aucun changement de calcul)',
+    ],
+  },
+  {
     version: '0.9.30',
     date: '2026-09-19',
     items: [

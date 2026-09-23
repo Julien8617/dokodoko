@@ -53,6 +53,7 @@ body {
 
 .home-action {
   width: 100%;
+  min-height: 44px;
   padding: 1.1rem;
   font-size: 1.1rem;
   border: none;
@@ -223,6 +224,7 @@ body {
 
 .settings-form button,
 .movement > button {
+  min-height: 44px;
   padding: 0.8rem;
   font-size: 1rem;
   border: none;
@@ -295,6 +297,7 @@ body {
 
 .sens-picker button {
   flex: 1;
+  min-height: 44px;
   padding: 0.7rem;
   border: 1px solid #ccc;
   border-radius: 0.5rem;
@@ -320,6 +323,8 @@ body {
 
 .step-button {
   flex-shrink: 0;
+  min-height: 44px;
+  min-width: 44px;
   padding: 0.8rem 0.9rem;
   font-size: 1.1rem;
   border: 1px solid #ccc;
@@ -365,6 +370,7 @@ body {
 
 .search-select-list button {
   width: 100%;
+  min-height: 44px;
   text-align: left;
   padding: 0.6rem;
   border: none;
@@ -426,6 +432,7 @@ body {
 }
 
 .arm-button {
+  min-height: 44px;
   padding: 1rem;
   font-size: 1.1rem;
   border: none;
@@ -486,8 +493,47 @@ body {
 
 .recent-entry-actions {
   display: flex;
-  gap: 0.75rem;
+  /* Écart généreux entre "Modifier" et "Annuler" (spec 2.56 §6.5) : l'une
+     des deux est irréversible, à une main, un carton dans l'autre — un
+     effleurement ne doit pas glisser d'un bouton vers l'autre. */
+  gap: 1rem;
   flex-shrink: 0;
+}
+
+/* Boutons de ligne (liste des saisies, spec 2.56 §6.5) : contour plutôt que
+   texte nu, pour rester repérables au pouce sans dominer visuellement la
+   ligne — jaune pour corriger, rouge pour annuler. Cible tactile ≥ 44 px. */
+.line-action {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0.5rem 0.9rem;
+  font-family: inherit;
+  font-size: 0.95rem;
+  border-radius: 0.5rem;
+  background: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.line-action-edit {
+  border: 2px solid #ffcc00;
+  color: #8a6d00;
+}
+
+.line-action-remove {
+  border: 2px solid #b3261e;
+  color: #b3261e;
+}
+
+/* Armé par le premier appui (spec 2.56 §6.5) : même motif que
+   `.arm-button.armed` (fond plein, texte contrasté) pour signaler qu'un
+   second appui exécute réellement l'action, cette fois en rouge parce que
+   l'action est irréversible plutôt que la simple confirmation d'un OK. */
+.line-action-remove.armed {
+  background: #b3261e;
+  border-color: #b3261e;
+  color: #fff;
 }
 
 .casier-row.done {
@@ -503,6 +549,71 @@ body {
 .casier-row.done .casier-status {
   color: #2e7d32;
   font-weight: 600;
+}
+
+/* Rappel des références à compter (spec 2.56 §6.5) : bouton simple, sans
+   compteur, qui ouvre la fenêtre — jamais un déroulant en place, qui
+   repousserait le formulaire et ferait perdre la position de saisie. */
+.checklist-toggle {
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 0.6rem 1rem;
+  font-size: 0.95rem;
+  border: 1px solid #ccc;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: #111;
+}
+
+/* Fenêtre centrée, fond assombri, fermeture au tap extérieur (spec 2.56
+   §6.5) — le gestionnaire de fermeture est sur `.modal-overlay`, et
+   `.modal-dialog` arrête la propagation pour qu'un tap à l'intérieur ne
+   ferme pas la fenêtre. */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 50;
+}
+
+.modal-dialog {
+  width: 100%;
+  max-width: 28rem;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.modal-dialog h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+/* Lignes du rappel (spec 2.56 §6.5) : interligne resserré plutôt que police
+   réduite — le texte reste lisible dans un entrepôt, et la liste défile de
+   toute façon. Grisées une fois comptées, pleine intensité sinon : la
+   lecture "ce qu'il me reste" se fait au contraste, jamais à l'ordre (tri
+   alphabétique fixe, aucun regroupement par état). */
+.checklist-row {
+  padding: 0.5rem 0.75rem;
+  line-height: 1.2;
+}
+
+.checklist-row-counted {
+  color: #999;
+}
+
+.checklist-row-counted .casier-status {
+  color: #bbb;
 }
 
 /* Écran des écarts — mise en page revue (spec 2.46 §6.5) : les chiffres

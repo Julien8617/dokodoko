@@ -5,6 +5,13 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.31 — 2026-09-23
+
+- Liste des saisies (marche d’inventaire) : boutons « Modifier » (contour jaune) et « Annuler » (contour rouge) — annuler exige un double appui, comme une confirmation de mouvement
+- Écran des écarts, panneau d’édition par emplacement : le bouton de suppression a maintenant son propre libellé (« Supprimer cette saisie »), distinct du bouton « Annuler » de la liste des saisies pour éviter toute confusion
+- Rappel des références à compter : déplacé dans une fenêtre ouverte depuis un bouton, au lieu d’occuper le haut de l’écran au-dessus du formulaire
+- Cibles tactiles et espacement entre actions revus sur plusieurs écrans (présentation uniquement, aucun changement de calcul)
+
 ## 0.9.30 — 2026-09-19
 
 - Inventaire sur une liste de références : après une coupure réseau, la saisie retente automatiquement de recharger le périmètre (à la prochaine saisie, et dès le retour du réseau) au lieu de rester bloquée jusqu’à quitter l’écran

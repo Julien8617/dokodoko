@@ -192,8 +192,27 @@ export interface Dictionary {
     aEcouler: string
     cartons: string
     pieces: string
+    // Action immédiate et irréversible (spec 2.56 §6.5) — double appui,
+    // même motif que confirmArmed/deleteArmed : removeLine porte le
+    // libellé au repos, removeArmed celui affiché entre les deux appuis.
+    // Volontairement court (contrairement à confirmArmed/deleteArmed
+    // ailleurs) : ce bouton est en ligne dans une rangée flex à côté du
+    // texte de la saisie — un libellé long pousserait ce texte et ferait
+    // sauter la hauteur de la ligne pendant les 3 s d'armement. Le verbe
+    // reste le même entre repos et armement ("Annuler" / "Annuler ?") —
+    // seul le point d'interrogation et le fond rouge plein changent — pour
+    // que l'identité du bouton ne change pas en cours de geste, seule son
+    // urgence.
     removeLine: string
+    removeArmed: string
     editLine: string
+    // Bouton de suppression du panneau d'édition (écran des écarts, détail
+    // par emplacement) — clé distincte de removeLine (spec 2.56 §6.5) :
+    // depuis que removeLine est raccourci à "Annuler" pour la liste des
+    // saisies, le réutiliser ici créerait une ambiguïté à côté du bouton
+    // "Enregistrer" du même panneau ("Annuler" = fermer le panneau, ou
+    // supprimer la ligne ?).
+    deleteEntry: string
     // {emplacement} et {refCode} remplacés via interpolate()
     duplicateEntry: string
     replaceEntry: string

@@ -535,6 +535,16 @@ function Walk({
   // Confirmation avant d'écrire une référence hors périmètre (spec 2.54,
   // point 2) : jamais en silence.
   const [pendingScopeExtension, setPendingScopeExtension] = useState<PendingScopeExtension | null>(null)
+  // Rappel des références à compter (spec 2.56 §6.5) : ouvert depuis un
+  // bouton, jamais affiché en flux — un déroulant en place repousserait le
+  // formulaire, qui sert en permanence, pour une liste qui sert rarement.
+  const [scopeChecklistOpen, setScopeChecklistOpen] = useState(false)
+  // Double appui avant "Annuler" (spec 2.56 §6.5) : action immédiate et
+  // irréversible, même motif que confirmArmed/deleteArmed ailleurs dans
+  // l'app. Un seul id à la fois — comparer à `entry.ligneId` dans le
+  // callback du minuteur (pas un simple `null`) pour ne pas effacer
+  // l'armement d'une ligne réarmée entre-temps par un second appui rapide.
+  const [armedRemoveId, setArmedRemoveId] = useState<string | null>(null)
 
   // Extrait pour être réappelable : au montage, sur l'événement `online`, et
   // à la volée depuis handleSave si la garde de périmètre trouve `undefined`
@@ -885,6 +895,24 @@ function Walk({
     setSaisies((prev) => prev.filter((s) => !sameKey(s, entry)))
   }
 
+  // Double appui (spec 2.56 §6.5) : premier appui arme (fond rouge, texte
+  // blanc), retombe seul après 3 s ; second appui, pendant que c'est encore
+  // armé, exécute réellement l'annulation. Comparer à `entry.ligneId` dans
+  // le minuteur, jamais mettre `null` sans condition : un second appui
+  // rapide sur une AUTRE ligne pendant la fenêtre de 3 s ne doit pas être
+  // effacé par le minuteur de la première.
+  function handleRemoveClick(entry: SaisieLine) {
+    if (armedRemoveId !== entry.ligneId) {
+      setArmedRemoveId(entry.ligneId)
+      setTimeout(() => {
+        setArmedRemoveId((current) => (current === entry.ligneId ? null : current))
+      }, 3000)
+      return
+    }
+    setArmedRemoveId(null)
+    void undo(entry)
+  }
+
   // Recharge une saisie existante dans le formulaire pour la corriger (ex.
   // un carton oublié) — pas de suppression : réenregistrer crée simplement
   // une nouvelle ligne plus récente pour le même (casier, réf), qui prévaut
@@ -899,6 +927,7 @@ function Walk({
     setStatus({ kind: 'idle' })
     setPendingDuplicate(null)
     setPendingScopeExtension(null)
+    setArmedRemoveId(null)
     setEditingKey({
       emplacementCode: entry.emplacementCode,
       refCode: entry.refCode,
@@ -915,37 +944,6 @@ function Walk({
         ← {t.inventory.back}
       </button>
       <h1>{t.inventory.title}</h1>
-
-      {/* Rappel des références à compter (spec 2.54, point 3) : en
-          inventaire partiel uniquement — sur un périmètre complet ou par
-          client, ce serait une liste de trois cents lignes, du bruit.
-          Jamais "terminée" (seul l'opérateur sait quand il a fini de
-          chercher une référence) ni l'emplacement attendu (ce serait
-          afficher le théorique, donc compter vers une cible). */}
-      {inventaire.scope_kind === 'references' && referencesScope && (
-        <div className="settings-form">
-          <h2>{t.inventory.scopeChecklistTitle}</h2>
-          <ul className="casier-list">
-            {[...referencesScope].sort().map((code) => {
-              const libelle = allReferences.find((r) => r.code === code)?.libelle
-              const casiers = new Set(saisies.filter((s) => s.refCode === code).map((s) => s.emplacementCode))
-              return (
-                <li key={code} className="casier-row">
-                  <span>
-                    {code}
-                    {libelle ? ` — ${libelle}` : ''}
-                  </span>
-                  <span className="casier-status">
-                    {casiers.size === 0
-                      ? t.inventory.scopeNotCounted
-                      : interpolate(t.inventory.scopeCountedIn, { count: casiers.size })}
-                  </span>
-                </li>
-              )
-            })}
-          </ul>
-        </div>
-      )}
 
       <form className="settings-form" onSubmit={handleSave}>
         <label className="field-label">
@@ -1033,6 +1031,51 @@ function Walk({
         {status.kind === 'error' && <p className="form-status form-error">{status.message}</p>}
       </form>
 
+      {/* Rappel des références à compter (spec 2.54 point 3, repositionné en
+          spec 2.56 §6.5) : en inventaire partiel uniquement — sur un
+          périmètre complet ou par client, ce serait une liste de trois
+          cents lignes, du bruit. Sorti du flux — le formulaire sert en
+          permanence, la liste sert rarement — et ouvert depuis ce simple
+          bouton, sans compteur de progression (ni ici ni dans la fenêtre) :
+          "4 sur 12 comptées" laisserait croire qu'il n'y a plus rien à
+          compter sur une référence déjà rencontrée une fois. */}
+      {inventaire.scope_kind === 'references' && referencesScope && (
+        <button type="button" className="checklist-toggle" onClick={() => setScopeChecklistOpen(true)}>
+          {t.inventory.scopeChecklistTitle}
+        </button>
+      )}
+
+      {scopeChecklistOpen && referencesScope && (
+        <div className="modal-overlay" onClick={() => setScopeChecklistOpen(false)}>
+          <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
+            <h2>{t.inventory.scopeChecklistTitle}</h2>
+            <ul className="casier-list">
+              {/* Ordre alphabétique fixe, jamais de regroupement par état
+                  (spec 2.56 §6.5) : une référence ne doit pas changer de
+                  place en pleine séance quand elle passe de "non comptée" à
+                  "comptée" — seul le contraste (grisé une fois comptée)
+                  porte cette information, pas l'ordre. */}
+              {[...referencesScope].sort().map((code) => {
+                const libelle = allReferences.find((r) => r.code === code)?.libelle
+                const casiers = new Set(saisies.filter((s) => s.refCode === code).map((s) => s.emplacementCode))
+                const counted = casiers.size > 0
+                return (
+                  <li key={code} className={`casier-row checklist-row${counted ? ' checklist-row-counted' : ''}`}>
+                    <span>
+                      {code}
+                      {libelle ? ` — ${libelle}` : ''}
+                    </span>
+                    <span className="casier-status">
+                      {counted ? interpolate(t.inventory.scopeCountedIn, { count: casiers.size }) : t.inventory.scopeNotCounted}
+                    </span>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        </div>
+      )}
+
       {pendingDuplicate && (
         <div className="form-status">
           <p>
@@ -1092,11 +1135,19 @@ function Walk({
                     : {entry.cartons}c + {entry.pieces}p
                   </span>
                   <span className="recent-entry-actions">
-                    <button type="button" className="back-link" onClick={() => editEntry(entry)}>
+                    <button type="button" className="line-action line-action-edit" onClick={() => editEntry(entry)}>
                       {t.inventory.editLine}
                     </button>
-                    <button type="button" className="back-link" onClick={() => undo(entry)}>
-                      {t.inventory.removeLine}
+                    {/* Double appui (spec 2.56 §6.5) : action immédiate et
+                        irréversible, même motif que la confirmation de
+                        mouvement — premier appui arme (fond rouge, texte
+                        blanc), second exécute, retombe seul après 3 s. */}
+                    <button
+                      type="button"
+                      className={`line-action line-action-remove${armedRemoveId === entry.ligneId ? ' armed' : ''}`}
+                      onClick={() => handleRemoveClick(entry)}
+                    >
+                      {armedRemoveId === entry.ligneId ? t.inventory.removeArmed : t.inventory.removeLine}
                     </button>
                   </span>
                 </div>
@@ -1421,7 +1472,7 @@ function Ecarts({
                         onClick={() => deleteEdit(ref, l)}
                         disabled={editStatus.kind === 'saving'}
                       >
-                        {t.inventory.removeLine}
+                        {t.inventory.deleteEntry}
                       </button>
                       {editStatus.kind === 'error' && <p className="form-status form-error">{editStatus.message}</p>}
                     </div>
