@@ -23,7 +23,6 @@ import {
   getInventaireSynthese,
   getOrCreateCasier,
   listInventaireSaisies,
-  listLatestCasierLignes,
   markCasierVisite,
   moveCasierLigne,
   MoveCasierLignePartialError,
@@ -484,7 +483,6 @@ function describeSaveError(err: unknown, t: Dictionary): string {
 // posée après résolution complète de la saisie tapée, avant tout appel
 // réseau d'écriture.
 interface PendingDuplicate extends EntryKey {
-  comptageId: string
   cartonsValue: number
   piecesValue: number
   // Quantité déjà présente à la destination (spec 2.61 §6.5) : depuis que
@@ -512,6 +510,16 @@ interface PendingMove extends EntryKey {
   fromEmplacementCode: string
   cartonsValue: number
   piecesValue: number
+  // Collision à la destination (spec 2.62 §6.5) : détectée AU MOMENT où le
+  // récapitulatif de déplacement se pose, pas après confirmation — pour que
+  // les deux questions ("déplacer ?" et "remplacer ou ajouter ?") se
+  // fondent dans un seul écran plutôt que de s'enchaîner. Deux dialogues
+  // d'affilée feraient confirmer un déplacement avant d'en connaître la
+  // conséquence, et découperaient en deux gestes ce qui est un seul choix.
+  // `undefined` : aucune collision, le simple récapitulatif de déplacement
+  // suffit. Union explicite plutôt qu'un `?` optionnel — exactOptionalPropertyTypes
+  // interdit d'assigner `undefined` à un champ simplement optionnel.
+  collision: { existingCartons: number; existingPieces: number } | undefined
 }
 
 // Suggestions du champ casier, partagées entre la saisie (marche) et la
@@ -785,7 +793,6 @@ function Walk({
       setStatus({ kind: 'idle' })
       setPendingDuplicate({
         ...key,
-        comptageId: existing.comptageId,
         existingCartons: existing.cartons,
         existingPieces: existing.pieces,
         cartonsValue,
@@ -874,7 +881,19 @@ function Walk({
       // spec 2.60 ne demande la confirmation que sur celui-ci).
       if (editingKey && editingKey.emplacementCode !== key.emplacementCode) {
         setStatus({ kind: 'idle' })
-        setPendingMove({ ...key, fromEmplacementCode: editingKey.emplacementCode, cartonsValue, piecesValue })
+        // Collision détectée ICI, avant de poser la question (spec 2.62
+        // §6.5) : pour fusionner "déplacer ?" et "remplacer ou ajouter ?"
+        // en un seul écran plutôt que de les enchaîner. Recherche dans
+        // `saisies` (état local), jamais une relecture serveur — même
+        // règle que resolveDuplicate, et pour la même raison.
+        const existing = saisies.find((s) => sameKey(s, key))
+        setPendingMove({
+          ...key,
+          fromEmplacementCode: editingKey.emplacementCode,
+          cartonsValue,
+          piecesValue,
+          collision: existing ? { existingCartons: existing.cartons, existingPieces: existing.pieces } : undefined,
+        })
         return
       }
 
@@ -969,19 +988,20 @@ function Walk({
     setStatus({ kind: 'idle' })
   }
 
-  // "Ajouter" somme sur la valeur SERVEUR au moment du choix, jamais sur
-  // `saisies` : cet état est un instantané chargé au montage (reprise
-  // d'inventaire, autre onglet) et peut être périmé — sommer dessus
-  // écrirait un total faux et silencieux, en latest-wins ce serait la
-  // valeur retenue (même principe que la relecture des conditionnements
-  // dans handleSave, jamais se fier à un état local pour un calcul).
+  // "Ajouter" somme sur la valeur LOCALE (`existingCartons`/`existingPieces`,
+  // déjà connue au moment où la collision a été détectée), jamais une
+  // relecture serveur (spec 2.62 §6.5, revient sur une règle antérieure
+  // écrite pour la raison inverse) : sur un seul appareil, l'état local est
+  // la vue la PLUS complète, puisqu'il intègre les écritures encore en file
+  // hors ligne que le serveur ignore encore — une relecture donnerait la
+  // mauvaise valeur précisément quand une saisie est en attente, et
+  // poserait une dépendance réseau au milieu d'une confirmation, en allée,
+  // où la coupure est le cas courant. Cette règle ne tient QUE tant qu'un
+  // seul appareil écrit — voir §14 : le jour d'un second compteur,
+  // l'addition doit devenir un incrément atomique côté serveur.
   async function resolveDuplicate(mode: 'remplacer' | 'ajouter') {
     if (!pendingDuplicate) return
-    // Reconstruit explicitement plutôt qu'un rest-spread : PendingDuplicate
-    // porte existingCartons/existingPieces (affichage seulement), qu'un
-    // rest-spread laisserait traîner dans `key` — même raison que
-    // confirmPendingMove.
-    const { comptageId, cartonsValue, piecesValue } = pendingDuplicate
+    const { cartonsValue, piecesValue, existingCartons, existingPieces } = pendingDuplicate
     const key: EntryKey = {
       emplacementCode: pendingDuplicate.emplacementCode,
       refCode: pendingDuplicate.refCode,
@@ -989,16 +1009,8 @@ function Walk({
     }
     setStatus({ kind: 'saving' })
     try {
-      let finalCartons = cartonsValue
-      let finalPieces = piecesValue
-      if (mode === 'ajouter') {
-        const currentLines = await listLatestCasierLignes(comptageId)
-        const current = currentLines.find(
-          (l) => l.ref_code === key.refCode && l.conditionnement_id === key.conditionnementId,
-        )
-        finalCartons += current?.cartons ?? 0
-        finalPieces += current?.pieces ?? 0
-      }
+      const finalCartons = mode === 'ajouter' ? cartonsValue + existingCartons : cartonsValue
+      const finalPieces = mode === 'ajouter' ? piecesValue + existingPieces : piecesValue
       // En mode modification (editingKey encore défini, différent de `key`
       // puisque c'est ce qui a déclenché la collision) : commitSave détecte
       // lui-même le déplacement et retire la ligne d'origine, remplacer
@@ -1039,17 +1051,19 @@ function Walk({
     setStatus({ kind: 'idle' })
   }
 
-  // Confirmation du déplacement en mode modification (spec 2.60 §6.5) :
-  // passe par checkDuplicateThenSave comme tout le reste — puisque
-  // editingKey est défini, elle saute directement à commitSave, qui
-  // détecte lui-même le déplacement en comparant le triplet avant/après.
-  async function confirmPendingMove() {
+  // Confirmation du déplacement en mode modification (spec 2.62 §6.5) : la
+  // collision, s'il y en a une, a déjà été détectée quand pendingMove a été
+  // posé — appelle directement commitSave (jamais checkDuplicateThenSave,
+  // qui reposerait une question déjà résolue ici), qui détecte lui-même le
+  // déplacement en comparant le triplet avant/après et retire la ligne
+  // d'origine. `mode` n'a de sens que si pendingMove.collision existe ;
+  // absent sinon (simple confirmation, pas de choix à faire).
+  async function confirmPendingMove(mode?: 'remplacer' | 'ajouter') {
     if (!pendingMove) return
     // Reconstruit explicitement plutôt qu'un rest-spread : PendingMove porte
-    // `fromEmplacementCode` en plus des trois champs d'EntryKey, un
-    // rest-spread l'aurait laissé traîner dans `key` sans que tsc s'en
-    // plaigne (assignable, pas exact).
-    const { cartonsValue, piecesValue } = pendingMove
+    // des champs qu'EntryKey n'a pas, un rest-spread les aurait laissés
+    // traîner dans `key` sans que tsc s'en plaigne (assignable, pas exact).
+    const { cartonsValue, piecesValue, collision } = pendingMove
     const key: EntryKey = {
       emplacementCode: pendingMove.emplacementCode,
       refCode: pendingMove.refCode,
@@ -1057,7 +1071,11 @@ function Walk({
     }
     setStatus({ kind: 'saving' })
     try {
-      await checkDuplicateThenSave(key, cartonsValue, piecesValue)
+      // "Ajouter" somme sur la valeur locale déjà connue (spec 2.62 §6.5),
+      // jamais une relecture serveur — même règle que resolveDuplicate.
+      const finalCartons = mode === 'ajouter' && collision ? cartonsValue + collision.existingCartons : cartonsValue
+      const finalPieces = mode === 'ajouter' && collision ? piecesValue + collision.existingPieces : piecesValue
+      await commitSave(key, finalCartons, finalPieces)
       setPendingMove(null)
     } catch (err) {
       setStatus({ kind: 'error', message: describeSaveError(err, t) })
@@ -1331,10 +1349,14 @@ function Walk({
         </div>
       )}
 
-      {/* Déplacement en mode modification (spec 2.60 §6.5) : confirmation
-          simple avec récapitulatif — rien n'est détruit, le contenu est
-          relocalisé — même formulation que "Déplacer" sur l'écran des
-          écarts. */}
+      {/* Déplacement en mode modification (spec 2.60 §6.5). Une collision à
+          la destination fusionne les deux questions en un seul écran (spec
+          2.62 §6.5) : déplacer puis "remplacer ou ajouter ?" enchaînés
+          feraient confirmer un déplacement avant d'en connaître la
+          conséquence, pour un choix qui n'en est qu'un seul. Totaux
+          calculés et affichés sur les boutons — personne ne fait
+          d'arithmétique debout dans une allée. Annuler n'écrit rien, les
+          deux lignes restent telles quelles. */}
       {pendingMove && (
         <div className="form-status">
           <p>
@@ -1344,9 +1366,33 @@ function Walk({
               to: pendingMove.emplacementCode,
             })}
           </p>
-          <button type="button" onClick={confirmPendingMove} disabled={status.kind === 'saving'}>
-            {t.common.confirm}
-          </button>
+          {pendingMove.collision ? (
+            <>
+              <p>
+                {interpolate(t.inventory.moveCollisionExisting, {
+                  emplacement: pendingMove.emplacementCode,
+                  cartons: pendingMove.collision.existingCartons,
+                  pieces: pendingMove.collision.existingPieces,
+                })}
+              </p>
+              <button type="button" onClick={() => confirmPendingMove('ajouter')} disabled={status.kind === 'saving'}>
+                {t.inventory.addEntry} (
+                {pendingMove.cartonsValue + pendingMove.collision.existingCartons}c +{' '}
+                {pendingMove.piecesValue + pendingMove.collision.existingPieces}p)
+              </button>
+              <button
+                type="button"
+                onClick={() => confirmPendingMove('remplacer')}
+                disabled={status.kind === 'saving'}
+              >
+                {t.inventory.replaceEntry} ({pendingMove.cartonsValue}c + {pendingMove.piecesValue}p)
+              </button>
+            </>
+          ) : (
+            <button type="button" onClick={() => confirmPendingMove()} disabled={status.kind === 'saving'}>
+              {t.common.confirm}
+            </button>
+          )}
           <button type="button" className="back-link" onClick={cancelPendingMove} disabled={status.kind === 'saving'}>
             {t.common.cancel}
           </button>
@@ -1507,6 +1553,14 @@ function Ecarts({
   const [movingLigneId, setMovingLigneId] = useState<string | null>(null)
   const [moveTarget, setMoveTarget] = useState('')
   const [moveConfirmTarget, setMoveConfirmTarget] = useState<string | null>(null)
+  // Collision de destination (spec 2.62 §6.5, même règle que la marche —
+  // un déplacement qui entre en collision ne pose qu'une seule question,
+  // peu importe l'écran) : casier déjà compté pour ce triplet, calculé au
+  // moment de la validation du casier cible depuis `ref.parEmplacement`
+  // déjà chargé, jamais une nouvelle requête.
+  const [moveCollision, setMoveCollision] = useState<
+    { existingCartons: number; existingPieces: number } | undefined
+  >(undefined)
   const [moveStatus, setMoveStatus] = useState<
     { kind: 'idle' } | { kind: 'saving' } | { kind: 'error'; message: string }
   >({ kind: 'idle' })
@@ -1680,11 +1734,17 @@ function Ecarts({
   // appui : rien n'est détruit, le contenu est relocalisé. Le casier cible
   // se valide comme à la saisie (parseEmplacementCode/resolveEmplacementInput,
   // abréviations acceptées) ; il n'a pas à appartenir au périmètre de
-  // l'inventaire, qui ne porte que sur les références.
+  // l'inventaire, qui ne porte que sur les références. Si le casier cible
+  // porte déjà une saisie pour ce triplet (collision), un déplacement qui
+  // écrirait par-dessus sans poser la question détruirait silencieusement
+  // le comptage de destination — même règle et même écran fusionné que la
+  // marche (spec 2.62 §6.5) : Ajouter/Remplacer avec totaux sur les
+  // boutons, jamais un "confirmer" muet.
   function startMove(l: SyntheseLigneEmplacement) {
     setMovingLigneId(l.ligneId)
     setMoveTarget('')
     setMoveConfirmTarget(null)
+    setMoveCollision(undefined)
     setMoveStatus({ kind: 'idle' })
   }
 
@@ -1692,10 +1752,11 @@ function Ecarts({
     setMovingLigneId(null)
     setMoveTarget('')
     setMoveConfirmTarget(null)
+    setMoveCollision(undefined)
     setMoveStatus({ kind: 'idle' })
   }
 
-  function validateMoveTarget(currentEmplacement: string) {
+  function validateMoveTarget(ref: SyntheseReference, currentEmplacement: string) {
     const typed = moveTarget.trim().toUpperCase()
     const targetCode = parseEmplacementCode(typed) ? typed : resolveEmplacementInput(typed) ?? typed
     if (!targetCode || !parseEmplacementCode(targetCode)) {
@@ -1708,15 +1769,23 @@ function Ecarts({
     }
     setMoveStatus({ kind: 'idle' })
     setMoveConfirmTarget(targetCode)
+    const existing = ref.parEmplacement.find((x) => x.emplacementCode === targetCode && x.compte !== null)
+    setMoveCollision(
+      existing ? { existingCartons: existing.cartons ?? 0, existingPieces: existing.pieces ?? 0 } : undefined,
+    )
   }
 
-  async function confirmMove(ref: SyntheseReference, l: SyntheseLigneEmplacement) {
+  async function confirmMove(ref: SyntheseReference, l: SyntheseLigneEmplacement, mode?: 'remplacer' | 'ajouter') {
     if (!auteur || !l.comptageId || !moveConfirmTarget) return
     const ligneId = crypto.randomUUID()
     const ligneTs = new Date().toISOString()
     setMoveStatus({ kind: 'saving' })
     try {
       await ensureEmplacement(moveConfirmTarget)
+      const finalCartons =
+        mode === 'ajouter' && moveCollision ? (l.cartons ?? 0) + moveCollision.existingCartons : l.cartons ?? 0
+      const finalPieces =
+        mode === 'ajouter' && moveCollision ? (l.pieces ?? 0) + moveCollision.existingPieces : l.pieces ?? 0
       await moveCasierLigne(
         inventaire.id,
         ligneId,
@@ -1726,8 +1795,8 @@ function Ecarts({
           emplacementCode: moveConfirmTarget,
           refCode: ref.refCode,
           conditionnementId: ref.conditionnementId,
-          cartons: l.cartons ?? 0,
-          pieces: l.pieces ?? 0,
+          cartons: finalCartons,
+          pieces: finalPieces,
         },
         auteur,
       )
@@ -1904,7 +1973,7 @@ function Ecarts({
                           {!moveConfirmTarget ? (
                             <button
                               type="button"
-                              onClick={() => validateMoveTarget(l.emplacementCode)}
+                              onClick={() => validateMoveTarget(ref, l.emplacementCode)}
                               disabled={!moveTarget.trim() || moveStatus.kind === 'saving'}
                             >
                               {t.common.validate}
@@ -1918,13 +1987,41 @@ function Ecarts({
                                   to: moveConfirmTarget,
                                 })}
                               </p>
-                              <button
-                                type="button"
-                                onClick={() => confirmMove(ref, l)}
-                                disabled={moveStatus.kind === 'saving'}
-                              >
-                                {t.common.confirm}
-                              </button>
+                              {moveCollision ? (
+                                <>
+                                  <p className="quantity-formula">
+                                    {interpolate(t.inventory.moveCollisionExisting, {
+                                      emplacement: moveConfirmTarget,
+                                      cartons: moveCollision.existingCartons,
+                                      pieces: moveCollision.existingPieces,
+                                    })}
+                                  </p>
+                                  <button
+                                    type="button"
+                                    onClick={() => confirmMove(ref, l, 'ajouter')}
+                                    disabled={moveStatus.kind === 'saving'}
+                                  >
+                                    {t.inventory.addEntry} (
+                                    {(l.cartons ?? 0) + moveCollision.existingCartons}c +{' '}
+                                    {(l.pieces ?? 0) + moveCollision.existingPieces}p)
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => confirmMove(ref, l, 'remplacer')}
+                                    disabled={moveStatus.kind === 'saving'}
+                                  >
+                                    {t.inventory.replaceEntry} ({l.cartons ?? 0}c + {l.pieces ?? 0}p)
+                                  </button>
+                                </>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => confirmMove(ref, l)}
+                                  disabled={moveStatus.kind === 'saving'}
+                                >
+                                  {t.common.confirm}
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 className="back-link"

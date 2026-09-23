@@ -5,6 +5,11 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.35 — 2026-09-24
+
+- Déplacer une saisie vers un casier déjà compté (via Modifier, dans la marche) : un seul écran maintenant, avec le récapitulatif de déplacement, la quantité déjà en place et les totaux Ajouter/Remplacer calculés — au lieu de deux confirmations à la suite
+- Même correction sur le déplacement depuis l'écran Écarts : il écrasait silencieusement une saisie déjà présente au casier de destination sans poser de question — il pose maintenant le même choix Ajouter/Remplacer
+
 ## 0.9.34 — 2026-09-24
 
 - Corrigé : en modifiant une saisie, déplacer une référence vers un casier où elle était déjà comptée écrasait ce comptage sans le dire — la question « déjà saisi, remplacer ou ajouter ? » se pose maintenant aussi dans ce cas, avec la quantité déjà en place affichée

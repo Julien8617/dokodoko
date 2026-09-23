@@ -173,6 +173,7 @@ const ja: Dictionary = {
     deleteEntry: 'この入力を削除',
     moveEntry: '移動',
     moveConfirm: '{refCode} を {from} から {to} に移動しますか？',
+    moveCollisionExisting: '{emplacement} に入力済み：ケース {cartons}、バラ {pieces}',
     moveSameEmplacement: '元とは異なるロケーションを選んでください',
     moveDuplicatedError:
       '新しいロケーションへの書き込みは成功しましたが、元のロケーションからの削除に失敗しました — 現在両方に存在しています。差異画面から元のロケーションの分を削除してください。移動をやり直さないでください。',

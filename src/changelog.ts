@@ -10,6 +10,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.35',
+    date: '2026-09-24',
+    items: [
+      'Déplacer une saisie vers un casier déjà compté (via Modifier, dans la marche) : un seul écran maintenant, avec le récapitulatif de déplacement, la quantité déjà en place et les totaux Ajouter/Remplacer calculés — au lieu de deux confirmations à la suite',
+      'Même correction sur le déplacement depuis l\'écran Écarts : il écrasait silencieusement une saisie déjà présente au casier de destination sans poser de question — il pose maintenant le même choix Ajouter/Remplacer',
+    ],
+  },
+  {
     version: '0.9.34',
     date: '2026-09-24',
     items: [

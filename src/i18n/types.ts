@@ -226,6 +226,11 @@ export interface Dictionary {
     // le contenu est relocalisé.
     moveEntry: string
     moveConfirm: string // {refCode}, {from}, {to}
+    // Collision à la destination d'un déplacement, fusionnée dans le même
+    // écran que moveConfirm (spec 2.62 §6.5, jamais un second dialogue) —
+    // addEntry/replaceEntry portent déjà "Ajouter"/"Remplacer", les totaux
+    // calculés sont composés directement dans le JSX à côté.
+    moveCollisionExisting: string // {emplacement}, {cartons}, {pieces}
     moveSameEmplacement: string
     // La ligne a été écrite au casier cible avant l'échec de son retrait du
     // casier d'origine (MoveCasierLignePartialError) — elle existe donc

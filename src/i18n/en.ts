@@ -173,6 +173,7 @@ const en: Dictionary = {
     deleteEntry: 'Delete this entry',
     moveEntry: 'Move',
     moveConfirm: 'Move {refCode} from {from} to {to}?',
+    moveCollisionExisting: 'Already recorded at {emplacement}: {cartons} cartons, {pieces} pieces',
     moveSameEmplacement: 'Choose a location different from the original one',
     moveDuplicatedError:
       'The entry was written at the new location, but removing it from the old one failed — it now exists in both places. Delete it at the old location from the differences screen; do not retry the move.',
