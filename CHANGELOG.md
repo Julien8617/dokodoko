@@ -5,6 +5,14 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.32 — 2026-09-23
+
+- Liste des saisies (marche d’inventaire) : disposition sur trois lignes (emplacement / référence / quantité), et menu « … » regroupant Modifier et Supprimer
+- Vocabulaire unifié : « Supprimer » partout où il s’agit d’effacer une saisie, « Annuler » réservé à l’abandon ou la clôture d’un inventaire
+- Rappel des références à compter : liste uniforme sans indicateur d’état (une référence éparpillée sur plusieurs casiers restant à compter ailleurs même une fois rencontrée), police resserrée pour tenir plus de lignes à l’écran
+- Écran des écarts : la suppression d’une saisie exige maintenant un double appui, comme partout ailleurs
+- Nouveau : déplacer une saisie vers un autre casier (écran des écarts, et via Modifier dans la marche) sans avoir à supprimer puis ressaisir — la ligne change de casier, jamais tout le casier d’un coup
+
 ## 0.9.31 — 2026-09-23
 
 - Liste des saisies (marche d’inventaire) : boutons « Modifier » (contour jaune) et « Annuler » (contour rouge) — annuler exige un double appui, comme une confirmation de mouvement

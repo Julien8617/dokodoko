@@ -192,27 +192,41 @@ export interface Dictionary {
     aEcouler: string
     cartons: string
     pieces: string
-    // Action immédiate et irréversible (spec 2.56 §6.5) — double appui,
-    // même motif que confirmArmed/deleteArmed : removeLine porte le
-    // libellé au repos, removeArmed celui affiché entre les deux appuis.
-    // Volontairement court (contrairement à confirmArmed/deleteArmed
-    // ailleurs) : ce bouton est en ligne dans une rangée flex à côté du
-    // texte de la saisie — un libellé long pousserait ce texte et ferait
-    // sauter la hauteur de la ligne pendant les 3 s d'armement. Le verbe
-    // reste le même entre repos et armement ("Annuler" / "Annuler ?") —
-    // seul le point d'interrogation et le fond rouge plein changent — pour
-    // que l'identité du bouton ne change pas en cours de geste, seule son
-    // urgence.
+    // Action immédiate et irréversible — double appui, même motif que
+    // confirmArmed/deleteArmed : removeLine porte le libellé au repos,
+    // removeArmed celui affiché entre les deux appuis. Volontairement
+    // court (contrairement à confirmArmed/deleteArmed ailleurs) : ce
+    // bouton vit dans un petit menu, pas une rangée pleine largeur. Le
+    // verbe reste le même entre repos et armement ("Supprimer" /
+    // "Supprimer ?") — seul le point d'interrogation et le fond rouge
+    // plein changent. Vocabulaire fixé en spec 2.58 §6.5 : "Supprimer"
+    // partout où il s'agit d'effacer une saisie, "Annuler" réservé à la
+    // clôture/l'abandon d'un inventaire — jamais les deux pour la même
+    // famille d'action.
     removeLine: string
     removeArmed: string
     editLine: string
+    // Bouton "…" qui déplie Modifier/Supprimer sur une saisie de la liste
+    // (spec 2.58 §6.5) — texte de l'attribut aria-label uniquement, le
+    // bouton lui-même affiche juste le symbole.
+    entryMenuLabel: string
     // Bouton de suppression du panneau d'édition (écran des écarts, détail
-    // par emplacement) — clé distincte de removeLine (spec 2.56 §6.5) :
-    // depuis que removeLine est raccourci à "Annuler" pour la liste des
-    // saisies, le réutiliser ici créerait une ambiguïté à côté du bouton
-    // "Enregistrer" du même panneau ("Annuler" = fermer le panneau, ou
-    // supprimer la ligne ?).
+    // par emplacement) — clé distincte de removeLine, même vocabulaire
+    // "Supprimer" (spec 2.58 §6.5).
     deleteEntry: string
+    // Déplacement d'une saisie vers un autre casier (spec 2.58 §6.5) :
+    // jamais un update de comptages.emplacement_code (voir moveCasierLigne,
+    // inventaireDb.ts) — retirer puis réécrire ailleurs. Confirmation
+    // simple avec récapitulatif, PAS un double appui : rien n'est détruit,
+    // le contenu est relocalisé.
+    moveEntry: string
+    moveConfirm: string // {refCode}, {from}, {to}
+    moveSameEmplacement: string
+    // La ligne a été écrite au casier cible avant l'échec de son retrait du
+    // casier d'origine (MoveCasierLignePartialError) — elle existe donc
+    // réellement aux deux endroits. Jamais un message générique ici : un
+    // réessai naïf duplique une seconde fois.
+    moveDuplicatedError: string
     // {emplacement} et {refCode} remplacés via interpolate()
     duplicateEntry: string
     replaceEntry: string
@@ -251,10 +265,13 @@ export interface Dictionary {
     scopeExtensionQuestion: string // {refCode}
     // Rappel des références à compter, en inventaire partiel uniquement —
     // jamais "terminée", jamais l'emplacement attendu (ce serait le
-    // théorique, donc compter vers une cible).
+    // théorique, donc compter vers une cible), et depuis spec 2.58 §6.5
+    // jamais non plus d'indicateur d'état par référence (grisé, "comptée
+    // dans N casiers") : une référence éparpillée sur plusieurs casiers
+    // reste à compter ailleurs même une fois rencontrée une fois, un
+    // marqueur "fait" induirait en erreur sur une complétude que rien ne
+    // garantit. Liste uniforme, code + libellé seulement.
     scopeChecklistTitle: string
-    scopeNotCounted: string
-    scopeCountedIn: string // {count}
     // Marque une saisie déjà enregistrée hors périmètre, sur l'écran des
     // écarts — même action "ajouter au périmètre" que côté saisie.
     scopeOutOfPerimeter: string

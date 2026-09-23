@@ -250,6 +250,61 @@ export async function deleteCasierLignesForRef(
   if (error) throw error
 }
 
+// Déplacement d'une saisie vers un autre casier (spec 2.58, §6.5) — jamais
+// un update de `comptages.emplacement_code` : un comptage regroupe TOUTES
+// les références saisies à cet emplacement, un tel update déplacerait donc
+// d'un coup toutes les lignes du casier d'origine, pas seulement celle
+// qu'on corrige. C'est exactement ce que l'utilisateur fait aujourd'hui à
+// la main (supprimer puis ressaisir) : on écrit une ligne équivalente dans
+// le comptage cible (créé si besoin), puis on retire la ligne d'origine de
+// son comptage — dans cet ordre, jamais l'inverse, pour qu'un échec entre
+// les deux étapes laisse une donnée dupliquée (visible, corrigible) plutôt
+// que perdue. Seule et unique implémentation, appelée depuis la marche
+// (Modifier, quand le casier change) et depuis l'écran des écarts
+// (Déplacer) — même chemin des deux côtés, par exigence explicite de la
+// spec.
+// Distincte d'une erreur ordinaire (spec 2.36 §3, instanceof jamais un
+// message brut) : la ligne a été écrite au casier cible AVANT l'échec, elle
+// existe donc réellement aux DEUX emplacements — pas une simple erreur à
+// réessayer telle quelle, un état à faire connaître explicitement, faute de
+// quoi un réessai duplique une seconde fois et une référence se compte deux
+// fois dans la synthèse qui produit l'indicateur du pilote.
+export class MoveCasierLignePartialError extends Error {
+  targetComptageId: string
+  constructor(targetComptageId: string) {
+    super('déplacement partiel : la ligne existe maintenant aux deux emplacements')
+    this.targetComptageId = targetComptageId
+  }
+}
+
+export async function moveCasierLigne(
+  inventaireId: string,
+  ligneId: string,
+  ts: string,
+  source: { comptageId: string; refCode: string; conditionnementId: string },
+  target: { emplacementCode: string; refCode: string; conditionnementId: string; cartons: number; pieces: number },
+  auteur: string,
+): Promise<{ comptageId: string }> {
+  const { comptage } = await getOrCreateCasier(inventaireId, target.emplacementCode)
+  await saveCasierLigne(
+    ligneId,
+    ts,
+    comptage.id,
+    target.refCode,
+    target.conditionnementId,
+    target.cartons,
+    target.pieces,
+    auteur,
+  )
+  await markCasierVisite(comptage.id)
+  try {
+    await deleteCasierLignesForRef(source.comptageId, source.refCode, source.conditionnementId)
+  } catch {
+    throw new MoveCasierLignePartialError(comptage.id)
+  }
+  return { comptageId: comptage.id }
+}
+
 export interface SaisieLine {
   ligneId: string
   comptageId: string

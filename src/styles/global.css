@@ -491,48 +491,116 @@ body {
   text-align: left;
 }
 
-.recent-entry-actions {
+/* Saisie sur trois lignes (spec 2.58 §6.5) : une seule ligne trop chargée
+   prenait trop de place à l'écran — emplacement, puis référence+libellé,
+   puis quantité, chacun sur sa propre ligne. */
+.entry-lines {
+  flex: 1;
   display: flex;
-  /* Écart généreux entre "Modifier" et "Annuler" (spec 2.56 §6.5) : l'une
-     des deux est irréversible, à une main, un carton dans l'autre — un
-     effleurement ne doit pas glisser d'un bouton vers l'autre. */
-  gap: 1rem;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.entry-line-emplacement {
+  font-weight: 600;
+}
+
+.entry-line-reference,
+.entry-line-quantity {
+  color: #444;
+  font-size: 0.9rem;
+}
+
+/* Bouton "…" qui déplie Modifier/Supprimer (spec 2.58 §6.5) — remplace les
+   deux boutons pleine largeur d'avant, pour laisser la place aux trois
+   lignes ci-dessus. */
+.entry-menu-wrapper {
+  position: relative;
   flex-shrink: 0;
 }
 
-/* Boutons de ligne (liste des saisies, spec 2.56 §6.5) : contour plutôt que
-   texte nu, pour rester repérables au pouce sans dominer visuellement la
-   ligne — jaune pour corriger, rouge pour annuler. Cible tactile ≥ 44 px. */
-.line-action {
+.entry-menu-toggle {
   min-height: 44px;
   min-width: 44px;
-  padding: 0.5rem 0.9rem;
-  font-family: inherit;
-  font-size: 0.95rem;
+  padding: 0.4rem 0.7rem;
+  font-size: 1.2rem;
+  line-height: 1;
+  border: 1px solid #ccc;
   border-radius: 0.5rem;
   background: #fff;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  color: #111;
 }
 
-.line-action-edit {
-  border: 2px solid #ffcc00;
-  color: #8a6d00;
+/* Fond transparent plein écran (même idiom que `.modal-overlay`, sans
+   assombrissement) : un tap n'importe où en dehors du menu le referme,
+   sans code de détection de clic extérieur. */
+.menu-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
 }
 
-.line-action-remove {
-  border: 2px solid #b3261e;
+.entry-menu {
+  position: absolute;
+  z-index: 21;
+  top: 100%;
+  right: 0;
+  margin-top: 0.25rem;
+  min-width: 9rem;
+  padding: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.entry-menu-item {
+  min-height: 44px;
+  padding: 0.5rem 0.75rem;
+  font-family: inherit;
+  font-size: 0.95rem;
+  text-align: left;
+  border: none;
+  border-radius: 0.4rem;
+  background: none;
+  color: #111;
+}
+
+.entry-menu-item:hover,
+.entry-menu-item:focus {
+  background: #f0f0f0;
+}
+
+/* Vocabulaire "Supprimer" (spec 2.58 §6.5, jamais "Annuler" pour cette
+   famille d'action) — rouge pour rester identifiable comme destructrice
+   dans un menu par ailleurs neutre. */
+.entry-menu-item-danger {
   color: #b3261e;
 }
 
-/* Armé par le premier appui (spec 2.56 §6.5) : même motif que
-   `.arm-button.armed` (fond plein, texte contrasté) pour signaler qu'un
-   second appui exécute réellement l'action, cette fois en rouge parce que
-   l'action est irréversible plutôt que la simple confirmation d'un OK. */
-.line-action-remove.armed {
+/* Armé par le premier appui : même motif que `.arm-button.armed` (fond
+   plein, texte contrasté), en rouge parce que l'action est irréversible
+   plutôt qu'une simple confirmation d'OK. */
+.entry-menu-item-danger.armed {
   background: #b3261e;
-  border-color: #b3261e;
+  color: #fff;
+}
+
+/* Même bouton réutilisé dans le panneau d'édition de l'écran des écarts
+   (spec 2.58 §6.5), à l'intérieur de `.settings-form` dont les boutons
+   sont noirs par défaut (`.settings-form button`) — spécificité renforcée
+   pour que le rouge l'emporte sans changer l'apparence des autres boutons
+   du même panneau. */
+.settings-form .entry-menu-item-danger {
+  color: #b3261e;
+}
+
+.settings-form .entry-menu-item-danger.armed {
+  background: #b3261e;
   color: #fff;
 }
 
@@ -598,22 +666,15 @@ body {
   font-size: 1rem;
 }
 
-/* Lignes du rappel (spec 2.56 §6.5) : interligne resserré plutôt que police
-   réduite — le texte reste lisible dans un entrepôt, et la liste défile de
-   toute façon. Grisées une fois comptées, pleine intensité sinon : la
-   lecture "ce qu'il me reste" se fait au contraste, jamais à l'ordre (tri
-   alphabétique fixe, aucun regroupement par état). */
+/* Lignes du rappel (spec 2.58 §6.5) : police réduite d'environ 30 % par
+   rapport aux 16 px de `.casier-row`, avec un plancher de lisibilité à
+   13 px — ne pas descendre plus bas même si la liste ne tient pas, resserrer
+   l'interligne à la place. Liste uniforme (spec 2.58, revient sur le
+   grisé de spec 2.54) : voir le commentaire JSX sur le rendu de la liste. */
 .checklist-row {
-  padding: 0.5rem 0.75rem;
-  line-height: 1.2;
-}
-
-.checklist-row-counted {
-  color: #999;
-}
-
-.checklist-row-counted .casier-status {
-  color: #bbb;
+  padding: 0.4rem 0.75rem;
+  font-size: 13px;
+  line-height: 1.15;
 }
 
 /* Écran des écarts — mise en page revue (spec 2.46 §6.5) : les chiffres

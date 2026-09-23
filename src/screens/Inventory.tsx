@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { useI18n, interpolate } from '../i18n'
+import { useI18n, interpolate, type Dictionary } from '../i18n'
 import { supabase } from '../lib/supabase'
 import { extractErrorMessage } from '../lib/errors'
 import {
@@ -25,6 +25,8 @@ import {
   listInventaireSaisies,
   listLatestCasierLignes,
   markCasierVisite,
+  moveCasierLigne,
+  MoveCasierLignePartialError,
   saveCasierLigne,
   scopeRefCodes,
   type SaisieLine,
@@ -467,6 +469,17 @@ function sameKey(a: EntryKey, b: EntryKey): boolean {
   )
 }
 
+// Un déplacement partiel (spec 2.58 §6.5, MoveCasierLignePartialError,
+// inventaireDb.ts) n'est PAS une erreur ordinaire à réessayer telle
+// quelle : la ligne a déjà été écrite au casier cible, un réessai naïf la
+// duplique une seconde fois. Message dédié, jamais le message générique —
+// partagée entre la marche (Modifier) et l'écran des écarts (Déplacer),
+// les deux seuls appelants de moveCasierLigne.
+function describeSaveError(err: unknown, t: Dictionary): string {
+  if (err instanceof MoveCasierLignePartialError) return t.inventory.moveDuplicatedError
+  return extractErrorMessage(err, t.common.unknownError)
+}
+
 // Saisie en attente du choix "remplacer ou ajouter" (spec v2 §6.5) —
 // posée après résolution complète de la saisie tapée, avant tout appel
 // réseau d'écriture.
@@ -539,12 +552,18 @@ function Walk({
   // bouton, jamais affiché en flux — un déroulant en place repousserait le
   // formulaire, qui sert en permanence, pour une liste qui sert rarement.
   const [scopeChecklistOpen, setScopeChecklistOpen] = useState(false)
-  // Double appui avant "Annuler" (spec 2.56 §6.5) : action immédiate et
+  // Double appui avant "Supprimer" (spec 2.58 §6.5) : action immédiate et
   // irréversible, même motif que confirmArmed/deleteArmed ailleurs dans
   // l'app. Un seul id à la fois — comparer à `entry.ligneId` dans le
   // callback du minuteur (pas un simple `null`) pour ne pas effacer
   // l'armement d'une ligne réarmée entre-temps par un second appui rapide.
   const [armedRemoveId, setArmedRemoveId] = useState<string | null>(null)
+  // Menu "…" par saisie (spec 2.58 §6.5) : un seul ouvert à la fois.
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+  function closeEntryMenu() {
+    setOpenMenuId(null)
+    setArmedRemoveId(null)
+  }
 
   // Extrait pour être réappelable : au montage, sur l'événement `online`, et
   // à la volée depuis handleSave si la garde de périmètre trouve `undefined`
@@ -684,6 +703,7 @@ function Walk({
     setEditingKey(null)
     setPendingDuplicate(null)
     setPendingScopeExtension(null)
+    closeEntryMenu()
   }
 
   const selectedConditionnement = conditionnements.find((c) => c.id === conditionnementId) ?? null
@@ -775,7 +795,7 @@ function Walk({
 
       await checkDuplicateThenSave(key, cartonsValue, piecesValue)
     } catch (err) {
-      setStatus({ kind: 'error', message: extractErrorMessage(err, t.common.unknownError) })
+      setStatus({ kind: 'error', message: describeSaveError(err, t) })
     }
   }
 
@@ -795,24 +815,55 @@ function Walk({
     const ligneTs = new Date().toISOString()
 
     await ensureEmplacement(key.emplacementCode)
-    const { comptage } = await getOrCreateCasier(inventaire.id, key.emplacementCode)
-    await saveCasierLigne(
-      ligneId,
-      ligneTs,
-      comptage.id,
-      key.refCode,
-      key.conditionnementId,
-      cartonsValue,
-      piecesValue,
-      auteur,
-    )
-    await markCasierVisite(comptage.id) // "touché" = compté, dans ce modèle il n'y a pas d'état intermédiaire
+
+    // Correction via "Modifier" (spec 2.58, §6.5) : dès que le triplet
+    // (casier, réf, conditionnement) change — pas seulement le casier —
+    // ce n'est PAS une simple écriture à la nouvelle clé : la ligne
+    // d'origine doit disparaître de son comptage d'origine, sinon elle se
+    // retrouve comptée aux deux endroits (le même défaut existe qu'on
+    // corrige le casier ou la référence — advisor l'a relevé après une
+    // première version qui ne couvrait que le casier). Même chemin que
+    // "Déplacer" sur l'écran des écarts (moveCasierLigne), jamais un
+    // update de comptages.emplacement_code.
+    const relocatingFrom =
+      editingKey && !sameKey(editingKey, key) ? saisies.find((s) => sameKey(s, editingKey)) : undefined
+
+    let comptageId: string
+    if (relocatingFrom) {
+      const result = await moveCasierLigne(
+        inventaire.id,
+        ligneId,
+        ligneTs,
+        {
+          comptageId: relocatingFrom.comptageId,
+          refCode: relocatingFrom.refCode,
+          conditionnementId: relocatingFrom.conditionnementId,
+        },
+        { emplacementCode: key.emplacementCode, refCode: key.refCode, conditionnementId: key.conditionnementId, cartons: cartonsValue, pieces: piecesValue },
+        auteur,
+      )
+      comptageId = result.comptageId
+    } else {
+      const { comptage } = await getOrCreateCasier(inventaire.id, key.emplacementCode)
+      await saveCasierLigne(
+        ligneId,
+        ligneTs,
+        comptage.id,
+        key.refCode,
+        key.conditionnementId,
+        cartonsValue,
+        piecesValue,
+        auteur,
+      )
+      await markCasierVisite(comptage.id) // "touché" = compté, dans ce modèle il n'y a pas d'état intermédiaire
+      comptageId = comptage.id
+    }
 
     setEmplacementCode(key.emplacementCode) // forme canonique réellement enregistrée (ex. "A11" -> "A-01-1")
     setSaisies((prev) => [
       {
         ligneId,
-        comptageId: comptage.id,
+        comptageId,
         emplacementCode: key.emplacementCode,
         refCode: key.refCode,
         conditionnementId: key.conditionnementId,
@@ -820,7 +871,7 @@ function Walk({
         pieces: piecesValue,
         ts: ligneTs,
       },
-      ...prev.filter((s) => !sameKey(s, key)),
+      ...prev.filter((s) => !sameKey(s, key) && !(relocatingFrom && s.ligneId === relocatingFrom.ligneId)),
     ])
 
     setRefCode('')
@@ -856,7 +907,7 @@ function Walk({
       }
       await commitSave(key, finalCartons, finalPieces)
     } catch (err) {
-      setStatus({ kind: 'error', message: extractErrorMessage(err, t.common.unknownError) })
+      setStatus({ kind: 'error', message: describeSaveError(err, t) })
     }
   }
 
@@ -879,7 +930,7 @@ function Walk({
       setPendingScopeExtension(null)
       await checkDuplicateThenSave(key, cartonsValue, piecesValue)
     } catch (err) {
-      setStatus({ kind: 'error', message: extractErrorMessage(err, t.common.unknownError) })
+      setStatus({ kind: 'error', message: describeSaveError(err, t) })
     }
   }
 
@@ -895,9 +946,9 @@ function Walk({
     setSaisies((prev) => prev.filter((s) => !sameKey(s, entry)))
   }
 
-  // Double appui (spec 2.56 §6.5) : premier appui arme (fond rouge, texte
+  // Double appui (spec 2.58 §6.5) : premier appui arme (fond rouge, texte
   // blanc), retombe seul après 3 s ; second appui, pendant que c'est encore
-  // armé, exécute réellement l'annulation. Comparer à `entry.ligneId` dans
+  // armé, exécute réellement la suppression. Comparer à `entry.ligneId` dans
   // le minuteur, jamais mettre `null` sans condition : un second appui
   // rapide sur une AUTRE ligne pendant la fenêtre de 3 s ne doit pas être
   // effacé par le minuteur de la première.
@@ -909,6 +960,7 @@ function Walk({
       }, 3000)
       return
     }
+    setOpenMenuId(null)
     setArmedRemoveId(null)
     void undo(entry)
   }
@@ -1049,24 +1101,24 @@ function Walk({
         <div className="modal-overlay" onClick={() => setScopeChecklistOpen(false)}>
           <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
             <h2>{t.inventory.scopeChecklistTitle}</h2>
+            {/* Liste uniforme, sans marqueur d'état (spec 2.58 §6.5,
+                revient sur spec 2.54) : une référence éparpillée sur
+                plusieurs casiers reste à compter ailleurs même une fois
+                rencontrée une fois — la griser ou dire "comptée dans N
+                casier(s)" laisserait croire à une complétude que rien ne
+                garantit. Même raisonnement que l'abandon du compteur
+                "4/12 comptées". Tri alphabétique fixe (naturel : les codes
+                REU003/REU009/REU010 partagent la même largeur de suffixe,
+                donc l'ordre lexicographique suffit déjà), position stable
+                d'une ouverture à l'autre. */}
             <ul className="casier-list">
-              {/* Ordre alphabétique fixe, jamais de regroupement par état
-                  (spec 2.56 §6.5) : une référence ne doit pas changer de
-                  place en pleine séance quand elle passe de "non comptée" à
-                  "comptée" — seul le contraste (grisé une fois comptée)
-                  porte cette information, pas l'ordre. */}
               {[...referencesScope].sort().map((code) => {
                 const libelle = allReferences.find((r) => r.code === code)?.libelle
-                const casiers = new Set(saisies.filter((s) => s.refCode === code).map((s) => s.emplacementCode))
-                const counted = casiers.size > 0
                 return (
-                  <li key={code} className={`casier-row checklist-row${counted ? ' checklist-row-counted' : ''}`}>
+                  <li key={code} className="casier-row checklist-row">
                     <span>
                       {code}
                       {libelle ? ` — ${libelle}` : ''}
-                    </span>
-                    <span className="casier-status">
-                      {counted ? interpolate(t.inventory.scopeCountedIn, { count: casiers.size }) : t.inventory.scopeNotCounted}
                     </span>
                   </li>
                 )
@@ -1125,31 +1177,64 @@ function Walk({
             const refLibelle = allReferences.find((r) => r.code === entry.refCode)?.libelle
             return (
               <li key={entry.ligneId}>
+                {/* Trois lignes (spec 2.58 §6.5) : une saisie tenait sur une
+                    seule ligne trop chargée, qui prenait trop de place à
+                    l'écran. Emplacement / référence+libellé / quantité,
+                    chacun sur sa propre ligne. */}
                 <div className="casier-row">
-                  <span>
-                    {entry.emplacementCode} — {entry.refCode}
-                    {refLibelle ? ` — ${refLibelle}` : ''}
-                    {conditionnementLabels.has(entry.conditionnementId)
-                      ? ` (${conditionnementLabels.get(entry.conditionnementId)})`
-                      : ''}{' '}
-                    : {entry.cartons}c + {entry.pieces}p
-                  </span>
-                  <span className="recent-entry-actions">
-                    <button type="button" className="line-action line-action-edit" onClick={() => editEntry(entry)}>
-                      {t.inventory.editLine}
-                    </button>
-                    {/* Double appui (spec 2.56 §6.5) : action immédiate et
-                        irréversible, même motif que la confirmation de
-                        mouvement — premier appui arme (fond rouge, texte
-                        blanc), second exécute, retombe seul après 3 s. */}
+                  <div className="entry-lines">
+                    <span className="entry-line-emplacement">{entry.emplacementCode}</span>
+                    <span className="entry-line-reference">
+                      {entry.refCode}
+                      {refLibelle ? ` — ${refLibelle}` : ''}
+                    </span>
+                    <span className="entry-line-quantity">
+                      {conditionnementLabels.has(entry.conditionnementId)
+                        ? `(${conditionnementLabels.get(entry.conditionnementId)}) `
+                        : ''}
+                      {entry.cartons}c + {entry.pieces}p
+                    </span>
+                  </div>
+                  <div className="entry-menu-wrapper">
                     <button
                       type="button"
-                      className={`line-action line-action-remove${armedRemoveId === entry.ligneId ? ' armed' : ''}`}
-                      onClick={() => handleRemoveClick(entry)}
+                      className="entry-menu-toggle"
+                      aria-label={t.inventory.entryMenuLabel}
+                      onClick={() => (openMenuId === entry.ligneId ? closeEntryMenu() : setOpenMenuId(entry.ligneId))}
                     >
-                      {armedRemoveId === entry.ligneId ? t.inventory.removeArmed : t.inventory.removeLine}
+                      ⋯
                     </button>
-                  </span>
+                    {openMenuId === entry.ligneId && (
+                      <>
+                        <div className="menu-scrim" onClick={closeEntryMenu} />
+                        <div className="entry-menu">
+                          <button
+                            type="button"
+                            className="entry-menu-item"
+                            onClick={() => {
+                              closeEntryMenu()
+                              editEntry(entry)
+                            }}
+                          >
+                            {t.inventory.editLine}
+                          </button>
+                          {/* Double appui conservé, à l'intérieur du menu
+                              (spec 2.58 §6.5) : action immédiate et
+                              irréversible — premier appui arme (fond rouge,
+                              texte blanc), second exécute, retombe seul
+                              après 3 s. Vocabulaire "Supprimer", jamais
+                              "Annuler" (réservé à l'abandon/la clôture). */}
+                          <button
+                            type="button"
+                            className={`entry-menu-item entry-menu-item-danger${armedRemoveId === entry.ligneId ? ' armed' : ''}`}
+                            onClick={() => handleRemoveClick(entry)}
+                          >
+                            {armedRemoveId === entry.ligneId ? t.inventory.removeArmed : t.inventory.removeLine}
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
               </li>
             )
@@ -1216,6 +1301,20 @@ function Ecarts({
   const [editCartons, setEditCartons] = useState('')
   const [editPieces, setEditPieces] = useState('')
   const [editStatus, setEditStatus] = useState<
+    { kind: 'idle' } | { kind: 'saving' } | { kind: 'error'; message: string }
+  >({ kind: 'idle' })
+  // Double appui sur Supprimer (spec 2.58 §6.5) : un seul panneau d'édition
+  // ouvert à la fois (editingLigneId), donc un seul booléen suffit — remis
+  // à zéro à chaque ouverture/fermeture de panneau (voir toggleEdit).
+  const [deleteArmed, setDeleteArmed] = useState(false)
+  // Déplacement d'une saisie vers un autre casier (spec 2.58 §6.5) :
+  // moveTarget est la saisie brute, moveConfirmTarget le code résolu et
+  // validé — non nul seulement une fois le format vérifié, ce qui déclenche
+  // l'affichage du récapitulatif de confirmation.
+  const [movingLigneId, setMovingLigneId] = useState<string | null>(null)
+  const [moveTarget, setMoveTarget] = useState('')
+  const [moveConfirmTarget, setMoveConfirmTarget] = useState<string | null>(null)
+  const [moveStatus, setMoveStatus] = useState<
     { kind: 'idle' } | { kind: 'saving' } | { kind: 'error'; message: string }
   >({ kind: 'idle' })
   // Filtre de recherche en tête (spec 2.46 §6.5) : sur une gamme entière,
@@ -1295,6 +1394,22 @@ function Ecarts({
     setEditCartons(String(l.cartons ?? 0))
     setEditPieces(String(l.pieces ?? 0))
     setEditStatus({ kind: 'idle' })
+    setDeleteArmed(false)
+    cancelMove()
+  }
+
+  // Ouvre/ferme le panneau d'édition — remet l'armement de Supprimer et le
+  // déplacement en cours à zéro dans les deux cas (spec 2.58 §6.5) : rouvrir
+  // le panneau, ou en ouvrir un autre, ne doit jamais hériter d'un état
+  // laissé par la ligne précédente.
+  function toggleEdit(l: SyntheseLigneEmplacement) {
+    if (editingLigneId === l.ligneId) {
+      setEditingLigneId(null)
+      setDeleteArmed(false)
+      cancelMove()
+    } else {
+      startEdit(l)
+    }
   }
 
   // Corriger ou retirer une saisie DEPUIS l'écran Écarts, sans repasser par
@@ -1337,6 +1452,90 @@ function Ecarts({
       await refresh()
     } catch (err) {
       setEditStatus({ kind: 'error', message: extractErrorMessage(err, t.common.unknownError) })
+    }
+  }
+
+  // Double appui (spec 2.58 §6.5) : elle partait au premier appui —
+  // corrigé, même motif que partout ailleurs dans l'app pour une action
+  // immédiate et irréversible. Un seul panneau d'édition ouvert à la fois,
+  // donc un simple booléen suffit (pas besoin de comparer un id).
+  function handleDeleteEditClick(ref: SyntheseReference, l: SyntheseLigneEmplacement) {
+    if (!deleteArmed) {
+      setDeleteArmed(true)
+      setTimeout(() => setDeleteArmed(false), 3000)
+      return
+    }
+    setDeleteArmed(false)
+    void deleteEdit(ref, l)
+  }
+
+  // Déplacement d'une saisie vers un autre casier (spec 2.58 §6.5) : jamais
+  // un update de comptages.emplacement_code — voir moveCasierLigne
+  // (inventaireDb.ts), même chemin que "Modifier" dans la marche quand le
+  // casier change. Confirmation simple avec récapitulatif, PAS un double
+  // appui : rien n'est détruit, le contenu est relocalisé. Le casier cible
+  // se valide comme à la saisie (parseEmplacementCode/resolveEmplacementInput,
+  // abréviations acceptées) ; il n'a pas à appartenir au périmètre de
+  // l'inventaire, qui ne porte que sur les références.
+  function startMove(l: SyntheseLigneEmplacement) {
+    setMovingLigneId(l.ligneId)
+    setMoveTarget('')
+    setMoveConfirmTarget(null)
+    setMoveStatus({ kind: 'idle' })
+  }
+
+  function cancelMove() {
+    setMovingLigneId(null)
+    setMoveTarget('')
+    setMoveConfirmTarget(null)
+    setMoveStatus({ kind: 'idle' })
+  }
+
+  function validateMoveTarget(currentEmplacement: string) {
+    const typed = moveTarget.trim().toUpperCase()
+    const targetCode = parseEmplacementCode(typed) ? typed : resolveEmplacementInput(typed) ?? typed
+    if (!targetCode || !parseEmplacementCode(targetCode)) {
+      setMoveStatus({ kind: 'error', message: t.inventory.invalidEmplacement })
+      return
+    }
+    if (targetCode === currentEmplacement) {
+      setMoveStatus({ kind: 'error', message: t.inventory.moveSameEmplacement })
+      return
+    }
+    setMoveStatus({ kind: 'idle' })
+    setMoveConfirmTarget(targetCode)
+  }
+
+  async function confirmMove(ref: SyntheseReference, l: SyntheseLigneEmplacement) {
+    if (!auteur || !l.comptageId || !moveConfirmTarget) return
+    const ligneId = crypto.randomUUID()
+    const ligneTs = new Date().toISOString()
+    setMoveStatus({ kind: 'saving' })
+    try {
+      await ensureEmplacement(moveConfirmTarget)
+      await moveCasierLigne(
+        inventaire.id,
+        ligneId,
+        ligneTs,
+        { comptageId: l.comptageId, refCode: ref.refCode, conditionnementId: ref.conditionnementId },
+        {
+          emplacementCode: moveConfirmTarget,
+          refCode: ref.refCode,
+          conditionnementId: ref.conditionnementId,
+          cartons: l.cartons ?? 0,
+          pieces: l.pieces ?? 0,
+        },
+        auteur,
+      )
+      cancelMove()
+      setEditingLigneId(null)
+      await refresh()
+    } catch (err) {
+      setMoveStatus({ kind: 'error', message: describeSaveError(err, t) })
+      // Déplacement partiel : la ligne existe réellement aux deux casiers
+      // en base malgré l'erreur — rafraîchir pour que l'écran le montre,
+      // plutôt que de laisser afficher un état déjà faux.
+      if (err instanceof MoveCasierLignePartialError) await refresh()
     }
   }
 
@@ -1442,11 +1641,7 @@ function Ecarts({
                 </p>
               ) : (
                 <div key={l.emplacementCode}>
-                  <button
-                    type="button"
-                    className="casier-row"
-                    onClick={() => (editingLigneId === l.ligneId ? setEditingLigneId(null) : startEdit(l))}
-                  >
+                  <button type="button" className="casier-row" onClick={() => toggleEdit(l)}>
                     <span>
                       {l.emplacementCode} — {l.theorique} → {l.compte}
                     </span>
@@ -1466,15 +1661,79 @@ function Ecarts({
                       <button type="button" onClick={() => saveEdit(ref, l)} disabled={editStatus.kind === 'saving'}>
                         {t.common.save}
                       </button>
+                      {/* Double appui (spec 2.58 §6.5) : elle partait au
+                          premier appui — corrigé, même motif que partout
+                          ailleurs pour une action immédiate et
+                          irréversible. */}
                       <button
                         type="button"
-                        className="back-link"
-                        onClick={() => deleteEdit(ref, l)}
+                        className={`entry-menu-item-danger${deleteArmed ? ' armed' : ''}`}
+                        onClick={() => handleDeleteEditClick(ref, l)}
                         disabled={editStatus.kind === 'saving'}
                       >
-                        {t.inventory.deleteEntry}
+                        {deleteArmed ? t.inventory.removeArmed : t.inventory.deleteEntry}
                       </button>
                       {editStatus.kind === 'error' && <p className="form-status form-error">{editStatus.message}</p>}
+
+                      {/* Déplacement vers un autre casier (spec 2.58 §6.5) :
+                          confirmation simple avec récapitulatif, pas de
+                          double appui — rien n'est détruit, le contenu est
+                          relocalisé. */}
+                      {movingLigneId === l.ligneId ? (
+                        <div className="settings-form">
+                          <label className="field-label">
+                            {t.inventory.casier}
+                            <input
+                              value={moveTarget}
+                              onChange={(e) => {
+                                setMoveTarget(e.target.value)
+                                setMoveConfirmTarget(null)
+                              }}
+                              placeholder={t.inventory.casierPlaceholder}
+                              disabled={moveStatus.kind === 'saving'}
+                            />
+                          </label>
+                          {!moveConfirmTarget ? (
+                            <button
+                              type="button"
+                              onClick={() => validateMoveTarget(l.emplacementCode)}
+                              disabled={!moveTarget.trim() || moveStatus.kind === 'saving'}
+                            >
+                              {t.common.validate}
+                            </button>
+                          ) : (
+                            <>
+                              <p className="quantity-formula">
+                                {interpolate(t.inventory.moveConfirm, {
+                                  refCode: ref.refCode,
+                                  from: l.emplacementCode,
+                                  to: moveConfirmTarget,
+                                })}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => confirmMove(ref, l)}
+                                disabled={moveStatus.kind === 'saving'}
+                              >
+                                {t.common.confirm}
+                              </button>
+                              <button
+                                type="button"
+                                className="back-link"
+                                onClick={cancelMove}
+                                disabled={moveStatus.kind === 'saving'}
+                              >
+                                {t.common.cancel}
+                              </button>
+                            </>
+                          )}
+                          {moveStatus.kind === 'error' && <p className="form-status form-error">{moveStatus.message}</p>}
+                        </div>
+                      ) : (
+                        <button type="button" className="back-link" onClick={() => startMove(l)}>
+                          {t.inventory.moveEntry}
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
