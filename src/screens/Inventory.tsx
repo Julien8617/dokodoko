@@ -487,6 +487,13 @@ interface PendingDuplicate extends EntryKey {
   comptageId: string
   cartonsValue: number
   piecesValue: number
+  // Quantité déjà présente à la destination (spec 2.61 §6.5) : depuis que
+  // cette question peut naître d'un déplacement en mode modification, la
+  // valeur en place peut être un second comptage réel, ailleurs sur
+  // l'écran (l'opérateur n'est plus devant ce casier) — sans ce nombre, le
+  // choix remplacer/ajouter se ferait à l'aveugle.
+  existingCartons: number
+  existingPieces: number
 }
 
 // Saisie en attente de la confirmation d'extension de périmètre (spec
@@ -756,20 +763,34 @@ function Walk({
 
   // Partagée entre handleSave (chemin normal) et confirmScopeExtension
   // (après avoir accepté d'étendre le périmètre) : le contrôle de doublon
-  // ne change pas selon la façon dont on y arrive. En mode modification
-  // (editingKey défini), la question ne se pose JAMAIS (spec 2.60 §6.5) :
-  // elle existe pour détecter une double saisie involontaire, et ici toute
-  // collision — avec soi-même ou avec une autre ligne déjà présente à la
-  // cible — est l'intention même de la correction. L'écriture qui suit
-  // (commitSave) est un remplacement par construction (latest-wins), jamais
-  // une addition : poser la question ouvrirait une branche "ajouter" qui
-  // fabriquerait le doublon qu'on venait corriger.
+  // ne change pas selon la façon dont on y arrive. En mode modification, la
+  // question ne disparaît pas — elle change de cible (spec 2.61 §6.5,
+  // corrige une erreur de 2.60) :
+  //   - collision AVEC SOI-MÊME (sameKey(editingKey, key)) : le triplet ne
+  //     change pas, ce n'est pas une collision, c'est l'objet même de la
+  //     correction — aucune question.
+  //   - collision avec une AUTRE ligne déjà présente à la destination :
+  //     exactement le cas pour lequel la question a été écrite. Deux
+  //     comptages réels distincts (deux étagères effectivement comptées)
+  //     se retrouveraient au même endroit ; écraser sans demander perd l'un
+  //     des deux sans trace. La question se pose donc à la destination,
+  //     avant écriture — resolveDuplicate appelle ensuite commitSave avec
+  //     `key` (la destination), qui détecte lui-même le déplacement
+  //     (editingKey encore défini, différent de `key`) et retire la ligne
+  //     d'origine dans les deux branches, remplacer comme ajouter.
   function checkDuplicateThenSave(key: EntryKey, cartonsValue: number, piecesValue: number): Promise<void> {
-    if (editingKey) return commitSave(key, cartonsValue, piecesValue)
+    if (editingKey && sameKey(editingKey, key)) return commitSave(key, cartonsValue, piecesValue)
     const existing = saisies.find((s) => sameKey(s, key))
     if (existing) {
       setStatus({ kind: 'idle' })
-      setPendingDuplicate({ ...key, comptageId: existing.comptageId, cartonsValue, piecesValue })
+      setPendingDuplicate({
+        ...key,
+        comptageId: existing.comptageId,
+        existingCartons: existing.cartons,
+        existingPieces: existing.pieces,
+        cartonsValue,
+        piecesValue,
+      })
       return Promise.resolve()
     }
     return commitSave(key, cartonsValue, piecesValue)
@@ -956,7 +977,16 @@ function Walk({
   // dans handleSave, jamais se fier à un état local pour un calcul).
   async function resolveDuplicate(mode: 'remplacer' | 'ajouter') {
     if (!pendingDuplicate) return
-    const { comptageId, cartonsValue, piecesValue, ...key } = pendingDuplicate
+    // Reconstruit explicitement plutôt qu'un rest-spread : PendingDuplicate
+    // porte existingCartons/existingPieces (affichage seulement), qu'un
+    // rest-spread laisserait traîner dans `key` — même raison que
+    // confirmPendingMove.
+    const { comptageId, cartonsValue, piecesValue } = pendingDuplicate
+    const key: EntryKey = {
+      emplacementCode: pendingDuplicate.emplacementCode,
+      refCode: pendingDuplicate.refCode,
+      conditionnementId: pendingDuplicate.conditionnementId,
+    }
     setStatus({ kind: 'saving' })
     try {
       let finalCartons = cartonsValue
@@ -969,6 +999,10 @@ function Walk({
         finalCartons += current?.cartons ?? 0
         finalPieces += current?.pieces ?? 0
       }
+      // En mode modification (editingKey encore défini, différent de `key`
+      // puisque c'est ce qui a déclenché la collision) : commitSave détecte
+      // lui-même le déplacement et retire la ligne d'origine, remplacer
+      // comme ajouter (spec 2.61 §6.5) — rien de spécial à faire ici.
       await commitSave(key, finalCartons, finalPieces)
     } catch (err) {
       setStatus({ kind: 'error', message: describeSaveError(err, t) })
@@ -1262,6 +1296,8 @@ function Walk({
             {interpolate(t.inventory.duplicateEntry, {
               emplacement: pendingDuplicate.emplacementCode,
               refCode: pendingDuplicate.refCode,
+              cartons: pendingDuplicate.existingCartons,
+              pieces: pendingDuplicate.existingPieces,
             })}
           </p>
           <button type="button" onClick={() => resolveDuplicate('remplacer')} disabled={status.kind === 'saving'}>

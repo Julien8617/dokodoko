@@ -232,7 +232,11 @@ export interface Dictionary {
     // réellement aux deux endroits. Jamais un message générique ici : un
     // réessai naïf duplique une seconde fois.
     moveDuplicatedError: string
-    // {emplacement} et {refCode} remplacés via interpolate()
+    // {emplacement}, {refCode}, {cartons}, {pieces} remplacés via
+    // interpolate() — la quantité déjà en place à la destination doit être
+    // visible dans la question (spec 2.61 §6.5) : depuis que ce choix peut
+    // naître d'un déplacement en mode modification, l'opérateur n'est plus
+    // forcément devant ce casier pour la connaître autrement.
     duplicateEntry: string
     replaceEntry: string
     addEntry: string

@@ -10,6 +10,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.34',
+    date: '2026-09-24',
+    items: [
+      'Corrigé : en modifiant une saisie, déplacer une référence vers un casier où elle était déjà comptée écrasait ce comptage sans le dire — la question « déjà saisi, remplacer ou ajouter ? » se pose maintenant aussi dans ce cas, avec la quantité déjà en place affichée',
+    ],
+  },
+  {
     version: '0.9.33',
     date: '2026-09-23',
     items: [

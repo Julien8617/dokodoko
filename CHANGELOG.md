@@ -5,6 +5,10 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.34 — 2026-09-24
+
+- Corrigé : en modifiant une saisie, déplacer une référence vers un casier où elle était déjà comptée écrasait ce comptage sans le dire — la question « déjà saisi, remplacer ou ajouter ? » se pose maintenant aussi dans ce cas, avec la quantité déjà en place affichée
+
 ## 0.9.33 — 2026-09-23
 
 - Modifier une saisie (marche d’inventaire) : remonte au formulaire de saisie, prérempli, avec un bandeau « en modification » et une sortie sans écrire — plus de second écran de correction
