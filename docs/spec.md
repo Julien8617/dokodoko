@@ -1,6 +1,6 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.57 — 19 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.58 — 23 septembre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -445,6 +445,12 @@ Ces flèches sont le retour, à leur bonne place, de la navigation prévue par l
 **Suppression et modification d'une saisie : une seule implémentation, deux appels.** La marche et l'écran des écarts doivent appeler la même fonction. Le bug trouvé le 16 septembre — « annuler » ne retirait que la ligne la plus récente, laissant resurgir une correction antérieure du même casier × référence — existait aux deux endroits parce que le code était écrit deux fois. Corriger un seul appelant institutionnalise la divergence, et le troisième écran aura le même défaut.
 
 **Correction** : une saisie se modifie ou se retire depuis l'écran des écarts, sans repasser par la saisie.
+
+**Changer l'emplacement d'une saisie n'est pas une modification de champ, c'est un déplacement entre deux comptages.** Un `comptage` porte un emplacement et regroupe toutes les références comptées à cet endroit. Modifier `comptages.emplacement_code` déplacerait donc **toutes** les lignes de ce casier d'un coup — une corruption silencieuse dans le module qui produit l'indicateur, et le genre de défaut qui ne se voit qu'à la comparaison finale.
+
+La règle : retirer la ligne de son comptage d'origine et en écrire une équivalente dans le comptage du casier cible, celui-ci étant créé s'il n'existe pas. C'est exactement ce que l'utilisateur fait aujourd'hui à la main en supprimant puis ressaisissant ; l'app lui épargne la ressaisie, elle ne change pas la nature de l'opération.
+
+Confirmation simple avec récapitulatif — « Déplacer REU003 de A-02-1 vers A-03-1 ? » — et non double appui : rien n'est détruit, le contenu est relocalisé. Le casier cible se valide comme à la saisie ; il n'a pas à appartenir au périmètre, qui ne porte que sur les références.
 
 #### Inventaire partiel — le périmètre doit se voir pendant le comptage
 
