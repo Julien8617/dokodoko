@@ -1,6 +1,6 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.59 — 23 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.60 — 23 septembre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -440,11 +440,17 @@ Ces flèches sont le retour, à leur bonne place, de la navigation prévue par l
 - **Aucun théorique, aucun écart dans cette liste.** C'est le relevé de ce qu'on a tapé, pas un tableau de bord. Y afficher l'attendu transformerait la marche en comptage vers une cible, ce que la saisie à l'aveugle cherche justement à éviter.
 - Saisir une référence déjà relevée au même casier déclenche la question : « déjà saisi, 4 cartons — remplacer ou ajouter ? ». C'est le vrai gain de la fonction, et la double saisie est l'erreur qu'elle supprime.
 - Vingt dernières lignes affichées, le reste derrière un lien. Sur un écran de téléphone, une liste sans plafond devient un mur.
-- **Le clic réutilise le chemin de modification existant de l'écran des écarts**, jamais un second chemin d'édition : deux chemins pour la même action finissent par diverger.
+- **« Modifier » remonte au formulaire de saisie, prérempli.** C'est là qu'on saisit, c'est donc là qu'on corrige : ouvrir un second champ de saisie sous la ligne créerait une deuxième surface d'édition sur le même écran, et l'utilisateur ne saurait plus laquelle fait foi. Le formulaire passe en **mode modification**, visiblement — il dit quelle ligne il modifie et offre une sortie sans écrire.
+- **En mode modification, la question « déjà saisi, 4 cartons — remplacer ou ajouter ? » ne se pose pas.** Elle existe pour détecter une double saisie involontaire ; ici la collision avec soi-même est l'intention même. La poser transformerait chaque correction en un choix piège dont une branche crée le doublon qu'on venait corriger.
+- **Le casier du formulaire est la destination.** Le changer en mode modification — aux flèches comme à la main — ne corrige pas un champ, il déplace la ligne : la validation montre alors le récapitulatif de déplacement (§ ci-dessous) au lieu de la confirmation ordinaire.
 
 **Suppression et modification d'une saisie : une seule implémentation, deux appels.** La marche et l'écran des écarts doivent appeler la même fonction. Le bug trouvé le 16 septembre — « annuler » ne retirait que la ligne la plus récente, laissant resurgir une correction antérieure du même casier × référence — existait aux deux endroits parce que le code était écrit deux fois. Corriger un seul appelant institutionnalise la divergence, et le troisième écran aura le même défaut.
 
-**Correction** : une saisie se modifie ou se retire depuis l'écran des écarts, sans repasser par la saisie.
+Ce qui doit être unique, c'est **l'écriture**, pas les pixels. Chaque écran corrige dans son propre formulaire — la marche dans celui de saisie, les écarts dans le sien — et les deux appellent la même fonction, qui compare le triplet avant et après et décide seule s'il s'agit d'une correction de valeur ou d'un déplacement. La règle à ne pas enfreindre : **jamais deux surfaces d'édition sur un même écran**.
+
+**Les champs de saisie appartiennent à un composant unique**, réutilisé partout où on saisit la même chose. Le champ casier de la boîte de déplacement est celui de la saisie, avec ses suggestions et sa saisie abrégée — pas un champ texte réécrit pour l'occasion. Un composant recopié perd ses correctifs un par un.
+
+**Une navigation ne détruit pas une saisie en cours.** Passer au casier suivant déplace la cible ; ce qui est déjà tapé reste tapé. Défaut constaté le 23 septembre : les flèches vidaient le champ référence, alors que saisir le casier à la main le conservait — deux gestes pour la même opération, deux comportements. L'écart entre les deux est le vrai défaut, indépendamment de celui qui gagne. Seule la validation d'une saisie vide les champs, parce que là le contenu a été écrit quelque part.
 
 **L'identité d'une saisie est le triplet (casier, référence, conditionnement). En changer une composante n'est pas une modification de champ, c'est un déplacement.** La quantité est une valeur : elle se corrige sur place. Le triplet est une clé : le corriger, c'est retirer la ligne de là où elle était et en écrire une équivalente là où elle doit être.
 
