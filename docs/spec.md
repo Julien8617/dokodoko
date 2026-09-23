@@ -1,6 +1,6 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.56 — 19 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.57 — 19 septembre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -115,6 +115,8 @@ L'instantané de stock est donc **informatif**, pour la Recherche. Il est forcé
 Si des zones mortes existent, le correctif ne passe pas par l'index unique et ne demande aucun DDL : **dériver `comptages.id` de façon déterministe** à partir de `(inventaire_id, emplacement_code)` — un UUID v5, ou tout hachage stable. Le même casier produit toujours le même identifiant, donc `upsert(ignoreDuplicates)` sur la clé primaire déduplique par construction, y compris au rejeu, et la création entre dans la file comme le reste.
 
 **Une référence ou un emplacement créé hors ligne doit partir avant le mouvement qui s'en sert.** Le FIFO l'assure, mais la conséquence sur le classement des erreurs est à traiter : une violation de clé étrangère au vidage n'est pas un rejet métier, c'est un problème d'ordre. Elle se réessaie après le vidage des éléments antérieurs, elle ne part pas dans la liste « en échec ».
+
+**Le vidage ne doit pas dépendre de l'événement `online`.** Constaté le 19 septembre sur la garde de périmètre : `online` ne se déclenche que sur une vraie bascule de connectivité, pas sur un creux 4G ni sur un Wi-Fi associé sans accès réel à internet. Une file qui attendrait cet événement pour se vider resterait pleine indéfiniment après une simple baisse de signal. Le vidage se tente à chaque action de l'utilisateur et sur minuterie ; `online` n'est qu'un déclencheur d'appoint.
 
 **File strictement ordonnée, vidée en FIFO.** Et lorsqu'une insertion et une suppression de la même ligne sont toutes deux en attente, les deux s'annulent et disparaissent de la file. Sans cette règle, une ligne supprimée par l'utilisateur réapparaît au rejeu de son insertion.
 
