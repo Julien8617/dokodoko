@@ -1,6 +1,6 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.60 — 23 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.61 — 24 septembre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -427,7 +427,7 @@ Ce qui reste à construire est la **résolution**, à la clôture : sur une pair
 
 - Une flèche avant et une flèche arrière à côté du champ, qui avancent d'un casier dans l'ordre de tournée défini au §8 — niveau suivant dans la même baie, puis baie suivante au niveau le plus bas, puis zone suivante. C'est exactement l'ordre par défaut, il n'y a pas de second ordre à inventer.
 - **La navigation parcourt la liste des emplacements existants, elle ne calcule pas un code.** Une inter-allée n'a qu'un niveau 0, et une baie peut n'avoir que trois niveaux : composer `A-03-3` par arithmétique produirait un cul-de-sac ou un casier fantôme. On avance dans la liste réelle des emplacements, triée zone/baie/niveau (§8).
-- **Changer de casier vide la référence, la quantité et toute édition en cours.** Reporter une quantité à moitié saisie sur le casier suivant fabriquerait un comptage.
+- **Changer de casier ne vide rien.** Règle inversée le 24 septembre : voir « une navigation ne détruit pas une saisie en cours », plus bas. La crainte d'origine — reporter une quantité à moitié saisie sur le casier suivant fabriquerait un comptage — supposait qu'une navigation puisse écrire. Elle ne le peut pas : seule la validation écrit, et elle est explicite. Le coût réel allait dans l'autre sens, une saisie perdue à chaque correction de casier.
 - **Le casier reste inscrit après enregistrement.** On enregistre plusieurs références au même casier avant de passer au suivant ; le vider à chaque validation impose de le retaper.
 - Au retour dans le champ, **le contenu est sélectionné plutôt qu'effacé**. Taper le remplace, comme un effacement ; mais un appui involontaire ne perd rien. Sur un téléphone tenu à une main, l'effacement franc coûte plus qu'il ne rapporte.
 
@@ -441,7 +441,7 @@ Ces flèches sont le retour, à leur bonne place, de la navigation prévue par l
 - Saisir une référence déjà relevée au même casier déclenche la question : « déjà saisi, 4 cartons — remplacer ou ajouter ? ». C'est le vrai gain de la fonction, et la double saisie est l'erreur qu'elle supprime.
 - Vingt dernières lignes affichées, le reste derrière un lien. Sur un écran de téléphone, une liste sans plafond devient un mur.
 - **« Modifier » remonte au formulaire de saisie, prérempli.** C'est là qu'on saisit, c'est donc là qu'on corrige : ouvrir un second champ de saisie sous la ligne créerait une deuxième surface d'édition sur le même écran, et l'utilisateur ne saurait plus laquelle fait foi. Le formulaire passe en **mode modification**, visiblement — il dit quelle ligne il modifie et offre une sortie sans écrire.
-- **En mode modification, la question « déjà saisi, 4 cartons — remplacer ou ajouter ? » ne se pose pas.** Elle existe pour détecter une double saisie involontaire ; ici la collision avec soi-même est l'intention même. La poser transformerait chaque correction en un choix piège dont une branche crée le doublon qu'on venait corriger.
+- **En mode modification, la question de collision ne disparaît pas : elle change de cible.** Une collision **avec soi-même** — le triplet ne change pas — n'est pas une collision, c'est l'objet de l'opération ; la poser transformerait chaque correction en un choix piège dont une branche crée le doublon qu'on venait corriger. Mais une modification qui atterrit sur un triplet **déjà occupé par une autre ligne** est précisément le cas pour lequel la question a été écrite : deux comptages distincts se retrouvent au même endroit et rien ne dit lequel fait foi. Écraser sans demander perd un comptage réel, sans trace et sans bruit — le défaut le plus coûteux du module, puisqu'il ne se découvre qu'à la comparaison finale, quand il est trop tard pour retourner au casier. La question est donc posée **à la destination, avant écriture** : « déjà saisi à A-03-1, 6 cartons — remplacer ou ajouter ? ». Les deux branches sont explicites ; aucune ne perd de donnée que l'utilisateur n'ait choisi de perdre.
 - **Le casier du formulaire est la destination.** Le changer en mode modification — aux flèches comme à la main — ne corrige pas un champ, il déplace la ligne : la validation montre alors le récapitulatif de déplacement (§ ci-dessous) au lieu de la confirmation ordinaire.
 
 **Suppression et modification d'une saisie : une seule implémentation, deux appels.** La marche et l'écran des écarts doivent appeler la même fonction. Le bug trouvé le 16 septembre — « annuler » ne retirait que la ligne la plus récente, laissant resurgir une correction antérieure du même casier × référence — existait aux deux endroits parce que le code était écrit deux fois. Corriger un seul appelant institutionnalise la divergence, et le troisième écran aura le même défaut.
