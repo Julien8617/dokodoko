@@ -19,6 +19,28 @@ d'architecture — Claude Code (coder) ne l'écrit ni ne la reformule.
 - En cas de contradiction entre la spec et une instruction donnée en
   session : le signaler et demander l'arbitrage, ne pas trancher seul.
 
+## Remonter une instruction de session dans le code sans attendre l'arbitrage
+
+Un coder peut remonter une instruction reçue en session (ou un
+correctif trouvé par `advisor()`) directement dans le code, sans
+attendre l'arbitrage de l'agent d'architecture, seulement quand les
+trois conditions suivantes tiennent **ensemble** :
+
+1. **Écrite dans la spec** — la règle invoquée est déjà générale dans
+   `docs/spec.md`, pas déduite ou étendue pour l'occasion.
+2. **Risque actif maintenant** — pas une amélioration théorique, un
+   défaut qui peut se produire dans l'usage courant de l'app en l'état.
+3. **Correction contenue** — la portée du changement est cernée
+   (une fonction, un écran, un chemin nommé), pas un refactor ouvert.
+
+Si les trois tiennent : corriger, puis signaler ce qui a été fait et
+pourquoi (règle générale et non règle d'écran, risque, portée). Si une
+seule manque : signaler et attendre — ne pas trancher seul. Confirmé le
+2026-09-24 sur le correctif de collision de déplacement dans l'écran
+Écarts (règle 2.62 §6.5 sur l'opération, pas sur un écran ; risque actif
+avant le comptage hebdomadaire ; correction limitée à `startMove`/
+`validateMoveTarget`/`confirmMove`).
+
 ## Hors périmètre — ne pas implémenter
 
 Préparation de commande, réapprovisionnement automatique, seuils et
