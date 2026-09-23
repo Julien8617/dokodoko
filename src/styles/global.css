@@ -290,6 +290,21 @@ body {
   color: #8a5a00;
 }
 
+/* Mode modification du formulaire de saisie (spec 2.60 §6.5) : doit se voir,
+   pas seulement se déduire des champs préremplis — même teinte que le
+   contour jaune "Modifier" de la liste des saisies. */
+.editing-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  border-radius: 0.5rem;
+  color: #6d5300;
+}
+
 .sens-picker {
   display: flex;
   gap: 0.5rem;
@@ -476,6 +491,18 @@ body {
   overflow-y: auto;
 }
 
+/* Marge basse (margin, PAS padding) au moins égale à la hauteur de la
+   barre collante en dessous (spec 2.60 §6.5) : `.casier-list` défile sur
+   lui-même (max-height + overflow-y ci-dessus), donc un padding-bottom
+   resterait À L'INTÉRIEUR de cette boîte au lieu de réserver de la place
+   APRÈS elle dans le flux de la page — sans quoi la boîte, capée à 60vh,
+   peut finir positionnée derrière `.sticky-bottom-bar` une fois la page
+   (pas la liste) défilée jusqu'en bas. Approximation généreuse plutôt
+   qu'une mesure exacte synchronisée entre les deux règles. */
+.saisies-list {
+  margin-bottom: calc(6rem + env(safe-area-inset-bottom));
+}
+
 .casier-row {
   width: 100%;
   display: flex;
@@ -541,12 +568,16 @@ body {
   z-index: 20;
 }
 
+/* `fixed`, jamais `absolute` (spec 2.60 §6.5) : `.casier-list` défile sur
+   lui-même (`overflow-y: auto` ci-dessus), un positionnement relatif à la
+   ligne se ferait rogner par cette boîte plutôt que par le bord de l'écran
+   — la dernière ligne d'une liste plus longue que l'écran ouvrait un menu
+   coupé, boutons inaccessibles. `top`/`bottom`/`right` sont posés en style
+   inline par openEntryMenu (Inventory.tsx), calculés depuis
+   `getBoundingClientRect()` au moment du clic. */
 .entry-menu {
-  position: absolute;
+  position: fixed;
   z-index: 21;
-  top: 100%;
-  right: 0;
-  margin-top: 0.25rem;
   min-width: 9rem;
   padding: 0.25rem;
   display: flex;

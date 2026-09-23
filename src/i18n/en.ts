@@ -165,6 +165,7 @@ const en: Dictionary = {
     aEcouler: 'to clear',
     cartons: 'Cartons',
     pieces: 'Pieces',
+    editingBanner: 'Editing {refCode} at {emplacement}',
     removeLine: 'Delete',
     removeArmed: 'Delete?',
     editLine: 'Edit',

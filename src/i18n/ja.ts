@@ -165,6 +165,7 @@ const ja: Dictionary = {
     aEcouler: '在庫処分中',
     cartons: 'カートン',
     pieces: 'ピース',
+    editingBanner: '{emplacement} の {refCode} を修正中',
     removeLine: '削除',
     removeArmed: '削除？',
     editLine: '修正',

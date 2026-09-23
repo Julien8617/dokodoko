@@ -192,6 +192,11 @@ export interface Dictionary {
     aEcouler: string
     cartons: string
     pieces: string
+    // Mode modification du formulaire de saisie (spec 2.60 §6.5) : dit
+    // quelle ligne est en cours de correction, à côté d'une sortie sans
+    // écrire (t.common.cancel) — jamais un second champ de saisie sous la
+    // ligne de la liste, une seule surface d'édition sur cet écran.
+    editingBanner: string // {refCode}, {emplacement}
     // Action immédiate et irréversible — double appui, même motif que
     // confirmArmed/deleteArmed : removeLine porte le libellé au repos,
     // removeArmed celui affiché entre les deux appuis. Volontairement

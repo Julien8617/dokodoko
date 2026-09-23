@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState, type FormEvent, type MouseEvent } from 'react'
 import { useI18n, interpolate, type Dictionary } from '../i18n'
 import { supabase } from '../lib/supabase'
 import { extractErrorMessage } from '../lib/errors'
@@ -497,6 +497,33 @@ interface PendingScopeExtension extends EntryKey {
   piecesValue: number
 }
 
+// Changement de casier en mode modification (spec 2.60 §6.5) : le casier du
+// formulaire est la destination, le changer n'est pas une correction de
+// champ mais un déplacement — même récapitulatif de confirmation que
+// "Déplacer" sur l'écran des écarts, jamais un update silencieux.
+interface PendingMove extends EntryKey {
+  fromEmplacementCode: string
+  cartonsValue: number
+  piecesValue: number
+}
+
+// Suggestions du champ casier, partagées entre la saisie (marche) et la
+// boîte de déplacement (écarts) — spec 2.60 §6.5 : "un composant recopié
+// perd ses correctifs un par un". Entrée déjà complète (tirets posés, ou
+// zone+chiffres sans tiret) : résolution stricte, pas de recherche floue,
+// sinon un code plus long qui partage le même préfixe compact réapparaîtrait
+// à tort. Sinon, recherche floue tant que la saisie est incomplète.
+function emplacementFieldSuggestions(value: string, known: string[]): { value: string; label: string }[] {
+  const resolved = resolveEmplacementInput(value)
+  return (
+    resolved
+      ? resolved === value.trim().toUpperCase()
+        ? []
+        : [resolved]
+      : matchEmplacements(value, known)
+  ).map((code) => ({ value: code, label: code }))
+}
+
 // Pas de liste à cocher, pas d'auto-complétion : l'opérateur marche à son
 // rythme et tape ce qu'il voit, où qu'il le voie — y compris une réf qui n'a
 // théoriquement aucun stock à cet endroit. C'est ce qui rend une palette
@@ -548,6 +575,10 @@ function Walk({
   // Confirmation avant d'écrire une référence hors périmètre (spec 2.54,
   // point 2) : jamais en silence.
   const [pendingScopeExtension, setPendingScopeExtension] = useState<PendingScopeExtension | null>(null)
+  // Confirmation de déplacement en mode modification (spec 2.60 §6.5) :
+  // changer le casier du formulaire pendant une édition n'est jamais un
+  // update silencieux — même récapitulatif que "Déplacer" côté écarts.
+  const [pendingMove, setPendingMove] = useState<PendingMove | null>(null)
   // Rappel des références à compter (spec 2.56 §6.5) : ouvert depuis un
   // bouton, jamais affiché en flux — un déroulant en place repousserait le
   // formulaire, qui sert en permanence, pour une liste qui sert rarement.
@@ -560,9 +591,28 @@ function Walk({
   const [armedRemoveId, setArmedRemoveId] = useState<string | null>(null)
   // Menu "…" par saisie (spec 2.58 §6.5) : un seul ouvert à la fois.
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+  // Position mesurée au clic, en coordonnées d'écran (spec 2.60 §6.5) : la
+  // dernière ligne d'une liste plus longue que l'écran ouvrait un menu
+  // coupé, boutons inaccessibles — `.casier-list` défile sur lui-même
+  // (`overflow-y: auto`), donc un positionnement `absolute` relatif à la
+  // ligne se fait rogner par cette boîte, pas seulement par le bord de
+  // l'écran. `position: fixed`, calculé depuis `getBoundingClientRect()`,
+  // échappe à tout ancêtre qui défile ou qui rogne — la seule mesure fiable
+  // quelle que soit la hauteur d'écran ou la longueur de la liste.
+  const [openMenuAnchor, setOpenMenuAnchor] = useState<{ top: number; bottom: number; right: number } | null>(null)
   function closeEntryMenu() {
     setOpenMenuId(null)
+    setOpenMenuAnchor(null)
     setArmedRemoveId(null)
+  }
+  // Hauteur approximative du menu (deux entrées de 44px + marges) : mieux
+  // vaut une estimation généreuse qui ouvre vers le haut un peu trop tôt
+  // qu'une exacte qui laisse un pixel de bouton coupé.
+  const ENTRY_MENU_HEIGHT_ESTIMATE = 110
+  function openEntryMenu(entry: SaisieLine, e: MouseEvent<HTMLButtonElement>) {
+    const rect = e.currentTarget.getBoundingClientRect()
+    setOpenMenuAnchor({ top: rect.top, bottom: rect.bottom, right: window.innerWidth - rect.right })
+    setOpenMenuId(entry.ligneId)
   }
 
   // Extrait pour être réappelable : au montage, sur l'événement `online`, et
@@ -622,19 +672,11 @@ function Walk({
     }
   }, [saisieRefCodes])
 
-  // Une entrée complète (tirets déjà posés, ou zone+chiffres sans tiret) se
-  // résout de façon déterministe (règle stricte "A11" -> "A-01-1" seulement)
-  // — pas de recherche floue dans ce cas, sinon un code plus long qui
-  // partage le même préfixe compact (ex. "A-11-1") réapparaîtrait à tort.
-  // La recherche floue ne sert que tant que la saisie est encore incomplète.
+  // Résolution stricte pour la navigation aux flèches (stepEmplacement) —
+  // les suggestions du champ viennent de emplacementFieldSuggestions,
+  // partagée avec la boîte de déplacement des écarts (spec 2.60 §6.5).
   const resolvedEmplacement = resolveEmplacementInput(emplacementCode)
-  const emplacementSuggestions = (
-    resolvedEmplacement
-      ? resolvedEmplacement === emplacementCode.trim().toUpperCase()
-        ? []
-        : [resolvedEmplacement]
-      : matchEmplacements(emplacementCode, knownEmplacements)
-  ).map((code) => ({ value: code, label: code }))
+  const emplacementSuggestions = emplacementFieldSuggestions(emplacementCode, knownEmplacements)
 
   // Inventaire partiel (spec 2.54, point 1) : la liste déroulante ne
   // propose que les références du périmètre — mais le champ reste libre,
@@ -688,21 +730,21 @@ function Walk({
     goToEmplacement(knownEmplacements[nextIndex])
   }
 
-  // Changer de casier change ce qui est compté : seul le casier reste
-  // (spec 2.25, §6.5 — "on saisit plusieurs références au même casier"
-  // n'implique pas l'inverse). Une quantité ou une édition en cours
-  // laissée dans le formulaire écrirait un comptage fabriqué au nouveau
-  // casier si l'opérateur enregistre sans y avoir touché.
+  // Aligné sur la saisie manuelle du casier, qui n'efface jamais rien (spec
+  // 2.60 §6.5, revient sur spec 2.25) : passer au casier suivant déplace la
+  // cible, ce qui est déjà tapé reste tapé — y compris référence et
+  // quantité, y compris en mode modification, où changer le casier aux
+  // flèches est un choix de destination, pas un abandon de la correction en
+  // cours. Seule la validation d'une saisie vide les champs (commitSave),
+  // parce que là le contenu a été écrit quelque part. pendingDuplicate,
+  // pendingScopeExtension et pendingMove restent liés à une tentative de
+  // soumission précise : naviguer les referme, sans quoi une question posée
+  // à l'ancien casier resterait affichée au nouveau.
   function goToEmplacement(code: string) {
     setEmplacementCode(code)
-    setRefCode('')
-    setConditionnements([])
-    setConditionnementId(null)
-    setCartons('')
-    setPieces('')
-    setEditingKey(null)
     setPendingDuplicate(null)
     setPendingScopeExtension(null)
+    setPendingMove(null)
     closeEntryMenu()
   }
 
@@ -714,9 +756,17 @@ function Walk({
 
   // Partagée entre handleSave (chemin normal) et confirmScopeExtension
   // (après avoir accepté d'étendre le périmètre) : le contrôle de doublon
-  // ne change pas selon la façon dont on y arrive.
+  // ne change pas selon la façon dont on y arrive. En mode modification
+  // (editingKey défini), la question ne se pose JAMAIS (spec 2.60 §6.5) :
+  // elle existe pour détecter une double saisie involontaire, et ici toute
+  // collision — avec soi-même ou avec une autre ligne déjà présente à la
+  // cible — est l'intention même de la correction. L'écriture qui suit
+  // (commitSave) est un remplacement par construction (latest-wins), jamais
+  // une addition : poser la question ouvrirait une branche "ajouter" qui
+  // fabriquerait le doublon qu'on venait corriger.
   function checkDuplicateThenSave(key: EntryKey, cartonsValue: number, piecesValue: number): Promise<void> {
-    const existing = editingKey && sameKey(editingKey, key) ? null : saisies.find((s) => sameKey(s, key))
+    if (editingKey) return commitSave(key, cartonsValue, piecesValue)
+    const existing = saisies.find((s) => sameKey(s, key))
     if (existing) {
       setStatus({ kind: 'idle' })
       setPendingDuplicate({ ...key, comptageId: existing.comptageId, cartonsValue, piecesValue })
@@ -790,6 +840,20 @@ function Walk({
       if (inventaire.scope_kind === 'references' && scope && !scope.includes(code)) {
         setStatus({ kind: 'idle' })
         setPendingScopeExtension({ ...key, cartonsValue, piecesValue })
+        return
+      }
+
+      // Mode modification : le casier du formulaire est la destination
+      // (spec 2.60 §6.5). Le changer n'est pas une correction de champ,
+      // c'est un déplacement — même récapitulatif de confirmation que
+      // "Déplacer" côté écarts, jamais un update silencieux. Référence ou
+      // conditionnement changés SANS le casier ne posent pas cette
+      // question : seul le casier rend le déplacement visible pour
+      // l'opérateur (spec 2.59 les traite identiquement en écriture, mais
+      // spec 2.60 ne demande la confirmation que sur celui-ci).
+      if (editingKey && editingKey.emplacementCode !== key.emplacementCode) {
+        setStatus({ kind: 'idle' })
+        setPendingMove({ ...key, fromEmplacementCode: editingKey.emplacementCode, cartonsValue, piecesValue })
         return
       }
 
@@ -941,6 +1005,36 @@ function Walk({
     setStatus({ kind: 'idle' })
   }
 
+  // Confirmation du déplacement en mode modification (spec 2.60 §6.5) :
+  // passe par checkDuplicateThenSave comme tout le reste — puisque
+  // editingKey est défini, elle saute directement à commitSave, qui
+  // détecte lui-même le déplacement en comparant le triplet avant/après.
+  async function confirmPendingMove() {
+    if (!pendingMove) return
+    // Reconstruit explicitement plutôt qu'un rest-spread : PendingMove porte
+    // `fromEmplacementCode` en plus des trois champs d'EntryKey, un
+    // rest-spread l'aurait laissé traîner dans `key` sans que tsc s'en
+    // plaigne (assignable, pas exact).
+    const { cartonsValue, piecesValue } = pendingMove
+    const key: EntryKey = {
+      emplacementCode: pendingMove.emplacementCode,
+      refCode: pendingMove.refCode,
+      conditionnementId: pendingMove.conditionnementId,
+    }
+    setStatus({ kind: 'saving' })
+    try {
+      await checkDuplicateThenSave(key, cartonsValue, piecesValue)
+      setPendingMove(null)
+    } catch (err) {
+      setStatus({ kind: 'error', message: describeSaveError(err, t) })
+    }
+  }
+
+  function cancelPendingMove() {
+    setPendingMove(null)
+    setStatus({ kind: 'idle' })
+  }
+
   async function undo(entry: SaisieLine) {
     await deleteCasierLignesForRef(entry.comptageId, entry.refCode, entry.conditionnementId)
     setSaisies((prev) => prev.filter((s) => !sameKey(s, entry)))
@@ -965,12 +1059,13 @@ function Walk({
     void undo(entry)
   }
 
-  // Recharge une saisie existante dans le formulaire pour la corriger (ex.
-  // un carton oublié) — pas de suppression : réenregistrer crée simplement
-  // une nouvelle ligne plus récente pour le même (casier, réf), qui prévaut
-  // sur l'ancienne (dernière valeur connue), en gardant l'historique
-  // complet. Même chemin de modification que l'écran des écarts : une
-  // nouvelle ligne via saveCasierLigne, jamais un second mécanisme.
+  // Remonte au formulaire de saisie, préempli, en mode modification visible
+  // (spec 2.60 §6.5, revient sur spec 2.56 : plus de second chemin
+  // d'édition sur l'écran des écarts pour la marche — c'est là qu'on
+  // saisit, c'est donc là qu'on corrige). Pas de suppression :
+  // réenregistrer crée simplement une nouvelle ligne plus récente pour le
+  // même triplet (casier, réf, conditionnement), qui prévaut sur
+  // l'ancienne (dernière valeur connue), en gardant l'historique complet.
   async function editEntry(entry: SaisieLine) {
     setEmplacementCode(entry.emplacementCode)
     setRefCode(entry.refCode)
@@ -979,15 +1074,33 @@ function Walk({
     setStatus({ kind: 'idle' })
     setPendingDuplicate(null)
     setPendingScopeExtension(null)
+    setPendingMove(null)
     setArmedRemoveId(null)
     setEditingKey({
       emplacementCode: entry.emplacementCode,
       refCode: entry.refCode,
       conditionnementId: entry.conditionnementId,
     })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
     const list = await listConditionnements(entry.refCode)
     setConditionnements(list)
     setConditionnementId(entry.conditionnementId)
+  }
+
+  // Sortie du mode modification sans écrire (spec 2.60 §6.5) : le formulaire
+  // doit offrir cette sortie visiblement, pas seulement se refermer au
+  // prochain enregistrement.
+  function cancelEdit() {
+    setEditingKey(null)
+    setRefCode('')
+    setConditionnements([])
+    setConditionnementId(null)
+    setCartons('')
+    setPieces('')
+    setStatus({ kind: 'idle' })
+    setPendingDuplicate(null)
+    setPendingScopeExtension(null)
+    setPendingMove(null)
   }
 
   return (
@@ -998,6 +1111,21 @@ function Walk({
       <h1>{t.inventory.title}</h1>
 
       <form className="settings-form" onSubmit={handleSave}>
+        {/* Mode modification visible (spec 2.60 §6.5) : le formulaire dit
+            quelle ligne il modifie et offre une sortie sans écrire — jamais
+            un second champ de saisie sous la ligne, une seule surface
+            d'édition sur cet écran. */}
+        {editingKey && (
+          <p className="form-status editing-banner">
+            {interpolate(t.inventory.editingBanner, {
+              refCode: editingKey.refCode,
+              emplacement: editingKey.emplacementCode,
+            })}
+            <button type="button" className="back-link" onClick={cancelEdit} disabled={status.kind === 'saving'}>
+              {t.common.cancel}
+            </button>
+          </p>
+        )}
         <label className="field-label">
           {t.inventory.casier}
           <div className="casier-nav">
@@ -1005,7 +1133,7 @@ function Walk({
               type="button"
               className="step-button"
               onClick={() => stepEmplacement(-1)}
-              disabled={status.kind === 'saving' || pendingDuplicate !== null || pendingScopeExtension !== null}
+              disabled={status.kind === 'saving' || pendingDuplicate !== null || pendingScopeExtension !== null || pendingMove !== null}
               aria-label={t.inventory.previousCasier}
             >
               ←
@@ -1015,14 +1143,14 @@ function Walk({
               onChange={setEmplacementCode}
               suggestions={emplacementSuggestions}
               placeholder={t.inventory.casierPlaceholder}
-              disabled={status.kind === 'saving' || pendingDuplicate !== null || pendingScopeExtension !== null}
+              disabled={status.kind === 'saving' || pendingDuplicate !== null || pendingScopeExtension !== null || pendingMove !== null}
               selectOnFocus
             />
             <button
               type="button"
               className="step-button"
               onClick={() => stepEmplacement(1)}
-              disabled={status.kind === 'saving' || pendingDuplicate !== null || pendingScopeExtension !== null}
+              disabled={status.kind === 'saving' || pendingDuplicate !== null || pendingScopeExtension !== null || pendingMove !== null}
               aria-label={t.inventory.nextCasier}
             >
               →
@@ -1038,7 +1166,7 @@ function Walk({
             onBlur={() => lookupReference()}
             suggestions={referenceSuggestions}
             placeholder={t.inventory.referencePlaceholder}
-            disabled={status.kind === 'saving' || pendingDuplicate !== null || pendingScopeExtension !== null}
+            disabled={status.kind === 'saving' || pendingDuplicate !== null || pendingScopeExtension !== null || pendingMove !== null}
           />
         </label>
         {/* Confirmation avant écriture (§6.2, spec 2.23) : ComboInput se
@@ -1077,7 +1205,7 @@ function Walk({
           </label>
         </div>
         {totalPieces !== null && <p className="quantity-formula">{totalPieces} pièces</p>}
-        <button type="submit" disabled={status.kind === 'saving' || pendingDuplicate !== null || pendingScopeExtension !== null}>
+        <button type="submit" disabled={status.kind === 'saving' || pendingDuplicate !== null || pendingScopeExtension !== null || pendingMove !== null}>
           {t.common.save}
         </button>
         {status.kind === 'error' && <p className="form-status form-error">{status.message}</p>}
@@ -1167,8 +1295,30 @@ function Walk({
         </div>
       )}
 
+      {/* Déplacement en mode modification (spec 2.60 §6.5) : confirmation
+          simple avec récapitulatif — rien n'est détruit, le contenu est
+          relocalisé — même formulation que "Déplacer" sur l'écran des
+          écarts. */}
+      {pendingMove && (
+        <div className="form-status">
+          <p>
+            {interpolate(t.inventory.moveConfirm, {
+              refCode: pendingMove.refCode,
+              from: pendingMove.fromEmplacementCode,
+              to: pendingMove.emplacementCode,
+            })}
+          </p>
+          <button type="button" onClick={confirmPendingMove} disabled={status.kind === 'saving'}>
+            {t.common.confirm}
+          </button>
+          <button type="button" className="back-link" onClick={cancelPendingMove} disabled={status.kind === 'saving'}>
+            {t.common.cancel}
+          </button>
+        </div>
+      )}
+
       {saisies.length > 0 && (
-        <ul className="casier-list">
+        <ul className="casier-list saisies-list">
           {(showAllSaisies ? saisies : saisies.slice(0, 20)).map((entry) => {
             // Libellé de la référence, pas seulement du conditionnement
             // (§6.2/§6.5, spec 2.23) : confirme après coup qu'on a compté
@@ -1200,14 +1350,21 @@ function Walk({
                       type="button"
                       className="entry-menu-toggle"
                       aria-label={t.inventory.entryMenuLabel}
-                      onClick={() => (openMenuId === entry.ligneId ? closeEntryMenu() : setOpenMenuId(entry.ligneId))}
+                      onClick={(e) => (openMenuId === entry.ligneId ? closeEntryMenu() : openEntryMenu(entry, e))}
                     >
                       ⋯
                     </button>
-                    {openMenuId === entry.ligneId && (
+                    {openMenuId === entry.ligneId && openMenuAnchor && (
                       <>
                         <div className="menu-scrim" onClick={closeEntryMenu} />
-                        <div className="entry-menu">
+                        <div
+                          className="entry-menu"
+                          style={
+                            window.innerHeight - openMenuAnchor.bottom < ENTRY_MENU_HEIGHT_ESTIMATE
+                              ? { bottom: window.innerHeight - openMenuAnchor.top + 4, right: openMenuAnchor.right }
+                              : { top: openMenuAnchor.bottom + 4, right: openMenuAnchor.right }
+                          }
+                        >
                           <button
                             type="button"
                             className="entry-menu-item"
@@ -1317,6 +1474,9 @@ function Ecarts({
   const [moveStatus, setMoveStatus] = useState<
     { kind: 'idle' } | { kind: 'saving' } | { kind: 'error'; message: string }
   >({ kind: 'idle' })
+  // Pour les suggestions du champ casier de la boîte de déplacement (spec
+  // 2.60 §6.5, emplacementFieldSuggestions) — même liste que la marche.
+  const [knownEmplacements, setKnownEmplacements] = useState<string[]>([])
   // Filtre de recherche en tête (spec 2.46 §6.5) : sur une gamme entière,
   // atteindre une référence par défilement n'est pas tenable. Même filtre
   // partagé que Recherche/Mouvement/Inventaire (§6.2), pas une logique
@@ -1356,6 +1516,14 @@ function Ecarts({
     listClients().then((list) => {
       if (!cancelled) setClients(list)
     }).catch(() => {})
+    // Best-effort, comme listClients ci-dessus : sert seulement les
+    // suggestions du champ casier de la boîte de déplacement, jamais les
+    // chiffres imprimés — un échec ne doit pas bloquer l'écran des écarts.
+    listEmplacements()
+      .then((list) => {
+        if (!cancelled) setKnownEmplacements(list.map((e) => e.code))
+      })
+      .catch(() => {})
     // Groupées avec la synthèse (pas en best-effort séparé) : ce sont les
     // données de la feuille de contre-validation, un document destiné à
     // être signé — un échec silencieux de `listConditionnementsByRef`
@@ -1678,17 +1846,21 @@ function Ecarts({
                       {/* Déplacement vers un autre casier (spec 2.58 §6.5) :
                           confirmation simple avec récapitulatif, pas de
                           double appui — rien n'est détruit, le contenu est
-                          relocalisé. */}
+                          relocalisé. Champ casier partagé avec la saisie
+                          (ComboInput + emplacementFieldSuggestions, spec
+                          2.60 §6.5) — un champ recopié perd ses correctifs
+                          un par un. */}
                       {movingLigneId === l.ligneId ? (
                         <div className="settings-form">
                           <label className="field-label">
                             {t.inventory.casier}
-                            <input
+                            <ComboInput
                               value={moveTarget}
-                              onChange={(e) => {
-                                setMoveTarget(e.target.value)
+                              onChange={(value) => {
+                                setMoveTarget(value)
                                 setMoveConfirmTarget(null)
                               }}
+                              suggestions={emplacementFieldSuggestions(moveTarget, knownEmplacements)}
                               placeholder={t.inventory.casierPlaceholder}
                               disabled={moveStatus.kind === 'saving'}
                             />

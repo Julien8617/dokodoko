@@ -5,6 +5,14 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.33 — 2026-09-23
+
+- Modifier une saisie (marche d’inventaire) : remonte au formulaire de saisie, prérempli, avec un bandeau « en modification » et une sortie sans écrire — plus de second écran de correction
+- Modifier une saisie : changer le casier déclenche un récapitulatif de confirmation (« Déplacer... de... vers... ? »), comme sur l’écran des écarts, jamais un enregistrement silencieux
+- Corrigé : le menu « … » de la dernière ligne d’une liste de saisies plus longue que l’écran était coupé, boutons hors d’atteinte
+- La boîte de déplacement (écran des écarts) propose maintenant les mêmes suggestions de casier que la saisie
+- Corrigé : les flèches de casier suivant/précédent effaçaient la référence et la quantité tapées ; elles restent maintenant en place, comme lors d’une saisie manuelle du casier
+
 ## 0.9.32 — 2026-09-23
 
 - Liste des saisies (marche d’inventaire) : disposition sur trois lignes (emplacement / référence / quantité), et menu « … » regroupant Modifier et Supprimer

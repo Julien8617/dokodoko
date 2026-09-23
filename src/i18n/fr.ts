@@ -165,6 +165,7 @@ const fr: Dictionary = {
     aEcouler: 'à écouler',
     cartons: 'Cartons',
     pieces: 'Pièces',
+    editingBanner: 'Modification de {refCode} en {emplacement}',
     removeLine: 'Supprimer',
     removeArmed: 'Supprimer ?',
     editLine: 'Modifier',

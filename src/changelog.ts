@@ -10,6 +10,17 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.33',
+    date: '2026-09-23',
+    items: [
+      'Modifier une saisie (marche d’inventaire) : remonte au formulaire de saisie, prérempli, avec un bandeau « en modification » et une sortie sans écrire — plus de second écran de correction',
+      'Modifier une saisie : changer le casier déclenche un récapitulatif de confirmation (« Déplacer... de... vers... ? »), comme sur l’écran des écarts, jamais un enregistrement silencieux',
+      'Corrigé : le menu « … » de la dernière ligne d’une liste de saisies plus longue que l’écran était coupé, boutons hors d’atteinte',
+      'La boîte de déplacement (écran des écarts) propose maintenant les mêmes suggestions de casier que la saisie',
+      'Corrigé : les flèches de casier suivant/précédent effaçaient la référence et la quantité tapées ; elles restent maintenant en place, comme lors d’une saisie manuelle du casier',
+    ],
+  },
+  {
     version: '0.9.32',
     date: '2026-09-23',
     items: [
