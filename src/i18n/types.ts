@@ -231,6 +231,17 @@ export interface Dictionary {
     // addEntry/replaceEntry portent déjà "Ajouter"/"Remplacer", les totaux
     // calculés sont composés directement dans le JSX à côté.
     moveCollisionExisting: string // {emplacement}, {cartons}, {pieces}
+    // Changement de quantité dans le même geste qu'un déplacement (spec
+    // 2.65 §6.5, marche uniquement — les Écarts n'ont pas de champ de
+    // quantité) : affiché seulement quand la valeur change, s'ajoute au
+    // bloc de collision ci-dessus sans le remplacer. Trois variantes plutôt
+    // qu'une seule chaîne toujours-les-deux-unités : l'exemple de spec
+    // ("Quantité : 4 → 2 cartons") ne mentionne que l'unité qui change — un
+    // "0 → 0 pièces" à côté d'un changement de cartons décrirait un
+    // non-changement comme s'il en était un.
+    moveQuantityChangeCartons: string // {from}, {to}
+    moveQuantityChangePieces: string // {from}, {to}
+    moveQuantityChangeBoth: string // {fromCartons}, {toCartons}, {fromPieces}, {toPieces}
     moveSameEmplacement: string
     // La ligne a été écrite au casier cible avant l'échec de son retrait du
     // casier d'origine (MoveCasierLignePartialError) — elle existe donc

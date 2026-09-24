@@ -10,6 +10,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.37',
+    date: '2026-09-24',
+    items: [
+      'Déplacer une saisie en modifiant aussi sa quantité (dans la marche) : la confirmation nomme maintenant les deux changements — "Quantité : 4 → 2 cartons" — au lieu de taire silencieusement le changement de quantité',
+      'Les questions "déjà saisi, remplacer ou ajouter ?" et "cette référence est hors périmètre, l\'ajouter ?" passent aussi en fenêtre modale, comme la confirmation de déplacement',
+    ],
+  },
+  {
     version: '0.9.36',
     date: '2026-09-24',
     items: [

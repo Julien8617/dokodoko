@@ -511,6 +511,17 @@ interface PendingMove extends EntryKey {
   fromEmplacementCode: string
   cartonsValue: number
   piecesValue: number
+  // Quantité de la ligne AVANT modification (spec 2.65 §6.5) : la marche
+  // passe par le formulaire de saisie, dont les champs de quantité restent
+  // éditables pendant un déplacement — contrairement aux Écarts, qui n'ont
+  // pas de champ de quantité. Défaut constaté le 24 septembre : la
+  // confirmation nommait le déplacement et taisait le changement de
+  // quantité, un opérateur croyant scinder perdait le reliquat sans le
+  // voir. Sert uniquement à détecter et afficher l'écart avec
+  // `cartonsValue`/`piecesValue` ci-dessus — jamais à borner ce qui est
+  // écrit.
+  originalCartons: number
+  originalPieces: number
   // Collision à la destination (spec 2.62 §6.5) : détectée AU MOMENT où le
   // récapitulatif de déplacement se pose, pas après confirmation — pour que
   // les deux questions ("déplacer ?" et "remplacer ou ajouter ?") se
@@ -521,6 +532,29 @@ interface PendingMove extends EntryKey {
   // suffit. Union explicite plutôt qu'un `?` optionnel — exactOptionalPropertyTypes
   // interdit d'assigner `undefined` à un champ simplement optionnel.
   collision: { existingCartons: number; existingPieces: number } | undefined
+}
+
+// Trois variantes plutôt qu'une chaîne toujours-les-deux-unités (spec 2.65
+// §6.5) : l'exemple de spec ne nomme que l'unité qui change. `null` = rien
+// n'a changé, la ligne ne s'affiche pas.
+function moveQuantityChangeLabel(move: PendingMove, t: Dictionary): string | null {
+  const cartonsChanged = move.cartonsValue !== move.originalCartons
+  const piecesChanged = move.piecesValue !== move.originalPieces
+  if (cartonsChanged && piecesChanged) {
+    return interpolate(t.inventory.moveQuantityChangeBoth, {
+      fromCartons: move.originalCartons,
+      toCartons: move.cartonsValue,
+      fromPieces: move.originalPieces,
+      toPieces: move.piecesValue,
+    })
+  }
+  if (cartonsChanged) {
+    return interpolate(t.inventory.moveQuantityChangeCartons, { from: move.originalCartons, to: move.cartonsValue })
+  }
+  if (piecesChanged) {
+    return interpolate(t.inventory.moveQuantityChangePieces, { from: move.originalPieces, to: move.piecesValue })
+  }
+  return null
 }
 
 // Suggestions du champ casier, partagées entre la saisie (marche) et la
@@ -576,6 +610,15 @@ function Walk({
   // "modifier" — une resoumission sur exactement ce couple est la
   // correction attendue, pas un doublon à trancher.
   const [editingKey, setEditingKey] = useState<EntryKey | null>(null)
+  // Quantité de la ligne éditée, capturée AU MOMENT où le mode modification
+  // s'ouvre (spec 2.65 §6.5) — jamais redérivée de `saisies` au moment de
+  // valider, dont la ligne peut avoir disparu entre-temps (l'opérateur
+  // pouvant supprimer via le menu "…" la ligne même qu'il édite). Sert
+  // uniquement à détecter et afficher un changement de quantité dans la
+  // confirmation de déplacement.
+  const [editingOriginalQuantity, setEditingOriginalQuantity] = useState<{ cartons: number; pieces: number } | null>(
+    null,
+  )
   const [pendingDuplicate, setPendingDuplicate] = useState<PendingDuplicate | null>(null)
   // Étiquette de conditionnement par id, pour l'afficher dans la liste des
   // saisies (spec v2 §6.5 : "casier, référence, conditionnement, quantité")
@@ -893,6 +936,12 @@ function Walk({
           fromEmplacementCode: editingKey.emplacementCode,
           cartonsValue,
           piecesValue,
+          // Capturée à l'ouverture du mode modification (editEntry), jamais
+          // redérivée de `saisies` ici — cette ligne peut avoir disparu de
+          // l'état local entre-temps (spec 2.65 §6.5, voir commentaire sur
+          // `editingOriginalQuantity`).
+          originalCartons: editingOriginalQuantity?.cartons ?? cartonsValue,
+          originalPieces: editingOriginalQuantity?.pieces ?? piecesValue,
           collision: existing ? { existingCartons: existing.cartons, existingPieces: existing.pieces } : undefined,
         })
         return
@@ -985,6 +1034,7 @@ function Walk({
     setCartons('')
     setPieces('')
     setEditingKey(null)
+    setEditingOriginalQuantity(null)
     setPendingDuplicate(null)
     setStatus({ kind: 'idle' })
   }
@@ -1134,6 +1184,7 @@ function Walk({
       refCode: entry.refCode,
       conditionnementId: entry.conditionnementId,
     })
+    setEditingOriginalQuantity({ cartons: entry.cartons, pieces: entry.pieces })
     window.scrollTo({ top: 0, behavior: 'smooth' })
     const list = await listConditionnements(entry.refCode)
     setConditionnements(list)
@@ -1145,6 +1196,7 @@ function Walk({
   // prochain enregistrement.
   function cancelEdit() {
     setEditingKey(null)
+    setEditingOriginalQuantity(null)
     setRefCode('')
     setConditionnements([])
     setConditionnementId(null)
@@ -1307,8 +1359,13 @@ function Walk({
         </Modal>
       )}
 
+      {/* Fenêtre modale sans `onClose` (spec 2.63 §6.5) : cette confirmation
+          écrit, elle exige donc un choix explicite par bouton — pas de
+          fermeture au toucher extérieur. Partage le même risque de
+          position que le test 7 (spec 2.64 §6.5), et se déclenche plus
+          souvent : à chaque référence déjà relevée au même casier. */}
       {pendingDuplicate && (
-        <div className="form-status">
+        <Modal>
           <p>
             {interpolate(t.inventory.duplicateEntry, {
               emplacement: pendingDuplicate.emplacementCode,
@@ -1326,11 +1383,13 @@ function Walk({
           <button type="button" className="back-link" onClick={cancelDuplicate} disabled={status.kind === 'saving'}>
             {t.common.cancel}
           </button>
-        </div>
+        </Modal>
       )}
 
+      {/* Fenêtre modale sans `onClose` (spec 2.63 §6.5) : même raison que
+          pendingDuplicate ci-dessus — cette confirmation écrit. */}
       {pendingScopeExtension && (
-        <div className="form-status">
+        <Modal>
           <p>
             {interpolate(t.inventory.scopeExtensionQuestion, { refCode: pendingScopeExtension.refCode })}
           </p>
@@ -1345,7 +1404,7 @@ function Walk({
           >
             {t.common.cancel}
           </button>
-        </div>
+        </Modal>
       )}
 
       {/* Déplacement en mode modification (spec 2.60 §6.5). Une collision à
@@ -1358,7 +1417,13 @@ function Walk({
           deux lignes restent telles quelles. Modale sans `onClose` (spec
           2.64 §6.5) : défaut du 24 septembre, les boutons s'affichaient
           hors écran ; une confirmation qui écrit exige un choix explicite,
-          pas un toucher imprécis à côté. */}
+          pas un toucher imprécis à côté. Quantité corrigeable dans le même
+          geste (spec 2.65 §6.5) : la marche passe par le formulaire de
+          saisie, dont les champs restent éditables pendant un déplacement,
+          contrairement aux Écarts qui n'ont pas de champ de quantité — la
+          confirmation nomme alors les deux changements plutôt que de taire
+          le second ; la ligne de quantité ne s'affiche que si elle change,
+          et s'ajoute au bloc de collision sans le remplacer. */}
       {pendingMove && (
         <Modal>
           <p>
@@ -1368,6 +1433,7 @@ function Walk({
               to: pendingMove.emplacementCode,
             })}
           </p>
+          {moveQuantityChangeLabel(pendingMove, t) && <p>{moveQuantityChangeLabel(pendingMove, t)}</p>}
           {pendingMove.collision ? (
             <>
               <p>

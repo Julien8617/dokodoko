@@ -5,6 +5,11 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.37 — 2026-09-24
+
+- Déplacer une saisie en modifiant aussi sa quantité (dans la marche) : la confirmation nomme maintenant les deux changements — "Quantité : 4 → 2 cartons" — au lieu de taire silencieusement le changement de quantité
+- Les questions "déjà saisi, remplacer ou ajouter ?" et "cette référence est hors périmètre, l'ajouter ?" passent aussi en fenêtre modale, comme la confirmation de déplacement
+
 ## 0.9.36 — 2026-09-24
 
 - Confirmation Ajouter/Remplacer/Annuler d'un déplacement : elle s'affichait hors écran (défilement nécessaire pour atteindre les boutons) — devient une fenêtre modale centrée, comme le rappel des références, mais sans fermeture au toucher extérieur puisqu'elle écrit

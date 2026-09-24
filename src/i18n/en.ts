@@ -174,6 +174,9 @@ const en: Dictionary = {
     moveEntry: 'Move',
     moveConfirm: 'Move {refCode} from {from} to {to}?',
     moveCollisionExisting: 'Already recorded at {emplacement}: {cartons} cartons, {pieces} pieces',
+    moveQuantityChangeCartons: 'Quantity: {from} → {to} cartons',
+    moveQuantityChangePieces: 'Quantity: {from} → {to} pieces',
+    moveQuantityChangeBoth: 'Quantity: {fromCartons} → {toCartons} cartons, {fromPieces} → {toPieces} pieces',
     moveSameEmplacement: 'Choose a location different from the original one',
     moveDuplicatedError:
       'The entry was written at the new location, but removing it from the old one failed — it now exists in both places. Delete it at the old location from the differences screen; do not retry the move.',

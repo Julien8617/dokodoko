@@ -174,6 +174,9 @@ const fr: Dictionary = {
     moveEntry: 'Déplacer',
     moveConfirm: 'Déplacer {refCode} de {from} vers {to} ?',
     moveCollisionExisting: 'Déjà saisi à {emplacement} : {cartons} cartons, {pieces} pièces',
+    moveQuantityChangeCartons: 'Quantité : {from} → {to} cartons',
+    moveQuantityChangePieces: 'Quantité : {from} → {to} pièces',
+    moveQuantityChangeBoth: 'Quantité : {fromCartons} → {toCartons} cartons, {fromPieces} → {toPieces} pièces',
     moveSameEmplacement: 'Choisissez un casier différent de celui d’origine',
     moveDuplicatedError:
       'La saisie a bien été écrite au nouveau casier, mais son retrait de l’ancien a échoué — elle existe maintenant aux deux endroits. Supprimez-la à l’ancien emplacement depuis l’écran des écarts, ne relancez pas le déplacement.',
