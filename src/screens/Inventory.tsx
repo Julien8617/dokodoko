@@ -36,6 +36,7 @@ import type { Client, Conditionnement, Inventaire, Reference, ScopeKind } from '
 import SearchSelect from '../components/SearchSelect'
 import ComboInput from '../components/ComboInput'
 import CountStepper from '../components/CountStepper'
+import Modal from '../components/Modal'
 
 type Phase = 'launch' | 'walk' | 'ecarts'
 
@@ -1278,34 +1279,32 @@ function Walk({
       )}
 
       {scopeChecklistOpen && referencesScope && (
-        <div className="modal-overlay" onClick={() => setScopeChecklistOpen(false)}>
-          <div className="modal-dialog" onClick={(e) => e.stopPropagation()}>
-            <h2>{t.inventory.scopeChecklistTitle}</h2>
-            {/* Liste uniforme, sans marqueur d'état (spec 2.58 §6.5,
-                revient sur spec 2.54) : une référence éparpillée sur
-                plusieurs casiers reste à compter ailleurs même une fois
-                rencontrée une fois — la griser ou dire "comptée dans N
-                casier(s)" laisserait croire à une complétude que rien ne
-                garantit. Même raisonnement que l'abandon du compteur
-                "4/12 comptées". Tri alphabétique fixe (naturel : les codes
-                REU003/REU009/REU010 partagent la même largeur de suffixe,
-                donc l'ordre lexicographique suffit déjà), position stable
-                d'une ouverture à l'autre. */}
-            <ul className="casier-list">
-              {[...referencesScope].sort().map((code) => {
-                const libelle = allReferences.find((r) => r.code === code)?.libelle
-                return (
-                  <li key={code} className="casier-row checklist-row">
-                    <span>
-                      {code}
-                      {libelle ? ` — ${libelle}` : ''}
-                    </span>
-                  </li>
-                )
-              })}
-            </ul>
-          </div>
-        </div>
+        <Modal onClose={() => setScopeChecklistOpen(false)}>
+          <h2>{t.inventory.scopeChecklistTitle}</h2>
+          {/* Liste uniforme, sans marqueur d'état (spec 2.58 §6.5,
+              revient sur spec 2.54) : une référence éparpillée sur
+              plusieurs casiers reste à compter ailleurs même une fois
+              rencontrée une fois — la griser ou dire "comptée dans N
+              casier(s)" laisserait croire à une complétude que rien ne
+              garantit. Même raisonnement que l'abandon du compteur
+              "4/12 comptées". Tri alphabétique fixe (naturel : les codes
+              REU003/REU009/REU010 partagent la même largeur de suffixe,
+              donc l'ordre lexicographique suffit déjà), position stable
+              d'une ouverture à l'autre. */}
+          <ul className="casier-list">
+            {[...referencesScope].sort().map((code) => {
+              const libelle = allReferences.find((r) => r.code === code)?.libelle
+              return (
+                <li key={code} className="casier-row checklist-row">
+                  <span>
+                    {code}
+                    {libelle ? ` — ${libelle}` : ''}
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        </Modal>
       )}
 
       {pendingDuplicate && (
@@ -1356,9 +1355,12 @@ function Walk({
           conséquence, pour un choix qui n'en est qu'un seul. Totaux
           calculés et affichés sur les boutons — personne ne fait
           d'arithmétique debout dans une allée. Annuler n'écrit rien, les
-          deux lignes restent telles quelles. */}
+          deux lignes restent telles quelles. Modale sans `onClose` (spec
+          2.64 §6.5) : défaut du 24 septembre, les boutons s'affichaient
+          hors écran ; une confirmation qui écrit exige un choix explicite,
+          pas un toucher imprécis à côté. */}
       {pendingMove && (
-        <div className="form-status">
+        <Modal>
           <p>
             {interpolate(t.inventory.moveConfirm, {
               refCode: pendingMove.refCode,
@@ -1396,7 +1398,7 @@ function Walk({
           <button type="button" className="back-link" onClick={cancelPendingMove} disabled={status.kind === 'saving'}>
             {t.common.cancel}
           </button>
-        </div>
+        </Modal>
       )}
 
       {saisies.length > 0 && (
@@ -1954,7 +1956,11 @@ function Ecarts({
                           relocalisé. Champ casier partagé avec la saisie
                           (ComboInput + emplacementFieldSuggestions, spec
                           2.60 §6.5) — un champ recopié perd ses correctifs
-                          un par un. */}
+                          un par un. Collision de destination (spec 2.62
+                          §6.5, même règle que la marche) détectée dès la
+                          validation du casier cible, dans une modale sans
+                          `onClose` (spec 2.64 §6.5) — une confirmation qui
+                          écrit exige un choix explicite. */}
                       {movingLigneId === l.ligneId ? (
                         <div className="settings-form">
                           <label className="field-label">
@@ -1979,7 +1985,7 @@ function Ecarts({
                               {t.common.validate}
                             </button>
                           ) : (
-                            <>
+                            <Modal>
                               <p className="quantity-formula">
                                 {interpolate(t.inventory.moveConfirm, {
                                   refCode: ref.refCode,
@@ -2030,7 +2036,7 @@ function Ecarts({
                               >
                                 {t.common.cancel}
                               </button>
-                            </>
+                            </Modal>
                           )}
                           {moveStatus.kind === 'error' && <p className="form-status form-error">{moveStatus.message}</p>}
                         </div>

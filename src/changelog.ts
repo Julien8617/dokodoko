@@ -10,6 +10,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.36',
+    date: '2026-09-24',
+    items: [
+      'Confirmation Ajouter/Remplacer/Annuler d\'un déplacement : elle s\'affichait hors écran (défilement nécessaire pour atteindre les boutons) — devient une fenêtre modale centrée, comme le rappel des références, mais sans fermeture au toucher extérieur puisqu\'elle écrit',
+    ],
+  },
+  {
     version: '0.9.35',
     date: '2026-09-24',
     items: [

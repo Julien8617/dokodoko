@@ -5,6 +5,10 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.36 — 2026-09-24
+
+- Confirmation Ajouter/Remplacer/Annuler d'un déplacement : elle s'affichait hors écran (défilement nécessaire pour atteindre les boutons) — devient une fenêtre modale centrée, comme le rappel des références, mais sans fermeture au toucher extérieur puisqu'elle écrit
+
 ## 0.9.35 — 2026-09-24
 
 - Déplacer une saisie vers un casier déjà compté (via Modifier, dans la marche) : un seul écran maintenant, avec le récapitulatif de déplacement, la quantité déjà en place et les totaux Ajouter/Remplacer calculés — au lieu de deux confirmations à la suite
