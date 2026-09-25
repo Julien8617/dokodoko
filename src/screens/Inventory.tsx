@@ -606,17 +606,28 @@ function computeMoveFinalQuantity(
 // explicite par bouton. Ligne de quantité (spec 2.65 §6.5) affichée
 // seulement si elle change — toujours absente côté Écarts, qui n'a pas de
 // champ de quantité, `originalCartons`/`originalPieces` y valant toujours
-// `cartonsValue`/`piecesValue`.
+// `cartonsValue`/`piecesValue`. `error` (spec 2.66 point 4, dette assumée en
+// spec) : un échec d'écriture pendant la confirmation s'affichait hors de la
+// modale, donc derrière le fond assombri — invisible. L'appelant garde son
+// propre paragraphe d'erreur pour les échecs hors confirmation (casier
+// invalide avant validation, etc.) ; celui-ci ne double que le cas où la
+// modale est ouverte. Affiché avant le bloc collision et ses boutons, pas
+// après : `.modal-dialog` défile en interne (max-height 80vh) et le message
+// le plus long (MoveCasierLignePartialError) ne doit pas finir sous les
+// boutons, dans la partie qu'il faudrait faire défiler pour lire — même
+// défaut que le test 7 (spec 2.64 §6.5), un niveau plus bas.
 function MoveConfirmDialog({
   move,
   t,
   saving,
+  error,
   onConfirm,
   onCancel,
 }: {
   move: PendingMove
   t: Dictionary
   saving: boolean
+  error: string | null
   onConfirm: (mode?: 'remplacer' | 'ajouter') => void
   onCancel: () => void
 }) {
@@ -631,6 +642,7 @@ function MoveConfirmDialog({
         })}
       </p>
       {quantityChange && <p>{quantityChange}</p>}
+      {error && <p className="form-status form-error">{error}</p>}
       {move.collision ? (
         <>
           <p>
@@ -1517,6 +1529,7 @@ function Walk({
           move={pendingMove}
           t={t}
           saving={status.kind === 'saving'}
+          error={status.kind === 'error' ? status.message : null}
           onConfirm={confirmPendingMove}
           onCancel={cancelPendingMove}
         />
@@ -2110,6 +2123,7 @@ function Ecarts({
                               move={pendingMove}
                               t={t}
                               saving={moveStatus.kind === 'saving'}
+                              error={moveStatus.kind === 'error' ? moveStatus.message : null}
                               onConfirm={(mode) => confirmMove(ref, l, mode)}
                               onCancel={cancelMove}
                             />

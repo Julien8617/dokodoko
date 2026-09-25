@@ -10,6 +10,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.39',
+    date: '2026-09-26',
+    items: [
+      'Un échec d\'enregistrement pendant la confirmation d\'un déplacement (marche ou Écarts) s\'affichait hors de la fenêtre modale, donc invisible derrière le fond assombri — le message apparaît maintenant dans la fenêtre elle-même, avant les boutons',
+    ],
+  },
+  {
     version: '0.9.38',
     date: '2026-09-26',
     items: [

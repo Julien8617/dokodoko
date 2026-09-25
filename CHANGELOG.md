@@ -5,6 +5,10 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.39 — 2026-09-26
+
+- Un échec d'enregistrement pendant la confirmation d'un déplacement (marche ou Écarts) s'affichait hors de la fenêtre modale, donc invisible derrière le fond assombri — le message apparaît maintenant dans la fenêtre elle-même, avant les boutons
+
 ## 0.9.38 — 2026-09-26
 
 - Déplacement d'une saisie (marche et Écarts) : les deux écrans utilisent maintenant la même fenêtre de confirmation — comportement identique, sauf le texte de récapitulatif côté Écarts qui perd son style réduit/grisé et s'affiche désormais comme côté marche
