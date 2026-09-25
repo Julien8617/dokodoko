@@ -10,6 +10,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.42',
+    date: '2026-09-29',
+    items: [
+      'Taper le code complet d\'une référence inactive dans la marche reste accepté (des cartons devant soi restent un fait) — mais pose maintenant la question, avec réactivation proposée dans le même geste, comme pour une référence hors périmètre',
+    ],
+  },
+  {
     version: '0.9.41',
     date: '2026-09-29',
     items: [

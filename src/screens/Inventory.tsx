@@ -13,7 +13,9 @@ import {
   matchReferences,
   parseEmplacementCode,
   resolveEmplacementInput,
+  setReferenceActif,
 } from '../lib/db'
+import { refreshReferentielCache } from '../lib/referentielCache'
 import {
   abandonInventaire,
   addReferenceToScope,
@@ -495,12 +497,21 @@ interface PendingDuplicate extends EntryKey {
   existingPieces: number
 }
 
-// Saisie en attente de la confirmation d'extension de périmètre (spec
-// 2.54, point 2) — posée avant même la résolution du casier/comptage,
-// donc pas de `comptageId` ici contrairement à PendingDuplicate.
+// Saisie en attente d'une confirmation avant écriture pour une raison qui
+// n'est PAS un doublon (spec 2.54 point 2, généralisée spec 2.67 §6.2) —
+// posée avant même la résolution du casier/comptage, donc pas de
+// `comptageId` ici contrairement à PendingDuplicate. Un seul mécanisme pour
+// les deux raisons plutôt qu'un second pendingX + un second bloc JSX (spec
+// 2.67 : « si tu te retrouves à écrire une deuxième boîte de dialogue,
+// arrête-toi ») : les deux drapeaux peuvent être vrais ensemble (une
+// référence inactive ET hors périmètre), auquel cas les deux questions
+// s'affichent dans la même fenêtre et confirmScopeExtension résout les deux
+// avant d'écrire.
 interface PendingScopeExtension extends EntryKey {
   cartonsValue: number
   piecesValue: number
+  needsScopeExtension: boolean
+  needsReactivation: boolean
 }
 
 // Changement de casier en mode modification (spec 2.60 §6.5) : le casier du
@@ -1032,9 +1043,23 @@ function Walk({
       // tant que la référence n'est pas dans le périmètre, la question à
       // trancher est "appartient-elle à cet inventaire", pas "remplacer ou
       // ajouter".
-      if (inventaire.scope_kind === 'references' && scope && !scope.includes(code)) {
+      const needsScopeExtension = inventaire.scope_kind === 'references' && !!scope && !scope.includes(code)
+      // Référence inactive tapée en entier (spec 2.67 §6.2) : acceptée, pas
+      // refusée — des cartons devant soi sont un fait physique (§4), et un
+      // stock trouvé sur une référence censée être à zéro est une
+      // information, pas une erreur à taire. Même mécanisme que ci-dessus,
+      // pas un second : lu dans `allReferences` déjà chargé, jamais une
+      // relecture réseau. `allReferences` ne se rafraîchit qu'au montage de
+      // cet écran — potentiellement périmé si une désactivation a lieu
+      // ailleurs pendant la marche, mais sans conséquence pratique
+      // (advisor()) : une référence désactivée en cours de route resterait
+      // couverte par l'inventaire actif (activeInventaireCovering, spec
+      // 2.67 point 1), donc sa désactivation aurait de toute façon été
+      // refusée si elle appartenait au périmètre en cours.
+      const needsReactivation = allReferences.find((r) => r.code === code)?.actif === false
+      if (needsScopeExtension || needsReactivation) {
         setStatus({ kind: 'idle' })
-        setPendingScopeExtension({ ...key, cartonsValue, piecesValue })
+        setPendingScopeExtension({ ...key, cartonsValue, piecesValue, needsScopeExtension, needsReactivation })
         return
       }
 
@@ -1202,17 +1227,34 @@ function Walk({
     setStatus({ kind: 'idle' })
   }
 
-  // "Oui" à « ajouter au périmètre » (spec 2.54, point 2) : la référence
-  // entre dans inventaire_references, puis la saisie suit son chemin
-  // normal (contrôle de doublon inclus — une référence hors périmètre
-  // ajoutée peut très bien être une correction d'une saisie déjà là).
+  // "Oui" (spec 2.54 point 2, généralisée 2.67 §6.2) : résout chaque raison
+  // qui a posé la question — ajout au périmètre, réactivation, les deux à
+  // la fois si les deux drapeaux sont vrais — puis la saisie suit son
+  // chemin normal (contrôle de doublon inclus, une référence ajoutée ou
+  // réactivée peut très bien être une correction d'une saisie déjà là).
+  // Reconstruit `key` explicitement plutôt qu'un rest-spread : les deux
+  // drapeaux `needsX` sont des champs de PendingScopeExtension qu'EntryKey
+  // n'a pas, un rest-spread les aurait laissés traîner sans que tsc s'en
+  // plaigne (même piège que confirmPendingMove).
   async function confirmScopeExtension() {
     if (!pendingScopeExtension) return
-    const { cartonsValue, piecesValue, ...key } = pendingScopeExtension
+    const { cartonsValue, piecesValue, needsScopeExtension, needsReactivation } = pendingScopeExtension
+    const key: EntryKey = {
+      emplacementCode: pendingScopeExtension.emplacementCode,
+      refCode: pendingScopeExtension.refCode,
+      conditionnementId: pendingScopeExtension.conditionnementId,
+    }
     setStatus({ kind: 'saving' })
     try {
-      await addReferenceToScope(inventaire.id, key.refCode)
-      setReferencesScope((prev) => (prev ? [...prev, key.refCode] : [key.refCode]))
+      if (needsScopeExtension) {
+        await addReferenceToScope(inventaire.id, key.refCode)
+        setReferencesScope((prev) => (prev ? [...prev, key.refCode] : [key.refCode]))
+      }
+      if (needsReactivation) {
+        await setReferenceActif(key.refCode, true)
+        await refreshReferentielCache()
+        setAllReferences((prev) => prev.map((r) => (r.code === key.refCode ? { ...r, actif: true } : r)))
+      }
       setPendingScopeExtension(null)
       await checkDuplicateThenSave(key, cartonsValue, piecesValue)
     } catch (err) {
@@ -1405,6 +1447,7 @@ function Walk({
           <p className="quantity-formula">
             {matchedReference.code}
             {matchedReference.libelle ? ` — ${matchedReference.libelle}` : ''}
+            {!matchedReference.actif ? ` · ${t.catalogue.inactiveLabel}` : ''}
           </p>
         )}
         {conditionnements.length > 1 && (
@@ -1508,12 +1551,19 @@ function Walk({
       )}
 
       {/* Fenêtre modale sans `onClose` (spec 2.63 §6.5) : même raison que
-          pendingDuplicate ci-dessus — cette confirmation écrit. */}
+          pendingDuplicate ci-dessus — cette confirmation écrit. Les deux
+          paragraphes sont indépendants (spec 2.67 §6.2) : une référence
+          inactive ET hors périmètre affiche les deux, confirmScopeExtension
+          résout les deux avant d'écrire — un seul mécanisme, jamais deux
+          dialogues à la suite. */}
       {pendingScopeExtension && (
         <Modal>
-          <p>
-            {interpolate(t.inventory.scopeExtensionQuestion, { refCode: pendingScopeExtension.refCode })}
-          </p>
+          {pendingScopeExtension.needsReactivation && (
+            <p>{interpolate(t.inventory.inactiveReferenceQuestion, { refCode: pendingScopeExtension.refCode })}</p>
+          )}
+          {pendingScopeExtension.needsScopeExtension && (
+            <p>{interpolate(t.inventory.scopeExtensionQuestion, { refCode: pendingScopeExtension.refCode })}</p>
+          )}
           <button type="button" onClick={confirmScopeExtension} disabled={status.kind === 'saving'}>
             {t.common.confirm}
           </button>

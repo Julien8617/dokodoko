@@ -204,6 +204,7 @@ const en: Dictionary = {
     abandonButton: 'Abandon the inventory',
     printButton: 'Print',
     scopeExtensionQuestion: '{refCode} is not in this inventory’s scope. Add it?',
+    inactiveReferenceQuestion: '{refCode} is inactive. Continue and reactivate it?',
     scopeChecklistTitle: 'References to count',
     scopeOutOfPerimeter: 'out of scope',
     scopeAddButton: 'Add to scope',

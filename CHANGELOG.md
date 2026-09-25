@@ -5,6 +5,10 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.42 — 2026-09-29
+
+- Taper le code complet d'une référence inactive dans la marche reste accepté (des cartons devant soi restent un fait) — mais pose maintenant la question, avec réactivation proposée dans le même geste, comme pour une référence hors périmètre
+
 ## 0.9.41 — 2026-09-29
 
 - Un inventaire lancé par client ne retient plus les références inactives dans son périmètre — sinon le drapeau ne servirait à rien au comptage mensuel

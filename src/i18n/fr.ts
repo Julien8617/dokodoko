@@ -204,6 +204,7 @@ const fr: Dictionary = {
     abandonButton: 'Abandonner l’inventaire',
     printButton: 'Imprimer',
     scopeExtensionQuestion: '{refCode} n’est pas dans le périmètre de cet inventaire. L’ajouter ?',
+    inactiveReferenceQuestion: '{refCode} est inactive. Continuer et la réactiver ?',
     scopeChecklistTitle: 'Références à compter',
     scopeOutOfPerimeter: 'hors périmètre',
     scopeAddButton: 'Ajouter au périmètre',

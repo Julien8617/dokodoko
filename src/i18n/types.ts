@@ -288,6 +288,11 @@ export interface Dictionary {
     // cible l'emplacement, jamais une référence hors périmètre — proposer
     // d'étendre, jamais enregistrer en silence.
     scopeExtensionQuestion: string // {refCode}
+    // Référence inactive tapée en entier dans la marche (spec 2.67 §6.2) :
+    // acceptée, jamais refusée (§4, fait physique) — mais pas en silence.
+    // Même mécanisme que scopeExtensionQuestion ci-dessus, peut s'afficher
+    // avec elle dans la même fenêtre.
+    inactiveReferenceQuestion: string // {refCode}
     // Rappel des références à compter, en inventaire partiel uniquement —
     // jamais "terminée", jamais l'emplacement attendu (ce serait le
     // théorique, donc compter vers une cible), et depuis spec 2.58 §6.5

@@ -204,6 +204,7 @@ const ja: Dictionary = {
     abandonButton: '棚卸を中止する',
     printButton: '印刷',
     scopeExtensionQuestion: '{refCode} はこの棚卸の対象外です。追加しますか？',
+    inactiveReferenceQuestion: '{refCode} は無効化されています。続けて再有効化しますか？',
     scopeChecklistTitle: '対象品番一覧',
     scopeOutOfPerimeter: '対象外',
     scopeAddButton: '対象に追加',
