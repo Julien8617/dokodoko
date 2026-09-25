@@ -10,6 +10,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.38',
+    date: '2026-09-26',
+    items: [
+      'Déplacement d\'une saisie (marche et Écarts) : les deux écrans utilisent maintenant la même fenêtre de confirmation — comportement identique, sauf le texte de récapitulatif côté Écarts qui perd son style réduit/grisé et s\'affiche désormais comme côté marche',
+    ],
+  },
+  {
     version: '0.9.37',
     date: '2026-09-24',
     items: [

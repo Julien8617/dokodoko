@@ -5,6 +5,10 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.38 — 2026-09-26
+
+- Déplacement d'une saisie (marche et Écarts) : les deux écrans utilisent maintenant la même fenêtre de confirmation — comportement identique, sauf le texte de récapitulatif côté Écarts qui perd son style réduit/grisé et s'affiche désormais comme côté marche
+
 ## 0.9.37 — 2026-09-24
 
 - Déplacer une saisie en modifiant aussi sa quantité (dans la marche) : la confirmation nomme maintenant les deux changements — "Quantité : 4 → 2 cartons" — au lieu de taire silencieusement le changement de quantité

@@ -557,6 +557,109 @@ function moveQuantityChangeLabel(move: PendingMove, t: Dictionary): string | nul
   return null
 }
 
+// Construit un PendingMove (spec 2.66 point 4 ter) : fonction partagée entre
+// la marche et les Écarts, seule la source de `existingAtTarget` diffère
+// (`saisies` d'un côté, `ref.parEmplacement` de l'autre — les deux appelants
+// font eux-mêmes cette recherche et ne passent ici que son résultat).
+function buildPendingMove(params: {
+  key: EntryKey
+  fromEmplacementCode: string
+  cartonsValue: number
+  piecesValue: number
+  originalCartons: number
+  originalPieces: number
+  existingAtTarget: { cartons: number; pieces: number } | undefined
+}): PendingMove {
+  return {
+    ...params.key,
+    fromEmplacementCode: params.fromEmplacementCode,
+    cartonsValue: params.cartonsValue,
+    piecesValue: params.piecesValue,
+    originalCartons: params.originalCartons,
+    originalPieces: params.originalPieces,
+    collision: params.existingAtTarget
+      ? { existingCartons: params.existingAtTarget.cartons, existingPieces: params.existingAtTarget.pieces }
+      : undefined,
+  }
+}
+
+// Quantité réellement écrite (spec 2.62 §6.5, "ajouter" somme sur l'état
+// local déjà connu, jamais une relecture serveur) — partagée entre la
+// marche et les Écarts.
+function computeMoveFinalQuantity(
+  move: PendingMove,
+  mode: 'remplacer' | 'ajouter' | undefined,
+): { cartons: number; pieces: number } {
+  if (mode === 'ajouter' && move.collision) {
+    return {
+      cartons: move.cartonsValue + move.collision.existingCartons,
+      pieces: move.piecesValue + move.collision.existingPieces,
+    }
+  }
+  return { cartons: move.cartonsValue, pieces: move.piecesValue }
+}
+
+// Composant de confirmation partagé entre la marche et les Écarts (spec 2.66
+// point 4 ter) : avant ce commit, deux copies alignées à la main avaient déjà
+// produit deux défauts distincts (spec 2.62, 2.64 §6.5). Fenêtre modale sans
+// `onClose` (spec 2.64 §6.5) : cette confirmation écrit, elle exige un choix
+// explicite par bouton. Ligne de quantité (spec 2.65 §6.5) affichée
+// seulement si elle change — toujours absente côté Écarts, qui n'a pas de
+// champ de quantité, `originalCartons`/`originalPieces` y valant toujours
+// `cartonsValue`/`piecesValue`.
+function MoveConfirmDialog({
+  move,
+  t,
+  saving,
+  onConfirm,
+  onCancel,
+}: {
+  move: PendingMove
+  t: Dictionary
+  saving: boolean
+  onConfirm: (mode?: 'remplacer' | 'ajouter') => void
+  onCancel: () => void
+}) {
+  const quantityChange = moveQuantityChangeLabel(move, t)
+  return (
+    <Modal>
+      <p>
+        {interpolate(t.inventory.moveConfirm, {
+          refCode: move.refCode,
+          from: move.fromEmplacementCode,
+          to: move.emplacementCode,
+        })}
+      </p>
+      {quantityChange && <p>{quantityChange}</p>}
+      {move.collision ? (
+        <>
+          <p>
+            {interpolate(t.inventory.moveCollisionExisting, {
+              emplacement: move.emplacementCode,
+              cartons: move.collision.existingCartons,
+              pieces: move.collision.existingPieces,
+            })}
+          </p>
+          <button type="button" onClick={() => onConfirm('ajouter')} disabled={saving}>
+            {t.inventory.addEntry} ({move.cartonsValue + move.collision.existingCartons}c +{' '}
+            {move.piecesValue + move.collision.existingPieces}p)
+          </button>
+          <button type="button" onClick={() => onConfirm('remplacer')} disabled={saving}>
+            {t.inventory.replaceEntry} ({move.cartonsValue}c + {move.piecesValue}p)
+          </button>
+        </>
+      ) : (
+        <button type="button" onClick={() => onConfirm()} disabled={saving}>
+          {t.common.confirm}
+        </button>
+      )}
+      <button type="button" className="back-link" onClick={onCancel} disabled={saving}>
+        {t.common.cancel}
+      </button>
+    </Modal>
+  )
+}
+
 // Suggestions du champ casier, partagées entre la saisie (marche) et la
 // boîte de déplacement (écarts) — spec 2.60 §6.5 : "un composant recopié
 // perd ses correctifs un par un". Entrée déjà complète (tirets posés, ou
@@ -931,19 +1034,21 @@ function Walk({
         // `saisies` (état local), jamais une relecture serveur — même
         // règle que resolveDuplicate, et pour la même raison.
         const existing = saisies.find((s) => sameKey(s, key))
-        setPendingMove({
-          ...key,
-          fromEmplacementCode: editingKey.emplacementCode,
-          cartonsValue,
-          piecesValue,
-          // Capturée à l'ouverture du mode modification (editEntry), jamais
-          // redérivée de `saisies` ici — cette ligne peut avoir disparu de
-          // l'état local entre-temps (spec 2.65 §6.5, voir commentaire sur
-          // `editingOriginalQuantity`).
-          originalCartons: editingOriginalQuantity?.cartons ?? cartonsValue,
-          originalPieces: editingOriginalQuantity?.pieces ?? piecesValue,
-          collision: existing ? { existingCartons: existing.cartons, existingPieces: existing.pieces } : undefined,
-        })
+        setPendingMove(
+          buildPendingMove({
+            key,
+            fromEmplacementCode: editingKey.emplacementCode,
+            cartonsValue,
+            piecesValue,
+            // Capturée à l'ouverture du mode modification (editEntry), jamais
+            // redérivée de `saisies` ici — cette ligne peut avoir disparu de
+            // l'état local entre-temps (spec 2.65 §6.5, voir commentaire sur
+            // `editingOriginalQuantity`).
+            originalCartons: editingOriginalQuantity?.cartons ?? cartonsValue,
+            originalPieces: editingOriginalQuantity?.pieces ?? piecesValue,
+            existingAtTarget: existing ? { cartons: existing.cartons, pieces: existing.pieces } : undefined,
+          }),
+        )
         return
       }
 
@@ -1114,7 +1219,6 @@ function Walk({
     // Reconstruit explicitement plutôt qu'un rest-spread : PendingMove porte
     // des champs qu'EntryKey n'a pas, un rest-spread les aurait laissés
     // traîner dans `key` sans que tsc s'en plaigne (assignable, pas exact).
-    const { cartonsValue, piecesValue, collision } = pendingMove
     const key: EntryKey = {
       emplacementCode: pendingMove.emplacementCode,
       refCode: pendingMove.refCode,
@@ -1122,10 +1226,7 @@ function Walk({
     }
     setStatus({ kind: 'saving' })
     try {
-      // "Ajouter" somme sur la valeur locale déjà connue (spec 2.62 §6.5),
-      // jamais une relecture serveur — même règle que resolveDuplicate.
-      const finalCartons = mode === 'ajouter' && collision ? cartonsValue + collision.existingCartons : cartonsValue
-      const finalPieces = mode === 'ajouter' && collision ? piecesValue + collision.existingPieces : piecesValue
+      const { cartons: finalCartons, pieces: finalPieces } = computeMoveFinalQuantity(pendingMove, mode)
       await commitSave(key, finalCartons, finalPieces)
       setPendingMove(null)
     } catch (err) {
@@ -1407,64 +1508,18 @@ function Walk({
         </Modal>
       )}
 
-      {/* Déplacement en mode modification (spec 2.60 §6.5). Une collision à
-          la destination fusionne les deux questions en un seul écran (spec
-          2.62 §6.5) : déplacer puis "remplacer ou ajouter ?" enchaînés
-          feraient confirmer un déplacement avant d'en connaître la
-          conséquence, pour un choix qui n'en est qu'un seul. Totaux
-          calculés et affichés sur les boutons — personne ne fait
-          d'arithmétique debout dans une allée. Annuler n'écrit rien, les
-          deux lignes restent telles quelles. Modale sans `onClose` (spec
-          2.64 §6.5) : défaut du 24 septembre, les boutons s'affichaient
-          hors écran ; une confirmation qui écrit exige un choix explicite,
-          pas un toucher imprécis à côté. Quantité corrigeable dans le même
-          geste (spec 2.65 §6.5) : la marche passe par le formulaire de
-          saisie, dont les champs restent éditables pendant un déplacement,
-          contrairement aux Écarts qui n'ont pas de champ de quantité — la
-          confirmation nomme alors les deux changements plutôt que de taire
-          le second ; la ligne de quantité ne s'affiche que si elle change,
-          et s'ajoute au bloc de collision sans le remplacer. */}
+      {/* Déplacement en mode modification (spec 2.60 §6.5) — confirmation
+          rendue par le composant partagé MoveConfirmDialog (spec 2.66 point
+          4 ter), commun à la marche et aux Écarts. Voir le commentaire sur
+          MoveConfirmDialog pour le détail des règles qu'il applique. */}
       {pendingMove && (
-        <Modal>
-          <p>
-            {interpolate(t.inventory.moveConfirm, {
-              refCode: pendingMove.refCode,
-              from: pendingMove.fromEmplacementCode,
-              to: pendingMove.emplacementCode,
-            })}
-          </p>
-          {moveQuantityChangeLabel(pendingMove, t) && <p>{moveQuantityChangeLabel(pendingMove, t)}</p>}
-          {pendingMove.collision ? (
-            <>
-              <p>
-                {interpolate(t.inventory.moveCollisionExisting, {
-                  emplacement: pendingMove.emplacementCode,
-                  cartons: pendingMove.collision.existingCartons,
-                  pieces: pendingMove.collision.existingPieces,
-                })}
-              </p>
-              <button type="button" onClick={() => confirmPendingMove('ajouter')} disabled={status.kind === 'saving'}>
-                {t.inventory.addEntry} (
-                {pendingMove.cartonsValue + pendingMove.collision.existingCartons}c +{' '}
-                {pendingMove.piecesValue + pendingMove.collision.existingPieces}p)
-              </button>
-              <button
-                type="button"
-                onClick={() => confirmPendingMove('remplacer')}
-                disabled={status.kind === 'saving'}
-              >
-                {t.inventory.replaceEntry} ({pendingMove.cartonsValue}c + {pendingMove.piecesValue}p)
-              </button>
-            </>
-          ) : (
-            <button type="button" onClick={() => confirmPendingMove()} disabled={status.kind === 'saving'}>
-              {t.common.confirm}
-            </button>
-          )}
-          <button type="button" className="back-link" onClick={cancelPendingMove} disabled={status.kind === 'saving'}>
-            {t.common.cancel}
-          </button>
-        </Modal>
+        <MoveConfirmDialog
+          move={pendingMove}
+          t={t}
+          saving={status.kind === 'saving'}
+          onConfirm={confirmPendingMove}
+          onCancel={cancelPendingMove}
+        />
       )}
 
       {saisies.length > 0 && (
@@ -1615,20 +1670,15 @@ function Ecarts({
   // à zéro à chaque ouverture/fermeture de panneau (voir toggleEdit).
   const [deleteArmed, setDeleteArmed] = useState(false)
   // Déplacement d'une saisie vers un autre casier (spec 2.58 §6.5) :
-  // moveTarget est la saisie brute, moveConfirmTarget le code résolu et
-  // validé — non nul seulement une fois le format vérifié, ce qui déclenche
-  // l'affichage du récapitulatif de confirmation.
+  // moveTarget est la saisie brute ; pendingMove, construit par
+  // buildPendingMove une fois le casier validé, porte le récapitulatif ET
+  // la collision de destination éventuelle (spec 2.66 point 4 ter — même
+  // type et même composant de confirmation que la marche, `MoveConfirmDialog`
+  // ; seule la source des données diffère : `ref.parEmplacement` ici,
+  // `saisies` côté marche).
   const [movingLigneId, setMovingLigneId] = useState<string | null>(null)
   const [moveTarget, setMoveTarget] = useState('')
-  const [moveConfirmTarget, setMoveConfirmTarget] = useState<string | null>(null)
-  // Collision de destination (spec 2.62 §6.5, même règle que la marche —
-  // un déplacement qui entre en collision ne pose qu'une seule question,
-  // peu importe l'écran) : casier déjà compté pour ce triplet, calculé au
-  // moment de la validation du casier cible depuis `ref.parEmplacement`
-  // déjà chargé, jamais une nouvelle requête.
-  const [moveCollision, setMoveCollision] = useState<
-    { existingCartons: number; existingPieces: number } | undefined
-  >(undefined)
+  const [pendingMove, setPendingMove] = useState<PendingMove | null>(null)
   const [moveStatus, setMoveStatus] = useState<
     { kind: 'idle' } | { kind: 'saving' } | { kind: 'error'; message: string }
   >({ kind: 'idle' })
@@ -1811,56 +1861,61 @@ function Ecarts({
   function startMove(l: SyntheseLigneEmplacement) {
     setMovingLigneId(l.ligneId)
     setMoveTarget('')
-    setMoveConfirmTarget(null)
-    setMoveCollision(undefined)
+    setPendingMove(null)
     setMoveStatus({ kind: 'idle' })
   }
 
   function cancelMove() {
     setMovingLigneId(null)
     setMoveTarget('')
-    setMoveConfirmTarget(null)
-    setMoveCollision(undefined)
+    setPendingMove(null)
     setMoveStatus({ kind: 'idle' })
   }
 
-  function validateMoveTarget(ref: SyntheseReference, currentEmplacement: string) {
+  function validateMoveTarget(ref: SyntheseReference, l: SyntheseLigneEmplacement) {
     const typed = moveTarget.trim().toUpperCase()
     const targetCode = parseEmplacementCode(typed) ? typed : resolveEmplacementInput(typed) ?? typed
     if (!targetCode || !parseEmplacementCode(targetCode)) {
       setMoveStatus({ kind: 'error', message: t.inventory.invalidEmplacement })
       return
     }
-    if (targetCode === currentEmplacement) {
+    if (targetCode === l.emplacementCode) {
       setMoveStatus({ kind: 'error', message: t.inventory.moveSameEmplacement })
       return
     }
     setMoveStatus({ kind: 'idle' })
-    setMoveConfirmTarget(targetCode)
     const existing = ref.parEmplacement.find((x) => x.emplacementCode === targetCode && x.compte !== null)
-    setMoveCollision(
-      existing ? { existingCartons: existing.cartons ?? 0, existingPieces: existing.pieces ?? 0 } : undefined,
+    // Écarts n'a pas de champ de quantité (spec 2.65 §6.5) : original =
+    // valeur déplacée, donc moveQuantityChangeLabel ne s'affiche jamais ici
+    // — pas un cas particulier, une conséquence de valeurs égales.
+    setPendingMove(
+      buildPendingMove({
+        key: { emplacementCode: targetCode, refCode: ref.refCode, conditionnementId: ref.conditionnementId },
+        fromEmplacementCode: l.emplacementCode,
+        cartonsValue: l.cartons ?? 0,
+        piecesValue: l.pieces ?? 0,
+        originalCartons: l.cartons ?? 0,
+        originalPieces: l.pieces ?? 0,
+        existingAtTarget: existing ? { cartons: existing.cartons ?? 0, pieces: existing.pieces ?? 0 } : undefined,
+      }),
     )
   }
 
   async function confirmMove(ref: SyntheseReference, l: SyntheseLigneEmplacement, mode?: 'remplacer' | 'ajouter') {
-    if (!auteur || !l.comptageId || !moveConfirmTarget) return
+    if (!auteur || !l.comptageId || !pendingMove) return
     const ligneId = crypto.randomUUID()
     const ligneTs = new Date().toISOString()
     setMoveStatus({ kind: 'saving' })
     try {
-      await ensureEmplacement(moveConfirmTarget)
-      const finalCartons =
-        mode === 'ajouter' && moveCollision ? (l.cartons ?? 0) + moveCollision.existingCartons : l.cartons ?? 0
-      const finalPieces =
-        mode === 'ajouter' && moveCollision ? (l.pieces ?? 0) + moveCollision.existingPieces : l.pieces ?? 0
+      await ensureEmplacement(pendingMove.emplacementCode)
+      const { cartons: finalCartons, pieces: finalPieces } = computeMoveFinalQuantity(pendingMove, mode)
       await moveCasierLigne(
         inventaire.id,
         ligneId,
         ligneTs,
         { comptageId: l.comptageId, refCode: ref.refCode, conditionnementId: ref.conditionnementId },
         {
-          emplacementCode: moveConfirmTarget,
+          emplacementCode: pendingMove.emplacementCode,
           refCode: ref.refCode,
           conditionnementId: ref.conditionnementId,
           cartons: finalCartons,
@@ -2022,11 +2077,11 @@ function Ecarts({
                           relocalisé. Champ casier partagé avec la saisie
                           (ComboInput + emplacementFieldSuggestions, spec
                           2.60 §6.5) — un champ recopié perd ses correctifs
-                          un par un. Collision de destination (spec 2.62
-                          §6.5, même règle que la marche) détectée dès la
-                          validation du casier cible, dans une modale sans
-                          `onClose` (spec 2.64 §6.5) — une confirmation qui
-                          écrit exige un choix explicite. */}
+                          un par un. Confirmation rendue par le composant
+                          partagé MoveConfirmDialog (spec 2.66 point 4 ter),
+                          commun à la marche et aux Écarts — seule la source
+                          de la collision diffère (`ref.parEmplacement` ici,
+                          `saisies` côté marche). */}
                       {movingLigneId === l.ligneId ? (
                         <div className="settings-form">
                           <label className="field-label">
@@ -2035,74 +2090,29 @@ function Ecarts({
                               value={moveTarget}
                               onChange={(value) => {
                                 setMoveTarget(value)
-                                setMoveConfirmTarget(null)
+                                setPendingMove(null)
                               }}
                               suggestions={emplacementFieldSuggestions(moveTarget, knownEmplacements)}
                               placeholder={t.inventory.casierPlaceholder}
                               disabled={moveStatus.kind === 'saving'}
                             />
                           </label>
-                          {!moveConfirmTarget ? (
+                          {!pendingMove ? (
                             <button
                               type="button"
-                              onClick={() => validateMoveTarget(ref, l.emplacementCode)}
+                              onClick={() => validateMoveTarget(ref, l)}
                               disabled={!moveTarget.trim() || moveStatus.kind === 'saving'}
                             >
                               {t.common.validate}
                             </button>
                           ) : (
-                            <Modal>
-                              <p className="quantity-formula">
-                                {interpolate(t.inventory.moveConfirm, {
-                                  refCode: ref.refCode,
-                                  from: l.emplacementCode,
-                                  to: moveConfirmTarget,
-                                })}
-                              </p>
-                              {moveCollision ? (
-                                <>
-                                  <p className="quantity-formula">
-                                    {interpolate(t.inventory.moveCollisionExisting, {
-                                      emplacement: moveConfirmTarget,
-                                      cartons: moveCollision.existingCartons,
-                                      pieces: moveCollision.existingPieces,
-                                    })}
-                                  </p>
-                                  <button
-                                    type="button"
-                                    onClick={() => confirmMove(ref, l, 'ajouter')}
-                                    disabled={moveStatus.kind === 'saving'}
-                                  >
-                                    {t.inventory.addEntry} (
-                                    {(l.cartons ?? 0) + moveCollision.existingCartons}c +{' '}
-                                    {(l.pieces ?? 0) + moveCollision.existingPieces}p)
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => confirmMove(ref, l, 'remplacer')}
-                                    disabled={moveStatus.kind === 'saving'}
-                                  >
-                                    {t.inventory.replaceEntry} ({l.cartons ?? 0}c + {l.pieces ?? 0}p)
-                                  </button>
-                                </>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => confirmMove(ref, l)}
-                                  disabled={moveStatus.kind === 'saving'}
-                                >
-                                  {t.common.confirm}
-                                </button>
-                              )}
-                              <button
-                                type="button"
-                                className="back-link"
-                                onClick={cancelMove}
-                                disabled={moveStatus.kind === 'saving'}
-                              >
-                                {t.common.cancel}
-                              </button>
-                            </Modal>
+                            <MoveConfirmDialog
+                              move={pendingMove}
+                              t={t}
+                              saving={moveStatus.kind === 'saving'}
+                              onConfirm={(mode) => confirmMove(ref, l, mode)}
+                              onCancel={cancelMove}
+                            />
                           )}
                           {moveStatus.kind === 'error' && <p className="form-status form-error">{moveStatus.message}</p>}
                         </div>
