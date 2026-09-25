@@ -65,7 +65,9 @@ Concordance sur les cinq lignes : la sauvegarde est prouvée. Un seul écart : e
 ## Ce que la sauvegarde ne couvre pas
 
 - **Les comptes de connexion** (schéma `auth`). Sans conséquence : l'authentification se fait par code envoyé par e-mail, et le droit d'entrer vient de la table `autorises`, qui est dans `public`, donc sauvegardée. Une reconnexion recrée le compte.
-- **Les changements de schéma passés à la main** dans l'éditeur SQL sans migration correspondante — les trois policies `DELETE` du 21 septembre en sont l'exemple. Le dump les emporte, mais reconstruire une base neuve depuis les seules migrations du dépôt les oublierait. **Toute modification de schéma doit exister sous forme de migration committée.**
+- **Les changements de schéma passés à la main** dans l'éditeur SQL sans migration correspondante. Le dump les emporte, mais reconstruire une base neuve depuis les seules migrations du dépôt les oublierait. **Toute modification de schéma doit exister sous forme de migration committée.**
+
+  *Correction du 29 septembre.* Une version antérieure de ce document citait les trois policies `DELETE` du 21 septembre comme exemple. C'était faux : leur migration existait déjà, committée le 19 septembre, et les policies actives en base correspondent exactement à ce fichier. Ce qui a été manuel ce jour-là, c'est l'**application** de la migration, pas sa définition. La leçon est d'ailleurs plus utile ainsi : **un fichier de migration dans le dépôt ne prouve pas qu'il a été appliqué, et une structure présente en base ne prouve pas qu'elle est décrite quelque part.** Les deux se vérifient en comparant la base aux migrations — pour les policies, `select tablename, policyname, cmd from pg_policies where schemaname='public'` en regard des fichiers du dossier `supabase/migrations`.
 
 ## Les deux pièges à ne jamais oublier
 

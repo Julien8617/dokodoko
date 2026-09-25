@@ -1,6 +1,6 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.66 — 26 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.67 — 29 septembre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -473,6 +473,8 @@ Confirmation simple avec récapitulatif — « Déplacer REU003 de A-02-1 vers A
 
 Défaut constaté le 19 septembre sur un inventaire à périmètre `references` : toutes les références apparaissent dans les suggestions, rien ne rappelle celles à compter, et une référence hors périmètre a pu être saisie. C'est le cas d'usage de chaque vendredi — le comptage hebdomadaire porte sur les références sorties dans la semaine.
 
+**Une référence inactive tapée en entier est acceptée, avec une question.** Le champ libre de la marche ne la refuse pas : si l'opérateur a des cartons devant lui, c'est un fait physique, et le module n'a jamais le droit de refuser un fait physique (§4). Une référence marquée inactive porte en principe un stock nul — en trouver signifie donc soit que la désactivation était fautive, soit qu'un mouvement a échappé au système. Les deux sont des informations, pas des erreurs, et les taire les détruirait. La saisie déclenche donc la **même forme de question que la référence hors périmètre** : nommer l'état, demander confirmation, et proposer la réactivation dans le même geste. Pas un second mécanisme : le même.
+
 La saisie libre reste la règle du module, parce qu'elle seule révèle une palette déplacée. Mais elle vise **l'emplacement** : une référence du périmètre trouvée dans un casier inattendu. Une référence **hors périmètre** est une autre question — non pas où elle se trouve, mais si elle appartient à cet inventaire.
 
 **1. Suggestions filtrées au périmètre.** En inventaire partiel, la liste déroulante ne propose que les références du périmètre. Le champ reste libre : un code tapé en entier est toujours accepté, ce qui préserve le principe des suggestions jamais restrictives. Taper un code complet est déjà un geste délibéré.
@@ -663,6 +665,8 @@ Manque révélé le 18 septembre : les Réglages sont un entonnoir en écriture 
 
 - Une référence inactive disparaît des sélecteurs de saisie — mouvement, comptage — mais reste visible dans la Recherche (signalée comme telle), dans l'historique et dans les exports. Rien n'est jamais supprimé.
 - Réactivable à tout moment.
+- **Une référence inactive sort des périmètres construits automatiquement.** Un inventaire lancé par client compose son périmètre depuis le catalogue de ce client : il ne retient que les références actives. Sans ce filtre, le drapeau ne servirait à rien le jour où le comptage se lance par client — c'est-à-dire au comptage mensuel — et la référence écartée des sélecteurs reviendrait par la porte du rappel « références à compter ». Un périmètre choisi **référence par référence** reste libre : l'utilisateur qui désigne explicitement une inactive sait ce qu'il fait.
+- **Désactivation refusée tant qu'un inventaire en cours couvre la référence**, au même titre que le stock non nul. Le périmètre d'un inventaire ne doit pas rétrécir sous les pieds de celui qui compte : c'est la même règle que le gel du stock théorique au `frozen_ts`. Comme un seul inventaire peut être ouvert à la fois, le contrôle est immédiat. Message nommant l'inventaire concerné, et la désactivation redevient possible dès sa clôture ou son abandon.
 - **Désactivation refusée tant que le stock n'est pas nul**, avec le stock affiché. Ce n'est pas un fait physique que l'on refuserait (§4) mais un acte administratif : une référence inactive qui porte du stock sortirait des périmètres d'inventaire, et ce stock cesserait d'être compté sans que personne le voie.
 
 ## 7. Imports en masse et saisie manuelle
