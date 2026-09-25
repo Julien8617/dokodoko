@@ -1,6 +1,6 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.67 — 29 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.68 — 29 septembre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -661,7 +661,9 @@ Manque révélé le 18 septembre : les Réglages sont un entonnoir en écriture 
 - Fiche de référence : attributs descriptifs modifiables, code non modifiable, suppression proposée seulement si aucun mouvement ni ligne de comptage ne la référence (§4).
 - C'est ici qu'atterriront `code_tarifaire`, `famille_melange` et les dimensions du carton quand leurs tables existeront. Le Catalogue est le bon foyer pour ces champs — les Réglages ne l'étaient pas.
 
-**Référence inactive.** Avec le temps, les références abandonnées et les codes mal saisis encombrent tous les sélecteurs. Un drapeau `actif` les en retire sans rien effacer. C'est le mécanisme de retrait du module, et il n'y en a pas d'autre : **une référence qu'une ligne de comptage référence ne se supprime pas, elle s'archive.** L'abandon d'un inventaire ne libère pas ses références — il marque un inventaire, il n'efface pas ses lignes. Toute idée de « mode test » séparé retombe ici : l'unité d'isolement du module est l'inventaire pour les comptages, et le drapeau `actif` pour les références. Un interrupteur global dans les Réglages ajouterait un état caché qui change le sens de chaque geste, et dont l'oubli coûte soit un comptage réel perdu, soit une base polluée.
+**Référence inactive.** Avec le temps, les références abandonnées et les codes mal saisis encombrent tous les sélecteurs. Un drapeau `actif` les en retire sans rien effacer.
+
+**L'invariant du drapeau : une référence inactive porte un stock nul.** C'est lui qui justifie toutes les règles qui suivent, et aucune n'a de sens sans lui. Le refus de désactiver tant que le stock n'est pas nul garde l'invariant à l'entrée. La **réactivation automatique** quand un comptage donne du stock à une inactive le garde à la sortie : compter quatre cartons sur une référence désactivée et la laisser désactivée fabriquerait par la porte de derrière exactement l'état que la porte d'entrée interdit. La réactivation n'est donc pas une commodité offerte à l'opérateur, c'est ce qui empêche la règle de devenir fausse — et la confirmation doit l'annoncer, puisqu'une fenêtre qui écrit nomme ses conséquences (§6.5). C'est le mécanisme de retrait du module, et il n'y en a pas d'autre : **une référence qu'une ligne de comptage référence ne se supprime pas, elle s'archive.** L'abandon d'un inventaire ne libère pas ses références — il marque un inventaire, il n'efface pas ses lignes. Toute idée de « mode test » séparé retombe ici : l'unité d'isolement du module est l'inventaire pour les comptages, et le drapeau `actif` pour les références. Un interrupteur global dans les Réglages ajouterait un état caché qui change le sens de chaque geste, et dont l'oubli coûte soit un comptage réel perdu, soit une base polluée.
 
 - Une référence inactive disparaît des sélecteurs de saisie — mouvement, comptage — mais reste visible dans la Recherche (signalée comme telle), dans l'historique et dans les exports. Rien n'est jamais supprimé.
 - Réactivable à tout moment.
