@@ -251,6 +251,10 @@ export default function Search({ onBack }: { onBack: () => void }) {
         <h2>
           {searchedReference.code}
           {searchedReference.libelle ? ` — ${searchedReference.libelle}` : ''}
+          {/* Référence inactive (spec 2.66 point 4 bis) : reste consultable
+              ici, avec mention de son état — seuls les sélecteurs de
+              saisie (Mouvement, Inventaire) la retirent. */}
+          {!searchedReference.actif ? ` · ${t.catalogue.inactiveLabel}` : ''}
         </h2>
       )}
 

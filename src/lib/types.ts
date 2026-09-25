@@ -4,6 +4,11 @@ export interface Reference {
   code: string
   libelle: string | null
   client_code: string
+  // Spec 2.66 point 4 bis : retire la référence des sélecteurs de saisie
+  // (Mouvement, Inventaire) sans rien effacer — reste visible dans la
+  // Recherche, l'historique et les exports, avec une mention de son état.
+  // Réactivable à tout moment.
+  actif: boolean
 }
 
 export interface Client {

@@ -1,0 +1,13 @@
+-- Drapeau `actif` sur les références (spec 2.66 point 4 bis, remonté de la
+-- phase 2 le 24 septembre) : une référence de test comptée porte une ligne
+-- de comptage (comptage_lignes), elle n'est donc pas supprimable (§4,
+-- deleteReference) — et l'abandon d'un inventaire ne change rien, il n'efface
+-- pas ses lignes (§4, "aucune modification, aucune suppression"). Sans
+-- archivage, ces références restent dans tous les sélecteurs de saisie
+-- indéfiniment.
+--
+-- La règle « désactivation refusée tant que le stock n'est pas nul » reste
+-- appliquée côté application (db.ts), pas en base — même choix que le
+-- contrôle d'usage de deleteReference : une règle administrative, pas une
+-- immuabilité d'audit.
+alter table "references" add column actif boolean not null default true;

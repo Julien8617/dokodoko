@@ -89,7 +89,7 @@ function persist() {
 export async function refreshReferentielCache(): Promise<boolean> {
   try {
     const [references, emplacements, clients, conditionnements, stock] = await Promise.all([
-      supabase.from('references').select('code, libelle, client_code'),
+      supabase.from('references').select('code, libelle, client_code, actif'),
       supabase.from('emplacements').select('code, zone, baie, niveau, ordre'),
       supabase.from('clients').select('code, nom'),
       supabase.from('conditionnements').select('id, ref_code, pieces_par_carton, libelle_court, a_ecouler'),

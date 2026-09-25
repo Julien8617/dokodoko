@@ -10,6 +10,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.40',
+    date: '2026-09-26',
+    items: [
+      'Une référence peut être marquée inactive depuis sa fiche du Catalogue : elle disparaît des sélecteurs de saisie (Mouvement, Inventaire) mais reste consultable, avec sa mention d\'état, dans la Recherche et le Catalogue — réactivable à tout moment, refusée tant que du stock existe',
+    ],
+  },
+  {
     version: '0.9.39',
     date: '2026-09-26',
     items: [

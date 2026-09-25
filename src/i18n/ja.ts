@@ -219,6 +219,10 @@ const ja: Dictionary = {
     usageBlocking: '削除不可 — 入出庫 {mouvements} 件、棚卸行 {comptageLignes} 件。',
     deleteButton: '削除',
     deleteArmed: 'もう一度タップして確定',
+    inactiveLabel: '無効',
+    activateButton: '再有効化',
+    deactivateButton: '無効化',
+    deactivateBlocked: '無効化できません — 在庫が0ではありません（{stock} ピース）。',
   },
 }
 

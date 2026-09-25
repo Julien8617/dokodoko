@@ -219,6 +219,10 @@ const en: Dictionary = {
     usageBlocking: 'Cannot delete — {mouvements} movement(s), {comptageLignes} count line(s).',
     deleteButton: 'Delete',
     deleteArmed: 'Tap again to confirm',
+    inactiveLabel: 'Inactive',
+    activateButton: 'Reactivate',
+    deactivateButton: 'Deactivate',
+    deactivateBlocked: 'Cannot deactivate — stock is not zero ({stock} pieces).',
   },
 }
 

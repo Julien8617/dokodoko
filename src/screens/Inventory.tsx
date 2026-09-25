@@ -857,10 +857,18 @@ function Walk({
   // un code tapé en entier est toujours accepté (voir handleSave, qui
   // propose d'étendre le périmètre plutôt que de refuser). Sans objet sur
   // un inventaire complet ou par client (`referencesScope` reste undefined).
-  const suggestableReferences =
+  // Référence inactive (spec 2.66 point 4 bis) : retirée des suggestions,
+  // jamais de `allReferences` lui-même — une saisie déjà comptée sur une
+  // référence depuis désactivée doit garder son libellé dans la liste des
+  // saisies et le rappel de périmètre (lignes 1461/1545 plus bas), qui
+  // lisent `allReferences` directement. Un code tapé en entier reste
+  // accepté (même règle que le périmètre partiel ci-dessus) : la
+  // désactivation retire du sélecteur, elle ne bloque pas la saisie.
+  const suggestableReferences = (
     inventaire.scope_kind === 'references' && referencesScope
       ? allReferences.filter((r) => referencesScope.includes(r.code))
       : allReferences
+  ).filter((r) => r.actif)
 
   // matchReferences (db.ts) : code ("65"/"265"/"REU26" trouvent "REU265",
   // pas seulement au clavier chiffres) ET libellé par jetons normalisés
@@ -1972,7 +1980,7 @@ function Ecarts({
     ? new Set(
         matchReferences(
           query,
-          references.map((r) => ({ code: r.refCode, libelle: r.refLibelle, client_code: '' })),
+          references.map((r) => ({ code: r.refCode, libelle: r.refLibelle, client_code: '', actif: true })),
         ).map((r) => r.code),
       )
     : null

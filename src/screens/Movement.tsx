@@ -55,7 +55,12 @@ export default function Movement({ onBack }: { onBack: () => void }) {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setAuteur(data.session?.user.email ?? null))
-    listReferences().then(setReferences).catch(() => {})
+    // Référence inactive (spec 2.66 point 4 bis) : retirée du sélecteur de
+    // saisie — `references` ne sert ici qu'à la liste déroulante, jamais à
+    // relire un mouvement passé (append-only, jamais réédité).
+    listReferences()
+      .then((refs) => setReferences(refs.filter((r) => r.actif)))
+      .catch(() => {})
     listEmplacements().then(setEmplacements).catch(() => {})
   }, [])
 

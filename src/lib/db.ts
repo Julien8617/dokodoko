@@ -479,6 +479,26 @@ export async function deleteReference(code: string): Promise<void> {
   if (refError) throw refError
 }
 
+// Bascule du drapeau `actif` (spec 2.66 point 4 bis, §6.8) : une référence
+// inactive n'est pas supprimée — code, historique et conditionnements
+// restent intacts, seuls les sélecteurs de saisie la retirent. Réactivation
+// possible à tout moment, sans condition.
+export async function setReferenceActif(code: string, actif: boolean): Promise<void> {
+  const { error } = await supabase.from('references').update({ actif }).eq('code', code)
+  if (error) throw error
+}
+
+// Stock total EN DIRECT (jamais le cache) d'une référence, tous
+// emplacements et conditionnements confondus — sert uniquement à refuser
+// une désactivation tant que du stock existe réellement. Même raison que
+// `getStock` : une vérification qui bloque une écriture doit rester exacte,
+// jamais un instantané de cache potentiellement périmé de plusieurs heures.
+export async function getStockTotalByReferenceLive(refCode: string): Promise<number> {
+  const { data, error } = await supabase.from('stock').select('quantite_pieces').eq('ref_code', refCode)
+  if (error) throw error
+  return (data ?? []).reduce((sum, row) => sum + row.quantite_pieces, 0)
+}
+
 export async function insertMouvements(rows: MouvementInsert[]): Promise<void> {
   // id généré côté client : rejeu idempotent, jamais deux fois le même
   // mouvement (§3, critères 21-22). upsert + ignoreDuplicates = équivalent

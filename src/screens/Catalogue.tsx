@@ -3,11 +3,13 @@ import { useI18n, interpolate, formatNumber } from '../i18n'
 import {
   countReferenceUsage,
   deleteReference,
+  getStockTotalByReferenceLive,
   listClients,
   listConditionnementsByRef,
   listReferences,
   listStockTotalsByReference,
   matchReferences,
+  setReferenceActif,
   upsertReferenceWithConditionnements,
   ReferenceInUseError,
   type ConditionnementSpec,
@@ -137,6 +139,7 @@ export default function Catalogue({ onBack }: { onBack: () => void }) {
                   {' · '}
                   {clientNomByCode.get(r.client_code) ?? r.client_code}
                   {conditionnementSummary(r.code) ? ` · ${conditionnementSummary(r.code)}` : ''}
+                  {!r.actif ? ` · ${t.catalogue.inactiveLabel}` : ''}
                 </span>
                 <span className="casier-status">
                   {formatNumber(locale, stockTotals.get(r.code) ?? 0)}
@@ -262,6 +265,9 @@ function ReferenceFiche({
   const [deleteStatus, setDeleteStatus] = useState<{ kind: 'idle' } | { kind: 'deleting' } | { kind: 'error'; message: string }>(
     { kind: 'idle' },
   )
+  const [toggleStatus, setToggleStatus] = useState<
+    { kind: 'idle' } | { kind: 'saving' } | { kind: 'error'; message: string }
+  >({ kind: 'idle' })
 
   useEffect(() => {
     let cancelled = false
@@ -319,6 +325,35 @@ function ReferenceFiche({
     }
   }
 
+  // Bascule du drapeau `actif` (spec 2.66 point 4 bis, §6.8) : réactiver ne
+  // vérifie rien (« réactivation possible à tout moment ») ; désactiver
+  // relit le stock EN DIRECT — jamais le cache, jamais `stockTotals` déjà
+  // en mémoire depuis le chargement de la liste, qui peut dater de
+  // plusieurs minutes sur un écran qu'on laisse ouvert.
+  async function handleToggleActif() {
+    setToggleStatus({ kind: 'saving' })
+    try {
+      if (reference.actif) {
+        const stock = await getStockTotalByReferenceLive(reference.code)
+        if (stock !== 0) {
+          setToggleStatus({ kind: 'error', message: interpolate(t.catalogue.deactivateBlocked, { stock }) })
+          return
+        }
+      }
+      await setReferenceActif(reference.code, !reference.actif)
+      // Attendu, pas `void` (relevé par advisor()) : onChanged() -> reload()
+      // relit `listReferences()`, qui lit le cache — un `void` ici course
+      // contre ce rafraîchissement et lit presque toujours l'ancien état,
+      // la bascule semblant ne rien faire jusqu'au prochain passage sur
+      // l'écran.
+      await refreshReferentielCache()
+      setToggleStatus({ kind: 'idle' })
+      onChanged()
+    } catch (err) {
+      setToggleStatus({ kind: 'error', message: extractErrorMessage(err, t.common.unknownError) })
+    }
+  }
+
   const canDelete = usage.kind === 'loaded' && usage.mouvements === 0 && usage.comptageLignes === 0
 
   return (
@@ -356,6 +391,15 @@ function ReferenceFiche({
           })}
         </p>
       )}
+
+      {/* Bascule actif/inactif (spec 2.66 point 4 bis, §6.8) : pas de
+          double appui, contrairement à Supprimer — réversible à tout
+          moment, ce n'est pas un geste destructeur. */}
+      <button type="button" onClick={handleToggleActif} disabled={toggleStatus.kind === 'saving'}>
+        {reference.actif ? t.catalogue.deactivateButton : t.catalogue.activateButton}
+      </button>
+      {toggleStatus.kind === 'error' && <p className="form-status form-error">{toggleStatus.message}</p>}
+
       {canDelete && (
         <>
           <button

@@ -219,6 +219,10 @@ const fr: Dictionary = {
     usageBlocking: 'Non supprimable — {mouvements} mouvement(s), {comptageLignes} ligne(s) de comptage.',
     deleteButton: 'Supprimer',
     deleteArmed: 'Appuyer à nouveau pour confirmer',
+    inactiveLabel: 'Inactif',
+    activateButton: 'Réactiver',
+    deactivateButton: 'Désactiver',
+    deactivateBlocked: 'Désactivation impossible — stock non nul ({stock} pièces).',
   },
 }
 

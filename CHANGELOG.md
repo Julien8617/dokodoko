@@ -5,6 +5,10 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.40 — 2026-09-26
+
+- Une référence peut être marquée inactive depuis sa fiche du Catalogue : elle disparaît des sélecteurs de saisie (Mouvement, Inventaire) mais reste consultable, avec sa mention d'état, dans la Recherche et le Catalogue — réactivable à tout moment, refusée tant que du stock existe
+
 ## 0.9.39 — 2026-09-26
 
 - Un échec d'enregistrement pendant la confirmation d'un déplacement (marche ou Écarts) s'affichait hors de la fenêtre modale, donc invisible derrière le fond assombri — le message apparaît maintenant dans la fenêtre elle-même, avant les boutons

@@ -317,5 +317,14 @@ export interface Dictionary {
     usageBlocking: string
     deleteButton: string
     deleteArmed: string
+    // Spec 2.66 point 4 bis : mention d'état affichée partout où une
+    // référence inactive reste visible (Recherche, Catalogue) — jamais dans
+    // les sélecteurs de saisie, d'où elle est retirée.
+    inactiveLabel: string
+    activateButton: string
+    deactivateButton: string
+    // {stock} — pièces, tous emplacements/conditionnements confondus,
+    // lues en direct (jamais le cache) au moment du clic.
+    deactivateBlocked: string
   }
 }
