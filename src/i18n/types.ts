@@ -326,5 +326,8 @@ export interface Dictionary {
     // {stock} — pièces, tous emplacements/conditionnements confondus,
     // lues en direct (jamais le cache) au moment du clic.
     deactivateBlocked: string
+    // {scope} — libellé du périmètre de l'inventaire en cours qui couvre
+    // encore cette référence (spec 2.67 §6.8).
+    deactivateBlockedByInventaire: string
   }
 }

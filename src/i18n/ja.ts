@@ -223,6 +223,7 @@ const ja: Dictionary = {
     activateButton: '再有効化',
     deactivateButton: '無効化',
     deactivateBlocked: '無効化できません — 在庫が0ではありません（{stock} ピース）。',
+    deactivateBlockedByInventaire: '無効化できません — 進行中の棚卸（{scope}）がこの品番をまだ対象にしています。',
   },
 }
 

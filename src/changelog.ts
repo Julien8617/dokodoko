@@ -10,6 +10,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.41',
+    date: '2026-09-29',
+    items: [
+      'Un inventaire lancé par client ne retient plus les références inactives dans son périmètre — sinon le drapeau ne servirait à rien au comptage mensuel',
+      'Désactiver une référence est aussi refusé tant qu\'un inventaire en cours la couvre encore, le message nommant cet inventaire — même règle que le stock non nul',
+    ],
+  },
+  {
     version: '0.9.40',
     date: '2026-09-26',
     items: [

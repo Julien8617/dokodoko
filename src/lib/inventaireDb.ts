@@ -108,6 +108,16 @@ export async function abandonInventaire(inventaireId: string, motif: string): Pr
 // Exportée pour le titre du document imprimé (spec 2.52, §6.5) : le titre
 // se dérive de `scope_kind`, jamais saisi — pour le périmètre "références",
 // il faut la liste explicite des codes du périmètre.
+//
+// Périmètre "client" filtré sur `actif` (spec 2.67 §6.8) : sans ce filtre,
+// le drapeau `actif` ne sert à rien le jour où le comptage se lance par
+// client — la référence désactivée reviendrait par la porte du rappel
+// « références à compter ». Un périmètre "références" choisi à la main
+// reste libre : celui qui désigne explicitement une inactive sait ce qu'il
+// fait. "tout" reste sans filtre : une désactivation ne fige le stock qu'à
+// zéro au moment où elle est acceptée (§6.8), pas pour toujours — un
+// comptage exhaustif doit encore pouvoir révéler qu'une inactive porte un
+// stock qu'elle ne devrait pas avoir.
 export async function scopeRefCodes(inventaire: Inventaire): Promise<string[] | undefined> {
   if (inventaire.scope_kind === 'tout') return undefined
   if (inventaire.scope_kind === 'client') {
@@ -115,6 +125,7 @@ export async function scopeRefCodes(inventaire: Inventaire): Promise<string[] | 
       .from('references')
       .select('code')
       .eq('client_code', inventaire.scope_client_code as string)
+      .eq('actif', true)
     if (error) throw error
     return data.map((r) => r.code)
   }
@@ -124,6 +135,42 @@ export async function scopeRefCodes(inventaire: Inventaire): Promise<string[] | 
     .eq('inventaire_id', inventaire.id)
   if (error) throw error
   return data.map((r) => r.ref_code)
+}
+
+// Inventaire en cours qui couvre encore cette référence (spec 2.67 §6.8) :
+// sert à refuser une désactivation qui ferait rétrécir le périmètre d'un
+// comptage déjà lancé — même règle que le gel du stock théorique au
+// `frozen_ts`, le périmètre ne doit pas bouger sous les pieds de celui qui
+// compte. Un seul inventaire `en_cours` possible (index partiel), le
+// contrôle est donc immédiat.
+//
+// N'appelle PAS scopeRefCodes (relevé par advisor()) : cette dernière filtre
+// désormais le périmètre "client" sur `actif`, ce qui est juste pour
+// COMPOSER un périmètre mais faux pour tester une COUVERTURE — la référence
+// qu'on est en train de désactiver est par définition encore active à cet
+// instant, donc `scopeRefCodes` la retrouverait toujours et le test serait
+// inutile ; pire, si elle avait déjà été désactivée puis réactivée pendant
+// un comptage en cours, scopeRefCodes la retrouverait quand même, masquant
+// exactement le rétrécissement qu'on veut empêcher. Deux questions
+// différentes, deux requêtes différentes.
+export async function activeInventaireCovering(reference: {
+  code: string
+  client_code: string
+}): Promise<Inventaire | null> {
+  const active = await getActiveInventaire()
+  if (!active) return null
+  if (active.scope_kind === 'tout') return active
+  if (active.scope_kind === 'client') {
+    return active.scope_client_code === reference.client_code ? active : null
+  }
+  const { data, error } = await supabase
+    .from('inventaire_references')
+    .select('ref_code')
+    .eq('inventaire_id', active.id)
+    .eq('ref_code', reference.code)
+    .maybeSingle()
+  if (error) throw error
+  return data ? active : null
 }
 
 // Un casier = un comptage, rattaché à l'inventaire en cours. Rouvrir un

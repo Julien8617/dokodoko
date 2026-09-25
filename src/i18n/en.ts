@@ -223,6 +223,7 @@ const en: Dictionary = {
     activateButton: 'Reactivate',
     deactivateButton: 'Deactivate',
     deactivateBlocked: 'Cannot deactivate — stock is not zero ({stock} pieces).',
+    deactivateBlockedByInventaire: 'Cannot deactivate — an inventory in progress ({scope}) still covers this reference.',
   },
 }
 

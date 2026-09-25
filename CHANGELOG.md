@@ -5,6 +5,11 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.41 — 2026-09-29
+
+- Un inventaire lancé par client ne retient plus les références inactives dans son périmètre — sinon le drapeau ne servirait à rien au comptage mensuel
+- Désactiver une référence est aussi refusé tant qu'un inventaire en cours la couvre encore, le message nommant cet inventaire — même règle que le stock non nul
+
 ## 0.9.40 — 2026-09-26
 
 - Une référence peut être marquée inactive depuis sa fiche du Catalogue : elle disparaît des sélecteurs de saisie (Mouvement, Inventaire) mais reste consultable, avec sa mention d'état, dans la Recherche et le Catalogue — réactivable à tout moment, refusée tant que du stock existe

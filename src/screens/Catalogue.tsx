@@ -14,10 +14,27 @@ import {
   ReferenceInUseError,
   type ConditionnementSpec,
 } from '../lib/db'
+import { activeInventaireCovering } from '../lib/inventaireDb'
 import { extractErrorMessage } from '../lib/errors'
 import { refreshReferentielCache } from '../lib/referentielCache'
 import type { Client, Conditionnement, Reference } from '../lib/types'
 import SearchSelect from '../components/SearchSelect'
+
+// Même logique que `scopeLabel` (Inventory.tsx), non exportée depuis un
+// écran vers un autre — trois branches triviales, pas la duplication d'état
+// qui a coûté cher ailleurs dans ce module cette semaine.
+function inventaireScopeLabel(
+  scopeKind: 'tout' | 'client' | 'references',
+  scopeClientCode: string | null,
+  clients: Client[],
+  t: ReturnType<typeof useI18n>['t'],
+): string {
+  if (scopeKind === 'tout') return t.inventory.scopeTout
+  if (scopeKind === 'client') {
+    return clients.find((c) => c.code === scopeClientCode)?.nom ?? scopeClientCode ?? ''
+  }
+  return t.inventory.scopeReferences
+}
 
 // Catalogue (spec 2.46 §6.8) : manque révélé le 18 septembre — les Réglages
 // sont un entonnoir en écriture seule, on y crée une référence et on ne la
@@ -337,6 +354,20 @@ function ReferenceFiche({
         const stock = await getStockTotalByReferenceLive(reference.code)
         if (stock !== 0) {
           setToggleStatus({ kind: 'error', message: interpolate(t.catalogue.deactivateBlocked, { stock }) })
+          return
+        }
+        // Périmètre qui ne doit pas rétrécir sous les pieds de celui qui
+        // compte (spec 2.67 §6.8, même règle que le gel du stock théorique
+        // au frozen_ts) — vérifié après le stock, un seul inventaire
+        // `en_cours` possible donc ce contrôle est immédiat.
+        const covering = await activeInventaireCovering(reference)
+        if (covering) {
+          setToggleStatus({
+            kind: 'error',
+            message: interpolate(t.catalogue.deactivateBlockedByInventaire, {
+              scope: inventaireScopeLabel(covering.scope_kind, covering.scope_client_code, clients, t),
+            }),
+          })
           return
         }
       }

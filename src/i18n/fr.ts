@@ -223,6 +223,8 @@ const fr: Dictionary = {
     activateButton: 'Réactiver',
     deactivateButton: 'Désactiver',
     deactivateBlocked: 'Désactivation impossible — stock non nul ({stock} pièces).',
+    deactivateBlockedByInventaire:
+      'Désactivation impossible — un inventaire en cours ({scope}) couvre encore cette référence.',
   },
 }
 
