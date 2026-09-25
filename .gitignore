@@ -24,3 +24,7 @@ Thumbs.db
 *.export.json
 /data/
 /exports/
+
+backups/
+*.dump
+*.backup
