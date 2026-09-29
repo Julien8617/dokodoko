@@ -42,6 +42,13 @@ import Modal from '../components/Modal'
 
 type Phase = 'launch' | 'walk' | 'ecarts'
 
+// Taille maximale d'un périmètre pour que le rappel des références à
+// compter s'affiche (spec 2.71 §6.5) : le critère est la taille, jamais le
+// mode de composition (`scope_kind`). Au-delà, une liste de plusieurs
+// centaines de lignes n'est que du bruit. Constante nommée à ajuster quand
+// le périmètre s'étendra au-delà de REUZEL.
+const SCOPE_CHECKLIST_MAX_REFERENCES = 50
+
 // Document imprimé (spec 2.49, §6.5) : toujours en japonais, quelle que
 // soit la langue de l'interface — l'interface sert l'opérateur, le
 // document sert ses lecteurs, deux publics différents. Volontairement HORS
@@ -757,6 +764,12 @@ function Walk({
   // d'inventaire partiel à signaler sur un inventaire complet ou par
   // client, §6.5 "rien ne change").
   const [referencesScope, setReferencesScope] = useState<string[] | undefined>(undefined)
+  // Périmètre "client" (spec 2.71 §6.5) : sert UNIQUEMENT au rappel des
+  // références à compter. Volontairement distinct de `referencesScope`, qui
+  // porte la garde de saisie et la question d'extension — deux mécanismes
+  // séparés, pour qu'élargir le rappel ne change jamais ce qui est refusé
+  // ou confirmé à l'enregistrement.
+  const [clientScopeCodes, setClientScopeCodes] = useState<string[] | undefined>(undefined)
   // Confirmation avant d'écrire une référence hors périmètre (spec 2.54,
   // point 2) : jamais en silence.
   const [pendingScopeExtension, setPendingScopeExtension] = useState<PendingScopeExtension | null>(null)
@@ -810,6 +823,7 @@ function Walk({
     const codes = await scopeRefCodes(inventaire)
     const resolved = inventaire.scope_kind === 'references' ? codes : undefined
     setReferencesScope(resolved)
+    setClientScopeCodes(inventaire.scope_kind === 'client' ? codes : undefined)
     return resolved
   }, [inventaire])
 
@@ -826,7 +840,7 @@ function Walk({
   // pendant la marche laissait la garde refusée en permanence — le
   // périmètre n'était rechargé qu'au montage de l'écran, jamais ensuite.
   useEffect(() => {
-    if (inventaire.scope_kind !== 'references') return
+    if (inventaire.scope_kind === 'tout') return
     const onOnline = () => {
       loadReferencesScope().catch(() => {})
     }
@@ -880,6 +894,24 @@ function Walk({
       ? allReferences.filter((r) => referencesScope.includes(r.code))
       : allReferences
   ).filter((r) => r.actif)
+
+  // Rappel des références à compter (spec 2.71 §6.5) : s'affiche dès que le
+  // périmètre est énumérable et tient sous SCOPE_CHECKLIST_MAX_REFERENCES,
+  // quel que soit le `scope_kind`. "tout" = le catalogue actif : une
+  // inactive n'y revient pas par la porte du rappel (§6.8), même si le
+  // périmètre du comptage, lui, la couvre encore. `undefined` tant que le
+  // périmètre client n'est pas chargé — pas de bouton plutôt qu'une liste
+  // vide qui se lirait comme « rien à compter ».
+  const checklistCodes: string[] | undefined =
+    inventaire.scope_kind === 'tout'
+      ? allReferences.filter((r) => r.actif).map((r) => r.code)
+      : inventaire.scope_kind === 'client'
+        ? clientScopeCodes
+        : referencesScope
+  const showChecklist =
+    checklistCodes !== undefined &&
+    checklistCodes.length > 0 &&
+    checklistCodes.length <= SCOPE_CHECKLIST_MAX_REFERENCES
 
   // matchReferences (db.ts) : code ("65"/"265"/"REU26" trouvent "REU265",
   // pas seulement au clavier chiffres) ET libellé par jetons normalisés
@@ -1481,20 +1513,20 @@ function Walk({
       </form>
 
       {/* Rappel des références à compter (spec 2.54 point 3, repositionné en
-          spec 2.56 §6.5) : en inventaire partiel uniquement — sur un
-          périmètre complet ou par client, ce serait une liste de trois
-          cents lignes, du bruit. Sorti du flux — le formulaire sert en
+          spec 2.56 §6.5, critère de taille en spec 2.71) : affiché dès que
+          le périmètre tient sous SCOPE_CHECKLIST_MAX_REFERENCES, quel que
+          soit son mode de composition. Sorti du flux — le formulaire sert en
           permanence, la liste sert rarement — et ouvert depuis ce simple
           bouton, sans compteur de progression (ni ici ni dans la fenêtre) :
           "4 sur 12 comptées" laisserait croire qu'il n'y a plus rien à
           compter sur une référence déjà rencontrée une fois. */}
-      {inventaire.scope_kind === 'references' && referencesScope && (
+      {showChecklist && (
         <button type="button" className="checklist-toggle" onClick={() => setScopeChecklistOpen(true)}>
           {t.inventory.scopeChecklistTitle}
         </button>
       )}
 
-      {scopeChecklistOpen && referencesScope && (
+      {scopeChecklistOpen && checklistCodes && (
         <Modal onClose={() => setScopeChecklistOpen(false)}>
           <h2>{t.inventory.scopeChecklistTitle}</h2>
           {/* Liste uniforme, sans marqueur d'état (spec 2.58 §6.5,
@@ -1508,7 +1540,7 @@ function Walk({
               donc l'ordre lexicographique suffit déjà), position stable
               d'une ouverture à l'autre. */}
           <ul className="casier-list">
-            {[...referencesScope].sort().map((code) => {
+            {[...checklistCodes].sort().map((code) => {
               const libelle = allReferences.find((r) => r.code === code)?.libelle
               return (
                 <li key={code} className="casier-row checklist-row">

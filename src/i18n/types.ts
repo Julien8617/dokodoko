@@ -293,7 +293,8 @@ export interface Dictionary {
     // Même mécanisme que scopeExtensionQuestion ci-dessus, peut s'afficher
     // avec elle dans la même fenêtre.
     inactiveReferenceQuestion: string // {refCode}
-    // Rappel des références à compter, en inventaire partiel uniquement —
+    // Rappel des références à compter, dès que le périmètre tient sous le
+    // seuil de taille (spec 2.71 §6.5), quel que soit son scope_kind —
     // jamais "terminée", jamais l'emplacement attendu (ce serait le
     // théorique, donc compter vers une cible), et depuis spec 2.58 §6.5
     // jamais non plus d'indicateur d'état par référence (grisé, "comptée

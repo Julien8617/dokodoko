@@ -10,6 +10,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.43',
+    date: '2026-09-29',
+    items: [
+      'Marche : le rappel des références à compter s\'affiche maintenant pour tout inventaire dont le périmètre tient sous une cinquantaine de références — y compris un inventaire lancé par client ou sur tout le catalogue, qui n\'en avaient pas. Au-delà, il disparaît (liste trop longue pour servir)',
+    ],
+  },
+  {
     version: '0.9.42',
     date: '2026-09-29',
     items: [
