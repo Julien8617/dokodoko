@@ -221,6 +221,7 @@ const ja: Dictionary = {
     deleteButton: '削除',
     deleteArmed: 'もう一度タップして確定',
     inactiveLabel: '無効',
+    hideInactive: '無効な品番を非表示',
     activateButton: '再有効化',
     deactivateButton: '無効化',
     deactivateBlocked: '無効化できません — 在庫が0ではありません（{stock} ピース）。',

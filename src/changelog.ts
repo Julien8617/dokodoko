@@ -10,6 +10,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.45',
+    date: '2026-09-29',
+    items: [
+      'Catalogue : les références inactives s\'affichent par défaut, en texte grisé (elles restent ouvrables pour être réactivées), avec une case « Masquer les références inactives » pour les cacher',
+    ],
+  },
+  {
     version: '0.9.44',
     date: '2026-09-29',
     items: [

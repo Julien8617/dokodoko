@@ -640,6 +640,30 @@ body {
   border-color: #b7e4b7;
 }
 
+/* Référence inactive dans le Catalogue (spec 2.71 §6.8) : contraste du texte
+   réduit, rien d'autre. Ni opacité globale ni `disabled` — la ligne reste
+   pleinement ouvrable, c'est par elle qu'on réactive, et un style de
+   contrôle désactivé dirait le contraire. Le grisé encode un état stocké
+   (`actif = false`), pas une déduction. */
+.casier-row.inactive {
+  color: #6b6b6b;
+  background: #f7f7f7;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 44px;
+  font-size: 0.95rem;
+}
+
+.checkbox-row input {
+  width: 1.2rem;
+  height: 1.2rem;
+  margin: 0;
+}
+
 .casier-status {
   color: #888;
   font-size: 0.85rem;

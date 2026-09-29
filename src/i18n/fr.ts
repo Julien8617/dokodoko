@@ -221,6 +221,7 @@ const fr: Dictionary = {
     deleteButton: 'Supprimer',
     deleteArmed: 'Appuyer à nouveau pour confirmer',
     inactiveLabel: 'Inactif',
+    hideInactive: 'Masquer les références inactives',
     activateButton: 'Réactiver',
     deactivateButton: 'Désactiver',
     deactivateBlocked: 'Désactivation impossible — stock non nul ({stock} pièces).',

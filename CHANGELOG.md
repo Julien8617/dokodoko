@@ -5,6 +5,10 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.45 — 2026-09-29
+
+- Catalogue : les références inactives s'affichent par défaut, en texte grisé (elles restent ouvrables pour être réactivées), avec une case « Masquer les références inactives » pour les cacher
+
 ## 0.9.44 — 2026-09-29
 
 - Inventaire sur une liste de références : une référence inactive porte la mention « Inactif » dans la liste de choix, avant le lancement du comptage — elle reste sélectionnable

@@ -53,6 +53,10 @@ export default function Catalogue({ onBack }: { onBack: () => void }) {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
   const [clientFilter, setClientFilter] = useState('')
+  // Spec 2.71 §6.8 : les inactives s'affichent par défaut, la case sert à
+  // les masquer — jamais l'inverse. Le drapeau `actif` nettoie les
+  // sélecteurs de saisie, pas cette surface de lecture.
+  const [hideInactive, setHideInactive] = useState(false)
   const [openCode, setOpenCode] = useState<string | null>(null)
 
   async function load() {
@@ -96,6 +100,7 @@ export default function Catalogue({ onBack }: { onBack: () => void }) {
   const filtered = references.filter((r) => {
     if (matchedCodes && !matchedCodes.has(r.code)) return false
     if (clientFilter && r.client_code !== clientFilter) return false
+    if (hideInactive && !r.actif) return false
     return true
   })
 
@@ -134,6 +139,10 @@ export default function Catalogue({ onBack }: { onBack: () => void }) {
           ))}
         </select>
       </div>
+      <label className="checkbox-row">
+        <input type="checkbox" checked={hideInactive} onChange={(e) => setHideInactive(e.target.checked)} />
+        {t.catalogue.hideInactive}
+      </label>
 
       {loading ? (
         <p className="form-status">{t.common.loading}</p>
@@ -147,7 +156,7 @@ export default function Catalogue({ onBack }: { onBack: () => void }) {
             <li key={r.code}>
               <button
                 type="button"
-                className="casier-row"
+                className={`casier-row${r.actif ? '' : ' inactive'}`}
                 onClick={() => setOpenCode(openCode === r.code ? null : r.code)}
               >
                 <span>

@@ -327,6 +327,9 @@ export interface Dictionary {
     // référence inactive reste visible (Recherche, Catalogue) — jamais dans
     // les sélecteurs de saisie, d'où elle est retirée.
     inactiveLabel: string
+    // Case à cocher du Catalogue (spec 2.71 §6.8) : les inactives s'affichent
+    // par défaut, grisées ; cocher les masque.
+    hideInactive: string
     activateButton: string
     deactivateButton: string
     // {stock} — pièces, tous emplacements/conditionnements confondus,
