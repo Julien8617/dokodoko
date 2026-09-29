@@ -763,10 +763,10 @@ function Walk({
   // distincts semblent identiques dans la liste.
   const [conditionnementLabels, setConditionnementLabels] = useState<Map<string, string>>(new Map())
   // Inventaire partiel (spec 2.54, §6.5) : liste explicite du périmètre
-  // quand scope_kind === 'references' — undefined pour les deux autres
-  // périmètres, sans signification particulière dans ces cas (pas
-  // d'inventaire partiel à signaler sur un inventaire complet ou par
-  // client, §6.5 "rien ne change").
+  // quand scope_kind === 'references' — undefined pour les deux autres.
+  // Porte uniquement la garde de saisie et la question d'extension ; le
+  // rappel des références à compter, lui, couvre tous les scope_kind
+  // (spec 2.71, voir checklistCodes).
   const [referencesScope, setReferencesScope] = useState<string[] | undefined>(undefined)
   // Périmètre "client" (spec 2.71 §6.5) : sert UNIQUEMENT au rappel des
   // références à compter. Volontairement distinct de `referencesScope`, qui
