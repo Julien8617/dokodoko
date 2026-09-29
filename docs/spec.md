@@ -1,6 +1,6 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.69 — 28 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.70 — 29 septembre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -38,9 +38,11 @@ Le stock d'ouverture ne sera pas amorcé avant fin octobre, au retour d'un dépl
 - le comptage hebdomadaire du vendredi est-il plus rapide et plus sûr qu'avant ;
 - ce que la comparaison comptage/Excel révèle, semaine après semaine, sur la fiabilité du processus existant — premier point le 18 septembre : une boîte d'écart sur une référence.
 
-C'est une phase valable en soi : elle éprouve l'ergonomie de comptage sans exposer la moindre donnée de stock. Le point du 16 octobre porte sur **elle**, et sur une décision explicite d'aller ou non en phase 2.
+C'est une phase valable en soi : elle éprouve l'ergonomie de comptage sans exposer la moindre donnée de stock. Le point du 18 octobre porte sur **elle**, et sur une décision explicite d'aller ou non en phase 2.
 
-**Phase 2 — l'app comme système de stock.** Démarre à l'amorçage, fin octobre au plus tôt. C'est seulement là que l'indicateur historique du pilote — l'écart entre l'app et le comptage physique — devient mesurable, et son point de situation se fixe à un mois après l'amorçage, pas au 16 octobre.
+**Le point de situation se déclenche sur des comptages, pas sur une date.** Le 18 octobre est une cible, pas une échéance : arbitré le 29 septembre, la date est souple. Ce qui ne l'est pas, c'est la matière à décider — **trois comptages hebdomadaires et un inventaire complet du périmètre**. Avec eux, la décision d'aller ou non en phase 2 se prend sur des chiffres ; sans eux, elle se prendrait à l'intuition, ce qui viderait le pilote de son objet. Un vendredi qui saute repousse donc le point de situation, il ne le vide pas — c'est le sens qu'il faut donner à la souplesse de la date, et non l'autorisation de décider avec moins.
+
+**Phase 2 — l'app comme système de stock.** Démarre à l'amorçage, fin octobre au plus tôt. C'est seulement là que l'indicateur historique du pilote — l'écart entre l'app et le comptage physique — devient mesurable, et son point de situation se fixe à un mois après l'amorçage, pas au 18 octobre.
 
 La durée de six mois court sur la phase 2 : c'est elle qui engage le stock des clients.
 
@@ -690,7 +692,7 @@ Amorcer sur le comptage mensuel donne un stock d'ouverture complet, daté d'un s
 
 **L'inventaire mensuel devient une porte à sens unique.** Il fixe le stock d'ouverture ; tout ce qui est faux dans le référentiel à ce moment-là est figé dedans. Les codes mal saisis se suppriment tant qu'aucun mouvement ne les référence (§4) — après l'amorçage, ils en porteront. **Le nettoyage du Catalogue doit donc précéder le comptage mensuel**, et c'est ce qui date le §6.8.
 
-**La mesure du pilote commence à l'amorçage, pas le 18 septembre.** C'est cette date qui borne l'analyse du point de situation, et elle se note au README le jour où elle survient. Si le comptage mensuel tombe trop près du 16 octobre, c'est la date du point de situation qui se décale, pas la qualité du socle.
+**La mesure du pilote commence à l'amorçage, pas le 18 septembre.** C'est cette date qui borne l'analyse du point de situation, et elle se note au README le jour où elle survient. Si le comptage mensuel tombe trop près du 18 octobre, c'est la date du point de situation qui se décale, pas la qualité du socle.
 
 **Le rythme hebdomadaire devient l'instrument de mesure.** Une fois le stock amorcé et les mouvements enregistrés, chaque comptage du vendredi produit un écart réel sur les références qui ont bougé. L'indicateur du pilote cesse d'être un point unique en fin de période pour devenir une **série** — quelques mesures avant le point de situation, et la possibilité de voir une dérive s'installer au lieu de la découvrir. L'app se greffe ici sur une discipline de comptage tournant qui existait déjà ; elle ne l'impose pas.
 
@@ -816,11 +818,11 @@ Point favorable : le modèle étant en ajout seul, le scénario classique « que
 
 **Prise avant chaque migration**, en plus de l'hebdomadaire. Une ligne dans la procédure du chantier de clôture.
 
-**Niveau 2 — 25 $/mois, à décider au 16 octobre.** Le plan Pro supprime d'un coup l'absence de sauvegarde et la mise en pause. L'arbitrage ne se fait pas contre un budget informatique mais contre la valeur du stock client tenu dans la base : c'est une assurance, pas une dépense d'outillage.
+**Niveau 2 — 25 $/mois, à décider au 18 octobre.** Le plan Pro supprime d'un coup l'absence de sauvegarde et la mise en pause. L'arbitrage ne se fait pas contre un budget informatique mais contre la valeur du stock client tenu dans la base : c'est une assurance, pas une dépense d'outillage.
 
 ### La règle qui prime sur tout le reste
 
-**Une sauvegarde qu'on n'a jamais restaurée n'est pas une sauvegarde.** Restaurer une fois dans un projet Supabase séparé, vérifier que `mouvements` et `comptage_lignes` sont là et cohérents, puis supprimer ce projet. Une fois avant le 16 octobre. Sans cette vérification, le dispositif entier repose sur une hypothèse.
+**Une sauvegarde qu'on n'a jamais restaurée n'est pas une sauvegarde.** Restaurer une fois dans un projet Supabase séparé, vérifier que `mouvements` et `comptage_lignes` sont là et cohérents, puis supprimer ce projet. Une fois avant le 18 octobre. Sans cette vérification, le dispositif entier repose sur une hypothèse.
 
 ### Après le pilote — modes de saisie
 
@@ -880,7 +882,7 @@ Quatre conditions, dans cet ordre.
 
 ### Après le pilote — reprise et maintenance
 
-Question posée le 18 septembre 2026. **À trancher au point de situation, pas avant** : on ne contracte pas la maintenance d'un outil qui peut être abandonné le 16 octobre.
+Question posée le 18 septembre 2026. **À trancher au point de situation, pas avant** : on ne contracte pas la maintenance d'un outil qui peut être abandonné le 18 octobre.
 
 **Ce que coûte une reprise externe** (marché japonais, septembre 2026)
 
@@ -1074,7 +1076,7 @@ Deux choses seulement, et ce ne sont pas des chantiers :
 10. **Cache de lecture** (§3) — à faire après les deux précédents, il sert le pilote et non le démarrage.
 11. **Recherche par libellé** (§6.2). Ce n'est pas une addition au périmètre : la spec l'exigeait déjà, le code ne cherchait que sur le code. Mise en conformité, et elle sert dès le premier jour — les factures sans référence se lisent vendredi.
 
-### Phase 1 — jusqu'au 16 octobre
+### Phase 1 — jusqu'au point de situation, visé au 18 octobre
 
 Révisé le 18 septembre. L'app est un outil de comptage jusqu'à fin octobre : **tout ce qui concerne le stock cesse d'être urgent**, et seul ce qui sert le comptage hebdomadaire compte. C'est une liste nettement plus courte qu'avant, et c'est voulu.
 
