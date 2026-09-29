@@ -10,6 +10,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.46',
+    date: '2026-09-30',
+    items: [
+      'Le rappel des références à compter n\'a plus de plafond — il s\'affiche pour tout périmètre, avec un champ de filtre (par code ou libellé) à la place du seuil de cinquante',
+      'Lancer un inventaire pose maintenant deux confirmations distinctes : d\'abord les références inactives concernées, si le périmètre en contient (réactiver, continuer sans réactiver, ou revenir au choix), puis toujours la confirmation du périmètre choisi avant d\'écrire quoi que ce soit',
+    ],
+  },
+  {
     version: '0.9.45',
     date: '2026-09-29',
     items: [

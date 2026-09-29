@@ -5,6 +5,11 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.46 — 2026-09-30
+
+- Le rappel des références à compter n'a plus de plafond — il s'affiche pour tout périmètre, avec un champ de filtre (par code ou libellé) à la place du seuil de cinquante
+- Lancer un inventaire pose maintenant deux confirmations distinctes : d'abord les références inactives concernées, si le périmètre en contient (réactiver, continuer sans réactiver, ou revenir au choix), puis toujours la confirmation du périmètre choisi avant d'écrire quoi que ce soit
+
 ## 0.9.45 — 2026-09-29
 
 - Catalogue : les références inactives s'affichent par défaut, en texte grisé (elles restent ouvrables pour être réactivées), avec une case « Masquer les références inactives » pour les cacher

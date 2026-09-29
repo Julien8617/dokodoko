@@ -180,6 +180,18 @@ export interface Dictionary {
     referenceSearch: string
     selectedCount: string
     start: string
+    // Deux confirmations au lancement (spec 2.74 §6.5) : deux décisions
+    // sans rapport, jamais fusionnées sous un seul bouton. La première ne
+    // s'affiche que si le périmètre choisi contient des inactives ; la
+    // seconde, toujours. Les libellés disent l'action, jamais "oui",
+    // "non" ou "annuler" — avec trois issues sur la première fenêtre, "non"
+    // et "annuler" seraient indiscernables.
+    launchInactiveIntro: string
+    launchReactivateButton: string
+    launchContinueInactiveButton: string
+    launchBackToChoice: string
+    launchConfirmTitle: string
+    launchConfirmButton: string
     viewEcarts: string
     // Saisie en marchant
     casier: string
@@ -293,9 +305,9 @@ export interface Dictionary {
     // Même mécanisme que scopeExtensionQuestion ci-dessus, peut s'afficher
     // avec elle dans la même fenêtre.
     inactiveReferenceQuestion: string // {refCode}
-    // Rappel des références à compter, dès que le périmètre tient sous le
-    // seuil de taille (spec 2.71 §6.5), quel que soit son scope_kind —
-    // jamais "terminée", jamais l'emplacement attendu (ce serait le
+    // Rappel des références à compter, dès qu'un périmètre existe (spec
+    // 2.74 §6.5) — plus de seuil de taille, un champ de filtre en tient
+    // lieu. Jamais "terminée", jamais l'emplacement attendu (ce serait le
     // théorique, donc compter vers une cible), et depuis spec 2.58 §6.5
     // jamais non plus d'indicateur d'état par référence (grisé, "comptée
     // dans N casiers") : une référence éparpillée sur plusieurs casiers

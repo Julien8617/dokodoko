@@ -42,13 +42,6 @@ import Modal from '../components/Modal'
 
 type Phase = 'launch' | 'walk' | 'ecarts'
 
-// Taille maximale d'un périmètre pour que le rappel des références à
-// compter s'affiche (spec 2.71 §6.5) : le critère est la taille, jamais le
-// mode de composition (`scope_kind`). Au-delà, une liste de plusieurs
-// centaines de lignes n'est que du bruit. Constante nommée à ajuster quand
-// le périmètre s'étendra au-delà de REUZEL.
-const SCOPE_CHECKLIST_MAX_REFERENCES = 50
-
 // Document imprimé (spec 2.49, §6.5) : toujours en japonais, quelle que
 // soit la langue de l'interface — l'interface sert l'opérateur, le
 // document sert ses lecteurs, deux publics différents. Volontairement HORS
@@ -240,6 +233,20 @@ function Launch({ onBack, onReady }: { onBack: () => void; onReady: (inv: Invent
   // silencieusement à `busy: false` sans qu'aucun message n'ait jamais été
   // affiché (§3, spec 2.35) — le bouton semble juste n'avoir rien fait.
   const [launchError, setLaunchError] = useState<string | null>(null)
+  // Deux confirmations au lancement (spec 2.74 §6.5) : deux décisions sans
+  // rapport, jamais fusionnées sous un seul bouton. `step` distingue la
+  // question des inactives (sautée si aucune n'est concernée) de la
+  // confirmation du périmètre, toujours affichée ensuite.
+  type PendingLaunch = {
+    scopeKind: ScopeKind
+    options: { clientCode?: string; refCodes?: string[] }
+    inactiveCodes: string[]
+    step: 'inactive' | 'confirm'
+  }
+  const [pendingLaunch, setPendingLaunch] = useState<PendingLaunch | null>(null)
+  const [pendingLaunchStatus, setPendingLaunchStatus] = useState<
+    { kind: 'idle' } | { kind: 'saving' } | { kind: 'error'; message: string }
+  >({ kind: 'idle' })
   // Abandon accessible dès cet écran (spec 2.46 §6.5, revu après relecture
   // advisor) : sans lui, un inventaire resté ouvert d'une session
   // précédente n'a comme seule sortie visible que « Reprendre » — il
@@ -288,6 +295,133 @@ function Launch({ onBack, onReady }: { onBack: () => void; onReady: (inv: Invent
       setBusy(false)
     }
   }
+
+  // Premier pas des deux confirmations (spec 2.74 §6.5) : jamais appelé
+  // directement par un bouton "Démarrer" — c'est lui qui décide si la
+  // question des inactives doit s'afficher avant la confirmation de
+  // périmètre. "tout" n'est filtré nulle part (scopeRefCodes renvoie
+  // undefined) : une inactive du catalogue y entre donc bien, d'où le test
+  // sur `references` complet. "client" ne peut jamais en contenir
+  // (scopeRefCodes filtre déjà sur `actif`, spec 2.67 §6.8) — inutile de le
+  // tester, le tableau vide suffit à sauter la première question.
+  function requestLaunch(scopeKind: ScopeKind, options: { clientCode?: string; refCodes?: string[] } = {}) {
+    const inactiveCodes =
+      scopeKind === 'tout'
+        ? references.filter((r) => !r.actif).map((r) => r.code)
+        : scopeKind === 'references'
+          ? references.filter((r) => !r.actif && (options.refCodes ?? []).includes(r.code)).map((r) => r.code)
+          : []
+    setLaunchError(null)
+    setPendingLaunchStatus({ kind: 'idle' })
+    setPendingLaunch({ scopeKind, options, inactiveCodes, step: inactiveCodes.length > 0 ? 'inactive' : 'confirm' })
+  }
+
+  // "Réactiver et continuer" (spec 2.74 §6.5) : même geste que la
+  // réactivation depuis la marche (confirmScopeExtension) — écrit, puis
+  // rafraîchit le cache référentiel avant de passer à la confirmation de
+  // périmètre.
+  async function reactivateAndContinue() {
+    if (!pendingLaunch) return
+    setPendingLaunchStatus({ kind: 'saving' })
+    try {
+      for (const code of pendingLaunch.inactiveCodes) {
+        await setReferenceActif(code, true)
+      }
+      await refreshReferentielCache()
+      setReferences((prev) =>
+        prev.map((r) => (pendingLaunch.inactiveCodes.includes(r.code) ? { ...r, actif: true } : r)),
+      )
+      setPendingLaunch({ ...pendingLaunch, step: 'confirm' })
+      setPendingLaunchStatus({ kind: 'idle' })
+    } catch (err) {
+      setPendingLaunchStatus({ kind: 'error', message: extractErrorMessage(err, t.common.unknownError) })
+    }
+  }
+
+  // "Continuer sans réactiver" (spec 2.74 §6.5) : cas légitime — vérifier
+  // qu'une inactive est bien vide. Si des cartons apparaissent pendant la
+  // marche, la question posée à la saisie la réactivera de toute façon
+  // (§6.8) : rien à écrire ici, seulement avancer d'une étape.
+  function continueWithoutReactivating() {
+    if (!pendingLaunch) return
+    setPendingLaunch({ ...pendingLaunch, step: 'confirm' })
+  }
+
+  // "Revenir au choix" (spec 2.74 §6.5), pour les deux fenêtres : laisse
+  // l'écran en l'état, sans effacer la sélection en cours — mode,
+  // clientCode, selectedRefs restent intacts, seule pendingLaunch se ferme.
+  function cancelPendingLaunch() {
+    setPendingLaunch(null)
+    setPendingLaunchStatus({ kind: 'idle' })
+  }
+
+  // Libellé du périmètre dans la seconde confirmation (spec 2.74 §6.5) :
+  // "la liste des références, ou le nom du client, ou « tout l'entrepôt »"
+  // — la valeur littérale, jamais un mot générique comme scopeLabel()
+  // ailleurs dans ce fichier (qui sert un inventaire déjà créé, pas encore
+  // celui-ci).
+  function pendingLaunchScopeText(pending: PendingLaunch): string {
+    if (pending.scopeKind === 'tout') return t.inventory.scopeTout
+    if (pending.scopeKind === 'client') {
+      return clients.find((c) => c.code === pending.options.clientCode)?.nom ?? pending.options.clientCode ?? ''
+    }
+    return [...(pending.options.refCodes ?? [])].sort().join(', ')
+  }
+
+  // Bâti une seule fois, référencé depuis les trois écrans de lancement
+  // (menu, client, references) — un composant recopié perd ses correctifs
+  // un par un (spec 2.60 §6.5, même défaut visé par la factorisation du
+  // déplacement en spec 2.66 point 4 ter).
+  const launchModals = (
+    <>
+      {pendingLaunch && pendingLaunch.step === 'inactive' && (
+        <Modal>
+          <p>{t.inventory.launchInactiveIntro}</p>
+          <p className="quantity-formula">{[...pendingLaunch.inactiveCodes].sort().join(', ')}</p>
+          <button type="button" onClick={reactivateAndContinue} disabled={pendingLaunchStatus.kind === 'saving'}>
+            {t.inventory.launchReactivateButton}
+          </button>
+          <button
+            type="button"
+            onClick={continueWithoutReactivating}
+            disabled={pendingLaunchStatus.kind === 'saving'}
+          >
+            {t.inventory.launchContinueInactiveButton}
+          </button>
+          <button
+            type="button"
+            className="back-link"
+            onClick={cancelPendingLaunch}
+            disabled={pendingLaunchStatus.kind === 'saving'}
+          >
+            {t.inventory.launchBackToChoice}
+          </button>
+          {pendingLaunchStatus.kind === 'error' && (
+            <p className="form-status form-error">{pendingLaunchStatus.message}</p>
+          )}
+        </Modal>
+      )}
+
+      {pendingLaunch && pendingLaunch.step === 'confirm' && (
+        <Modal>
+          <p>{t.inventory.launchConfirmTitle}</p>
+          <p className="quantity-formula">{pendingLaunchScopeText(pendingLaunch)}</p>
+          <button
+            type="button"
+            className="arm-button"
+            onClick={() => start(pendingLaunch.scopeKind, pendingLaunch.options)}
+            disabled={busy}
+          >
+            {t.inventory.launchConfirmButton}
+          </button>
+          <button type="button" className="back-link" onClick={cancelPendingLaunch} disabled={busy}>
+            {t.inventory.launchBackToChoice}
+          </button>
+          {launchError && <p className="form-status form-error">{launchError}</p>}
+        </Modal>
+      )}
+    </>
+  )
 
   if (active === 'loading') {
     return (
@@ -364,11 +498,12 @@ function Launch({ onBack, onReady }: { onBack: () => void; onReady: (inv: Invent
         <button
           className="arm-button"
           disabled={!clientCode || busy}
-          onClick={() => start('client', { clientCode: clientCode! })}
+          onClick={() => requestLaunch('client', { clientCode: clientCode! })}
         >
           {t.inventory.start}
         </button>
         {launchError && <p className="form-status form-error">{launchError}</p>}
+        {launchModals}
       </main>
     )
   }
@@ -426,11 +561,12 @@ function Launch({ onBack, onReady }: { onBack: () => void; onReady: (inv: Invent
         <button
           className="arm-button"
           disabled={selectedRefs.size === 0 || busy}
-          onClick={() => start('references', { refCodes: [...selectedRefs] })}
+          onClick={() => requestLaunch('references', { refCodes: [...selectedRefs] })}
         >
           {t.inventory.start}
         </button>
         {launchError && <p className="form-status form-error">{launchError}</p>}
+        {launchModals}
       </main>
     )
   }
@@ -442,7 +578,7 @@ function Launch({ onBack, onReady }: { onBack: () => void; onReady: (inv: Invent
       </button>
       <h1>{t.inventory.launchScope}</h1>
       <div className="home-actions">
-        <button className="home-action" disabled={busy} onClick={() => start('tout')}>
+        <button className="home-action" disabled={busy} onClick={() => requestLaunch('tout')}>
           {t.inventory.scopeTout}
         </button>
         <button className="home-action" onClick={() => setMode('client')}>
@@ -453,6 +589,7 @@ function Launch({ onBack, onReady }: { onBack: () => void; onReady: (inv: Invent
         </button>
       </div>
       {launchError && <p className="form-status form-error">{launchError}</p>}
+      {launchModals}
     </main>
   )
 }
@@ -785,6 +922,11 @@ function Walk({
   // bouton, jamais affiché en flux — un déroulant en place repousserait le
   // formulaire, qui sert en permanence, pour une liste qui sert rarement.
   const [scopeChecklistOpen, setScopeChecklistOpen] = useState(false)
+  // Filtre de la fenêtre (spec 2.74 §6.5) : remplace le seuil de taille
+  // abandonné — une liste de deux cents lignes reste utilisable dès qu'on
+  // peut y chercher. Remis à zéro à chaque ouverture, jamais conservé
+  // d'une ouverture à l'autre.
+  const [scopeChecklistQuery, setScopeChecklistQuery] = useState('')
   // Double appui avant "Supprimer" (spec 2.58 §6.5) : action immédiate et
   // irréversible, même motif que confirmArmed/deleteArmed ailleurs dans
   // l'app. Un seul id à la fois — comparer à `entry.ligneId` dans le
@@ -899,23 +1041,30 @@ function Walk({
       : allReferences
   ).filter((r) => r.actif)
 
-  // Rappel des références à compter (spec 2.71 §6.5) : s'affiche dès que le
-  // périmètre est énumérable et tient sous SCOPE_CHECKLIST_MAX_REFERENCES,
-  // quel que soit le `scope_kind`. "tout" = le catalogue actif : une
-  // inactive n'y revient pas par la porte du rappel (§6.8), même si le
-  // périmètre du comptage, lui, la couvre encore. `undefined` tant que le
-  // périmètre client n'est pas chargé — pas de bouton plutôt qu'une liste
-  // vide qui se lirait comme « rien à compter ».
-  const checklistCodes: string[] | undefined =
-    inventaire.scope_kind === 'tout'
-      ? allReferences.filter((r) => r.actif).map((r) => r.code)
-      : inventaire.scope_kind === 'client'
-        ? clientScopeCodes
-        : referencesScope
-  const showChecklist =
-    checklistCodes !== undefined &&
-    checklistCodes.length > 0 &&
-    checklistCodes.length <= SCOPE_CHECKLIST_MAX_REFERENCES
+  // Rappel des références à compter (spec 2.74 §6.5) : existe dès qu'un
+  // périmètre existe, c'est-à-dire toujours — plus de seuil de taille, un
+  // champ de filtre en tient lieu (voir la fenêtre plus bas). "tout" = le
+  // catalogue actif : une inactive n'y revient pas par la porte du rappel
+  // (§6.8), même si le périmètre du comptage, lui, la couvre encore.
+  // `undefined` tant que le périmètre client n'est pas chargé — pas de
+  // bouton plutôt qu'une liste vide qui se lirait comme « rien à compter ».
+  const checklistReferences: Reference[] | undefined = (() => {
+    if (inventaire.scope_kind === 'tout') return allReferences.filter((r) => r.actif)
+    const codes = inventaire.scope_kind === 'client' ? clientScopeCodes : referencesScope
+    if (codes === undefined) return undefined
+    const codeSet = new Set(codes)
+    return allReferences.filter((r) => r.actif && codeSet.has(r.code))
+  })()
+  // `allReferences` encore vide au montage (avant la résolution de
+  // listReferences(), ou si elle échoue) donnerait un "tout" à liste vide
+  // sans que ce soit un signal de périmètre non chargé — sans ce second
+  // test, le bouton s'ouvrirait sur rien plutôt que de rester caché.
+  const showChecklist = checklistReferences !== undefined && allReferences.length > 0
+  // Même recherche que le champ de saisie ci-dessus (matchReferences,
+  // §6.2) — jamais une seconde implémentation de filtre (spec 2.74 §6.5).
+  const checklistFiltered = scopeChecklistQuery.trim()
+    ? matchReferences(scopeChecklistQuery, checklistReferences ?? [])
+    : (checklistReferences ?? [])
 
   // matchReferences (db.ts) : code ("65"/"265"/"REU26" trouvent "REU265",
   // pas seulement au clavier chiffres) ET libellé par jetons normalisés
@@ -1517,22 +1666,38 @@ function Walk({
       </form>
 
       {/* Rappel des références à compter (spec 2.54 point 3, repositionné en
-          spec 2.56 §6.5, critère de taille en spec 2.71) : affiché dès que
-          le périmètre tient sous SCOPE_CHECKLIST_MAX_REFERENCES, quel que
-          soit son mode de composition. Sorti du flux — le formulaire sert en
-          permanence, la liste sert rarement — et ouvert depuis ce simple
-          bouton, sans compteur de progression (ni ici ni dans la fenêtre) :
-          "4 sur 12 comptées" laisserait croire qu'il n'y a plus rien à
-          compter sur une référence déjà rencontrée une fois. */}
+          spec 2.56 §6.5, plus de seuil de taille depuis spec 2.74) : affiché
+          dès qu'un périmètre existe, quel que soit son mode de composition.
+          Sorti du flux — le formulaire sert en permanence, la liste sert
+          rarement — et ouvert depuis ce simple bouton, sans compteur de
+          progression (ni ici ni dans la fenêtre) : "4 sur 12 comptées"
+          laisserait croire qu'il n'y a plus rien à compter sur une référence
+          déjà rencontrée une fois. */}
       {showChecklist && (
-        <button type="button" className="checklist-toggle" onClick={() => setScopeChecklistOpen(true)}>
+        <button
+          type="button"
+          className="checklist-toggle"
+          onClick={() => {
+            setScopeChecklistQuery('')
+            setScopeChecklistOpen(true)
+          }}
+        >
           {t.inventory.scopeChecklistTitle}
         </button>
       )}
 
-      {scopeChecklistOpen && checklistCodes && (
+      {scopeChecklistOpen && checklistReferences && (
         <Modal onClose={() => setScopeChecklistOpen(false)}>
           <h2>{t.inventory.scopeChecklistTitle}</h2>
+          {/* Champ de filtre (spec 2.74 §6.5) : remplace le seuil de taille
+              abandonné — un périmètre de deux cents références reste
+              parcourable dès qu'on peut y chercher. Même recherche que le
+              champ de saisie (matchReferences, §6.2). */}
+          <input
+            value={scopeChecklistQuery}
+            onChange={(e) => setScopeChecklistQuery(e.target.value)}
+            placeholder={t.inventory.referenceSearch}
+          />
           {/* Liste uniforme, sans marqueur d'état (spec 2.58 §6.5,
               revient sur spec 2.54) : une référence éparpillée sur
               plusieurs casiers reste à compter ailleurs même une fois
@@ -1542,19 +1707,19 @@ function Walk({
               "4/12 comptées". Tri alphabétique fixe (naturel : les codes
               REU003/REU009/REU010 partagent la même largeur de suffixe,
               donc l'ordre lexicographique suffit déjà), position stable
-              d'une ouverture à l'autre. */}
+              d'une ouverture à l'autre — la recherche filtre l'ensemble,
+              elle ne réordonne jamais par pertinence. */}
           <ul className="casier-list">
-            {[...checklistCodes].sort().map((code) => {
-              const libelle = allReferences.find((r) => r.code === code)?.libelle
-              return (
-                <li key={code} className="casier-row checklist-row">
+            {[...checklistFiltered]
+              .sort((a, b) => a.code.localeCompare(b.code))
+              .map((r) => (
+                <li key={r.code} className="casier-row checklist-row">
                   <span>
-                    {code}
-                    {libelle ? ` — ${libelle}` : ''}
+                    {r.code}
+                    {r.libelle ? ` — ${r.libelle}` : ''}
                   </span>
                 </li>
-              )
-            })}
+              ))}
           </ul>
         </Modal>
       )}
