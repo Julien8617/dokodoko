@@ -5,6 +5,11 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.48 — 2026-09-30
+
+- Inventaire sur tout l'entrepôt : le rappel des références à compter liste maintenant le catalogue entier, inactives comprises avec leur mention — c'est le seul mode exhaustif, il ne doit rien exclure
+- Enregistrer 0 carton et 0 pièce sur une référence inactive ne pose plus la question de réactivation — une saisie à zéro confirme qu'elle est bien vide, elle ne la remet pas en circulation
+
 ## 0.9.47 — 2026-09-30
 
 - Lancer un inventaire par client ou sur tout l'entrepôt ne pose plus la question des références inactives — ce périmètre n'en désigne aucune une par une, la question ne concerne donc que la liste de références choisie à la main

@@ -10,6 +10,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.48',
+    date: '2026-09-30',
+    items: [
+      'Inventaire sur tout l\'entrepôt : le rappel des références à compter liste maintenant le catalogue entier, inactives comprises avec leur mention — c\'est le seul mode exhaustif, il ne doit rien exclure',
+      'Enregistrer 0 carton et 0 pièce sur une référence inactive ne pose plus la question de réactivation — une saisie à zéro confirme qu\'elle est bien vide, elle ne la remet pas en circulation',
+    ],
+  },
+  {
     version: '0.9.47',
     date: '2026-09-30',
     items: [

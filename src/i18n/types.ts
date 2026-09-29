@@ -303,7 +303,9 @@ export interface Dictionary {
     // Référence inactive tapée en entier dans la marche (spec 2.67 §6.2) :
     // acceptée, jamais refusée (§4, fait physique) — mais pas en silence.
     // Même mécanisme que scopeExtensionQuestion ci-dessus, peut s'afficher
-    // avec elle dans la même fenêtre.
+    // avec elle dans la même fenêtre. Ne se pose que si la saisie donne du
+    // stock (spec 2.76 §6.5) : une saisie à zéro confirme l'invariant
+    // "stock nul", elle ne le contredit pas.
     inactiveReferenceQuestion: string // {refCode}
     // Rappel des références à compter, dès qu'un périmètre existe (spec
     // 2.74 §6.5) — plus de seuil de taille, un champ de filtre en tient

@@ -1045,23 +1045,26 @@ function Walk({
       : allReferences
   ).filter((r) => r.actif)
 
-  // Rappel des références à compter (spec 2.75 §6.5) : liste le périmètre
+  // Rappel des références à compter (spec 2.76 §6.5) : liste le périmètre
   // TEL QU'IL EST, jamais "les actives du périmètre" — le filtrage des
-  // inactives a lieu une seule fois, à la composition du périmètre, pas une
-  // seconde fois ici (erreur commise en spec 2.72, corrigée en 2.75 : elle
-  // cachait une inactive délibérément gardée au périmètre `references` pour
-  // vérifier qu'elle est bien vide). "client" exclut déjà les inactives à
-  // la source (scopeRefCodes filtre sur `actif`, §6.8) : rien à refiltrer.
-  // "references" est composé à la main et peut légitimement en contenir :
-  // affichées comme les autres, avec leur mention « · Inactif » (rendu plus
-  // bas). Seul "tout" n'a pas de périmètre énumérable à relire tel quel
-  // (scopeRefCodes y renvoie `undefined`, volontairement sans restriction) :
-  // le catalogue actif en tient lieu, unique composition pour ce cas, pas
-  // un second filtre. `undefined` tant que le périmètre client n'est pas
-  // chargé — pas de bouton plutôt qu'une liste vide qui se lirait comme
-  // « rien à compter ».
+  // inactives a lieu une seule fois, à la composition du périmètre, et
+  // seulement là où le périmètre RESTREINT quelque chose. "client" exclut
+  // déjà les inactives à la source (scopeRefCodes filtre sur `actif`,
+  // §6.8) : rien à refiltrer. "references" est composé à la main et peut
+  // légitimement en contenir : affichées comme les autres, avec leur
+  // mention « · Inactif » (rendu plus bas). "tout" ne filtre RIEN, pas même
+  // les inactives (scopeRefCodes y renvoie `undefined`, délibérément sans
+  // restriction) : c'est ce qui en fait le mode exhaustif — si "tout"
+  // filtrait à son tour, aucun mode ne le serait, et le comptage mensuel
+  // d'amorçage laisserait de côté précisément les références dont
+  // l'invariant "stock nul" n'a jamais été vérifié. Erreur commise une
+  // fois ici (un filtre `actif` posé pour ce cas, spec 2.75, corrigé en
+  // 2.76) : le catalogue ENTIER en tient lieu pour "tout", inactives
+  // comprises. `undefined` tant que le périmètre client n'est pas chargé —
+  // pas de bouton plutôt qu'une liste vide qui se lirait comme « rien à
+  // compter ».
   const checklistReferences: Reference[] | undefined = (() => {
-    if (inventaire.scope_kind === 'tout') return allReferences.filter((r) => r.actif)
+    if (inventaire.scope_kind === 'tout') return allReferences
     const codes = inventaire.scope_kind === 'client' ? clientScopeCodes : referencesScope
     if (codes === undefined) return undefined
     const codeSet = new Set(codes)
@@ -1253,7 +1256,16 @@ function Walk({
       // couverte par l'inventaire actif (activeInventaireCovering, spec
       // 2.67 point 1), donc sa désactivation aurait de toute façon été
       // refusée si elle appartenait au périmètre en cours.
-      const needsReactivation = allReferences.find((r) => r.code === code)?.actif === false
+      //
+      // Ne se déclenche que si la saisie donne du stock (spec 2.76 §6.5,
+      // corrige un défaut trouvé le 30 septembre) : une saisie à zéro —
+      // "vérifié, vide" — confirme l'invariant "stock nul" au lieu de le
+      // contredire, elle ne doit donc rien réactiver. Sans cette réserve,
+      // "continuer sans réactiver" (spec 2.75, lancement d'un inventaire)
+      // perdrait sa seule raison d'être : vérifier qu'une inactive est bien
+      // vide la remettrait de force en circulation.
+      const needsReactivation =
+        (cartonsValue > 0 || piecesValue > 0) && allReferences.find((r) => r.code === code)?.actif === false
       if (needsScopeExtension || needsReactivation) {
         setStatus({ kind: 'idle' })
         setPendingScopeExtension({ ...key, cartonsValue, piecesValue, needsScopeExtension, needsReactivation })
