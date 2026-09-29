@@ -10,6 +10,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.47',
+    date: '2026-09-30',
+    items: [
+      'Lancer un inventaire par client ou sur tout l\'entrepôt ne pose plus la question des références inactives — ce périmètre n\'en désigne aucune une par une, la question ne concerne donc que la liste de références choisie à la main',
+      'Le rappel des références à compter affiche maintenant une référence inactive gardée délibérément dans un périmètre choisi à la main, avec sa mention « · Inactif » — elle ne disparaissait plus à tort de la liste censée dire quoi aller vérifier',
+    ],
+  },
+  {
     version: '0.9.46',
     date: '2026-09-30',
     items: [

@@ -296,21 +296,25 @@ function Launch({ onBack, onReady }: { onBack: () => void; onReady: (inv: Invent
     }
   }
 
-  // Premier pas des deux confirmations (spec 2.74 §6.5) : jamais appelé
+  // Premier pas des deux confirmations (spec 2.75 §6.5) : jamais appelé
   // directement par un bouton "Démarrer" — c'est lui qui décide si la
   // question des inactives doit s'afficher avant la confirmation de
-  // périmètre. "tout" n'est filtré nulle part (scopeRefCodes renvoie
-  // undefined) : une inactive du catalogue y entre donc bien, d'où le test
-  // sur `references` complet. "client" ne peut jamais en contenir
-  // (scopeRefCodes filtre déjà sur `actif`, spec 2.67 §6.8) — inutile de le
-  // tester, le tableau vide suffit à sauter la première question.
+  // périmètre. Cette question n'existe qu'en périmètre `references` : c'est
+  // le seul où l'utilisateur désigne des références une par une. "tout" et
+  // "client" n'en désignent aucune (une seule case cochée ou aucun choix
+  // individuel) — `inactiveCodes` y est donc toujours vide, pas parce que
+  // leur périmètre exclurait les inactives (faux pour "tout", §6.8 :
+  // `scopeRefCodes` y renvoie `undefined`, délibérément sans filtre).
+  // Erreur commise une fois (spec 2.74), corrigée ici : sans ce test,
+  // "tout" aurait listé toutes les inactives du CATALOGUE entier, et
+  // "Réactiver et continuer" les aurait réactivées en masse derrière un
+  // geste censé démarrer un comptage — aucune fenêtre ne doit pouvoir faire
+  // plus que ce que l'utilisateur a désigné.
   function requestLaunch(scopeKind: ScopeKind, options: { clientCode?: string; refCodes?: string[] } = {}) {
     const inactiveCodes =
-      scopeKind === 'tout'
-        ? references.filter((r) => !r.actif).map((r) => r.code)
-        : scopeKind === 'references'
-          ? references.filter((r) => !r.actif && (options.refCodes ?? []).includes(r.code)).map((r) => r.code)
-          : []
+      scopeKind === 'references'
+        ? references.filter((r) => !r.actif && (options.refCodes ?? []).includes(r.code)).map((r) => r.code)
+        : []
     setLaunchError(null)
     setPendingLaunchStatus({ kind: 'idle' })
     setPendingLaunch({ scopeKind, options, inactiveCodes, step: inactiveCodes.length > 0 ? 'inactive' : 'confirm' })
@@ -1041,19 +1045,27 @@ function Walk({
       : allReferences
   ).filter((r) => r.actif)
 
-  // Rappel des références à compter (spec 2.74 §6.5) : existe dès qu'un
-  // périmètre existe, c'est-à-dire toujours — plus de seuil de taille, un
-  // champ de filtre en tient lieu (voir la fenêtre plus bas). "tout" = le
-  // catalogue actif : une inactive n'y revient pas par la porte du rappel
-  // (§6.8), même si le périmètre du comptage, lui, la couvre encore.
-  // `undefined` tant que le périmètre client n'est pas chargé — pas de
-  // bouton plutôt qu'une liste vide qui se lirait comme « rien à compter ».
+  // Rappel des références à compter (spec 2.75 §6.5) : liste le périmètre
+  // TEL QU'IL EST, jamais "les actives du périmètre" — le filtrage des
+  // inactives a lieu une seule fois, à la composition du périmètre, pas une
+  // seconde fois ici (erreur commise en spec 2.72, corrigée en 2.75 : elle
+  // cachait une inactive délibérément gardée au périmètre `references` pour
+  // vérifier qu'elle est bien vide). "client" exclut déjà les inactives à
+  // la source (scopeRefCodes filtre sur `actif`, §6.8) : rien à refiltrer.
+  // "references" est composé à la main et peut légitimement en contenir :
+  // affichées comme les autres, avec leur mention « · Inactif » (rendu plus
+  // bas). Seul "tout" n'a pas de périmètre énumérable à relire tel quel
+  // (scopeRefCodes y renvoie `undefined`, volontairement sans restriction) :
+  // le catalogue actif en tient lieu, unique composition pour ce cas, pas
+  // un second filtre. `undefined` tant que le périmètre client n'est pas
+  // chargé — pas de bouton plutôt qu'une liste vide qui se lirait comme
+  // « rien à compter ».
   const checklistReferences: Reference[] | undefined = (() => {
     if (inventaire.scope_kind === 'tout') return allReferences.filter((r) => r.actif)
     const codes = inventaire.scope_kind === 'client' ? clientScopeCodes : referencesScope
     if (codes === undefined) return undefined
     const codeSet = new Set(codes)
-    return allReferences.filter((r) => r.actif && codeSet.has(r.code))
+    return allReferences.filter((r) => codeSet.has(r.code))
   })()
   // `allReferences` encore vide au montage (avant la résolution de
   // listReferences(), ou si elle échoue) donnerait un "tout" à liste vide
@@ -1717,6 +1729,12 @@ function Walk({
                   <span>
                     {r.code}
                     {r.libelle ? ` — ${r.libelle}` : ''}
+                    {/* Distinct du marqueur d'état interdit ci-dessus (spec
+                        2.75 §6.5) : `actif` est un fait stocké, pas une
+                        déduction de progression — une inactive gardée au
+                        périmètre `references` doit s'y voir comme partout
+                        ailleurs (spec 2.71 §6.8). Même clé. */}
+                    {!r.actif ? ` · ${t.catalogue.inactiveLabel}` : ''}
                   </span>
                 </li>
               ))}

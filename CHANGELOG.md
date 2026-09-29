@@ -5,6 +5,11 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.47 — 2026-09-30
+
+- Lancer un inventaire par client ou sur tout l'entrepôt ne pose plus la question des références inactives — ce périmètre n'en désigne aucune une par une, la question ne concerne donc que la liste de références choisie à la main
+- Le rappel des références à compter affiche maintenant une référence inactive gardée délibérément dans un périmètre choisi à la main, avec sa mention « · Inactif » — elle ne disparaissait plus à tort de la liste censée dire quoi aller vérifier
+
 ## 0.9.46 — 2026-09-30
 
 - Le rappel des références à compter n'a plus de plafond — il s'affiche pour tout périmètre, avec un champ de filtre (par code ou libellé) à la place du seuil de cinquante

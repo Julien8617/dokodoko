@@ -313,7 +313,10 @@ export interface Dictionary {
     // dans N casiers") : une référence éparpillée sur plusieurs casiers
     // reste à compter ailleurs même une fois rencontrée une fois, un
     // marqueur "fait" induirait en erreur sur une complétude que rien ne
-    // garantit. Liste uniforme, code + libellé seulement.
+    // garantit. Liste le périmètre tel qu'il est (spec 2.75 §6.5), jamais
+    // filtré une seconde fois sur `actif` : code, libellé, et la mention
+    // « · Inactif » si le périmètre en contient une — un fait stocké, pas
+    // une déduction de progression, donc pas soumis à l'interdit ci-dessus.
     scopeChecklistTitle: string
     // Marque une saisie déjà enregistrée hors périmètre, sur l'écran des
     // écarts — même action "ajouter au périmètre" que côté saisie.
