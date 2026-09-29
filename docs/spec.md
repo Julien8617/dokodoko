@@ -1,6 +1,6 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.71 — 29 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.72 — 29 septembre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -485,7 +485,15 @@ La saisie libre reste la règle du module, parce qu'elle seule révèle une pale
 
 Étendre un périmètre en cours de route est **sans danger**, et c'est une décision antérieure qui le rend possible : le théorique n'est jamais une copie figée au lancement, il se recalcule sur `ts < frozen_ts` (§6.5). Une référence ajoutée après coup est comparée au même instant que les autres. Avec un théorique copié au lancement, l'extension aurait été impossible.
 
-**3. Rappel des références à compter**, dès que le périmètre est énumérable. Liste du périmètre, chaque référence avec son état : **non comptée**, ou **comptée dans N casiers**. Jamais « terminée » : une référence peut se trouver dans un casier de plus, et seul l'opérateur sait quand il a fini de la chercher. Et **jamais l'emplacement attendu** — ce serait afficher le théorique, donc compter vers une cible (§6.5).
+**3. Rappel des références à compter**, dès que le périmètre est énumérable. **Liste uniforme : code et libellé, rien d'autre.**
+
+Aucun état par référence — ni « non comptée », ni « comptée dans N casiers », ni grisé, ni compteur global. La version antérieure de cette règle en prévoyait, en se croyant prudente puisqu'elle interdisait déjà le mot « terminée ». C'était insuffisant, et c'est l'utilisateur qui l'a tranché le 24 septembre : **une référence est éparpillée sur plusieurs casiers, donc l'avoir comptée quelque part ne dit rien sur le fait qu'elle soit comptée.** Tout marqueur — même formulé comme un fait, « comptée dans 3 casiers » — se lit comme une progression et invite à passer à la suivante. Un indicateur d'avancement dont l'avancement est faux est pire que pas d'indicateur.
+
+Le texte de ce point est resté en contradiction avec cette décision jusqu'au 29 septembre, où Claude Code l'a relevé ; le code, lui, suivait bien la décision. Corrigé ici.
+
+Et **jamais l'emplacement attendu** — ce serait afficher le théorique, donc compter vers une cible (§6.5).
+
+**Le rappel ne liste que les références actives**, y compris en périmètre `tout`. Une inactive porte un stock nul par invariant (§6.8) : l'inscrire au rappel enverrait chercher ce qui n'existe pas. Ce n'est pas une restriction de saisie — en périmètre `tout`, tout reste enregistrable, et trouver des cartons sur une inactive déclenche la question d'inactivité qui la réactive. Le rappel dit **où aller chercher**, la garde dit **ce qui peut être écrit** : deux questions différentes, et leur asymétrie est voulue.
 
 **Le critère est la taille du périmètre, pas son mode de composition.** La version antérieure réservait le rappel au périmètre `references` et l'excluait des inventaires complets ou par client, au motif qu'une liste de trois cents lignes serait du bruit. Le motif est juste, le critère était faux : il prenait le mode de composition pour un indicateur de taille. Constaté le 28 septembre — un inventaire lancé par client sur REUZEL compose vingt-deux références, se parcourt d'un regard, et n'avait pourtant aucun rappel. La règle : le rappel s'affiche tant que le périmètre tient sous une cinquantaine de références, quel que soit le `scope_kind`, et disparaît au-delà. Un catalogue entier de vingt références mérite son rappel ; un périmètre de trois cents choisies à la main n'en mérite pas.
 
