@@ -1,6 +1,6 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.77 — 30 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.78 — 30 septembre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -475,17 +475,21 @@ Confirmation simple avec récapitulatif — « Déplacer REU003 de A-02-1 vers A
 
 Le lancement engage tout ce qui suit : le périmètre gèle le théorique, oriente le rappel et décide de ce qui sera refusé à la saisie. Il mérite d'être confirmé, et **par deux questions distinctes** — deux décisions sans rapport que l'on ne fusionne pas sous un seul bouton.
 
-**1. Les inactives du périmètre, s'il y en a.** Liste des références inactives **que l'utilisateur a lui-même désignées**, et la question de leur réactivation.
-
-**Cette fenêtre n'existe donc qu'en périmètre `references`.** En `client` et en `tout`, le périmètre est construit automatiquement et exclut déjà les inactives : il n'y en a aucune à lister, la fenêtre ne s'affiche pas. La proposer là reviendrait à offrir, derrière un bouton unique, la réactivation de **tout le catalogue inactif** — une action de masse irréversible, déclenchée par un geste que l'opérateur fait en pensant simplement démarrer son comptage. Aucune fenêtre de confirmation ne doit pouvoir faire plus que ce que l'utilisateur a désigné.
+**1. Les inactives du périmètre, s'il y en a — et elle n'est qu'informative.**
 
 > Les références suivantes sont inactives :
 > REU007, REU012
-> [ Réactiver et continuer ] [ Continuer sans réactiver ] [ Revenir au choix ]
+> [ OK ]
 
-**Trois issues, parce qu'il y a trois intentions**, et les confondre reviendrait à décider à la place de l'opérateur. Réactiver : la référence est de retour en circulation, on le dit tout de suite. Continuer sans réactiver : on va vérifier qu'elle est bien vide, ce qui est une raison légitime de la compter sans la remettre en service — si du stock apparaît, la question posée à la saisie la réactivera de toute façon (§6.8). Revenir au choix : on s'est trompé de sélection.
+**Un seul bouton, aucune décision.** La version antérieure en offrait trois, dont la réactivation immédiate. C'était demander à l'opérateur de trancher au seul moment où il ne peut pas savoir : *va-t-il en trouver ?* Le comptage est là pour répondre, et il répondra dans quelques minutes. Une question posée avant son élément de réponse n'est pas une précaution, c'est un tirage au sort.
 
-**Les libellés disent l'action, jamais « oui », « non » et « annuler ».** Une fenêtre qui écrit nomme ses conséquences (§6.5) ; avec trois issues, « non » et « annuler » seraient indiscernables — l'un poursuit, l'autre non, et rien dans les mots ne le dit.
+Le mécanisme complet, décidé le 30 septembre après essai sur appareil :
+
+- Les inactives **entrent au périmètre sans être réactivées**. Elles figurent au rappel, marquées.
+- **Si rien n'est compté dessus**, la référence reste inactive et l'écart affiche un stock nul. L'invariant tient, et il tient parce qu'on l'a vérifié.
+- **Si du stock est compté**, la saisie déclenche la question de réactivation (§6.8) — au bon moment, avec le fait sous les yeux.
+
+Ce que la fenêtre fait n'est donc pas de demander, c'est de **prévenir** : ces références sont dans votre tournée alors qu'elles sont censées être vides, ne soyez pas surpris de les voir au rappel.
 
 **2. Le périmètre lui-même**, toujours affichée, après la première le cas échéant.
 
@@ -499,7 +503,7 @@ Dans les deux cas, le retour au choix laisse l'écran en l'état, sans rien effa
 
 Défaut constaté le 19 septembre sur un inventaire à périmètre `references` : toutes les références apparaissent dans les suggestions, rien ne rappelle celles à compter, et une référence hors périmètre a pu être saisie. C'est le cas d'usage de chaque vendredi — le comptage hebdomadaire porte sur les références sorties dans la semaine.
 
-**La question de réactivation ne se déclenche que si la saisie donne du stock.** **Et elle appartient à l'écriture, pas à l'écran.** Défaut relevé le 30 septembre : l'écran des écarts écrit une quantité sans aucun contrôle sur `actif`, si bien qu'une ligne posée à zéro pendant la marche, puis portée à cinq cartons depuis les écarts, donne du stock à une inactive **sans qu'aucune question ne se pose** — et un inventaire par client la laissera ensuite de côté. Même classe de défaut que les deux implémentations du déplacement corrigées le 29 : une règle tenue sur un écran et pas sur l'autre.
+**La question de réactivation ne se déclenche que si la saisie donne du stock.** **Et elle valide la saisie en même temps que la réactivation.** Défaut constaté le 30 septembre : après avoir confirmé, l'opérateur devait ré-enregistrer sa ligne. Une confirmation qui ne conclut pas l'action qu'elle confirme n'est pas une confirmation, c'est un obstacle — et chaque geste ajouté dans une allée est un geste qu'on finit par sauter. **Et elle appartient à l'écriture, pas à l'écran.** Défaut relevé le 30 septembre : l'écran des écarts écrit une quantité sans aucun contrôle sur `actif`, si bien qu'une ligne posée à zéro pendant la marche, puis portée à cinq cartons depuis les écarts, donne du stock à une inactive **sans qu'aucune question ne se pose** — et un inventaire par client la laissera ensuite de côté. Même classe de défaut que les deux implémentations du déplacement corrigées le 29 : une règle tenue sur un écran et pas sur l'autre.
 
 La correction n'est donc pas d'ajouter un contrôle dans le second écran, ce qui ouvrirait la porte au troisième : **la détection appartient à la fonction d'écriture partagée**, la fenêtre reste le composant commun déjà en place. Sans objet en phase 1, où aucun inventaire n'écrit de stock et où tous se terminent par un abandon ; **à traiter avant l'amorçage**, où ça deviendrait une perte silencieuse. Une saisie à zéro — « vérifié, vide » — confirme l'invariant au lieu de le contredire : elle ne doit donc rien réactiver. Sans cette réserve, « continuer sans réactiver » perdrait sa seule raison d'être, puisque le geste même de vérifier qu'une référence est vide la remettrait en circulation. Constaté le 30 septembre.
 
@@ -523,11 +527,11 @@ Et **jamais l'emplacement attendu** — ce serait afficher le théorique, donc c
 
 **Le rappel liste le périmètre, tel qu'il est.** Pas « les références actives du périmètre » : le périmètre. Une version antérieure y filtrait les inactives une seconde fois, ce qui produisait une contradiction relevée le 30 septembre — une référence inactive délibérément gardée au périmètre pour vérifier qu'elle est bien vide disparaissait de la liste censée dire quoi aller vérifier.
 
-**Le filtrage des inactives a lieu une seule fois, à la composition du périmètre**, et nulle part ailleurs. Et il n'a lieu que là où le périmètre **restreint** quelque chose.
+**Aucun périmètre ne filtre les inactives.** Ni `references`, ni `client`, ni `tout`. Trois règles s'étaient succédé ici en trois jours, chacune corrigeant un symptôme de la précédente : filtrer partout, puis filtrer sauf en `tout`, avec une asymétrie justifiée par « commodité contre exhaustivité ». Cette justification était trop élégante pour être vraie — elle habillait une incohérence au lieu de la retirer.
 
-**`tout` ne filtre rien, y compris les inactives.** C'est ce qui en fait le mode exhaustif : `scopeRefCodes` y renvoie délibérément `undefined`, sans restriction, pour qu'un comptage complet puisse révéler du stock là où le système n'en attend pas. Si `tout` filtrait à son tour, **aucun mode ne serait exhaustif** — et le comptage mensuel qui amorce le stock laisserait silencieusement de côté toutes les inactives, c'est-à-dire précisément les références dont l'invariant « stock nul » n'a jamais été vérifié. Un inventaire complet est là pour éprouver les affirmations du système, pas pour les supposer vraies.
+La règle finale est la plus simple des quatre : **le drapeau `actif` ne compose aucun périmètre.** Il vit dans les surfaces de saisie courante — les suggestions de l'écran Mouvement — et dans l'affichage du Catalogue, et nulle part ailleurs. Un inventaire compte ce qui est là, et le statut administratif d'une référence n'a jamais décidé de ce qui se trouve sur une étagère.
 
-L'asymétrie avec `client` est voulue et elle a un sens : un périmètre par client est une **commodité** — « ce que ce client a en circulation » — tandis que `tout` est une **garantie d'exhaustivité**. Qui veut compter un client en incluant ses inactives choisit ses références à la main ; rien n'est hors d'atteinte. Un périmètre construit automatiquement les exclut ; un périmètre désigné à la main peut en contenir, et alors elles s'affichent comme les autres, avec leur mention « · Inactif ». Filtrer deux fois, c'est se donner deux occasions de diverger — et c'est exactement ce qui vient d'arriver.
+Conséquence directe : il n'existe plus aucun cas où une référence disparaît silencieusement d'un comptage. C'était le seul vrai risque de tout ce fil.
 
 **Le rappel n'a pas de seuil.** Deux règles se sont succédé ici, fausses toutes les deux, et pour la même raison. La première le réservait au périmètre `references` — elle prenait le mode de composition pour un indicateur de taille, et un inventaire par client sur vingt-deux références se retrouvait sans rappel. La seconde l'a remplacé par un plafond de cinquante références — elle prenait un nombre pour un indicateur d'utilité, et un client de deux cents références se retrouverait sans rappel précisément là où il en a le plus besoin.
 
@@ -546,6 +550,14 @@ Règle : **toute tentative de saisie qui trouve le périmètre non chargé tente
 Leçon de méthode, valable au-delà de ce cas : tester qu'une garde se ferme ne suffit pas ; il faut tester qu'elle se rouvre. La première moitié du test aurait laissé passer ce défaut.
 
 **Étendre le périmètre engage à compter la référence partout — à dire en phase 2.** En phase 1 le théorique est nul et l'extension n'a aucun effet de bord. En phase 2, ajouter une référence au périmètre rend attendus **tous** ses emplacements théoriques : ceux qui ne seront pas visités apparaîtront en écart. C'est le comportement juste, mais une extension faite au passage, pour une référence aperçue par hasard dans un casier, produirait des écarts déroutants. La question devra alors le dire : « Ses autres emplacements deviendront attendus. »
+
+#### Les références jamais comptées, à la lecture des écarts
+
+L'écran des écarts liste, à part, les références du périmètre **qu'aucune saisie n'a touchées**. Non comptée vaut absente, donc stock nul — c'est déjà la règle de calcul (§6.5), l'écran ne fait que la nommer au lieu de la laisser deviner.
+
+C'est le pendant du rappel, et il n'entre pas en contradiction avec lui. Le rappel s'affiche **pendant** la tournée, où un marqueur d'avancement mentirait : une référence peut toujours se trouver dans un casier de plus. Les écarts se lisent **après**, quand l'opérateur décide qu'il a fini — et à ce moment-là, savoir ce qu'on n'a pas touché est exactement la question utile.
+
+**La clôture n'hérite pas de cette lecture.** Afficher « non comptée donc zéro » est juste ; écrire un `ajustement_inventaire` sur cette base détruirait du stock réel sur la foi d'une absence de saisie. La clôture exige une saisie explicite par casier, chiffrée ou confirmée « vérifié, vide ». Le zéro implicite est bon pour regarder, mauvais pour signer.
 
 #### Écran des écarts — mise en page et navigation
 
@@ -718,7 +730,7 @@ Manque révélé le 18 septembre : les Réglages sont un entonnoir en écriture 
 - Réactivable à tout moment.
 - **L'état inactif se voit au moment où l'on compose le périmètre.** Dans le choix référence par référence, une inactive porte la même mention « · Inactif » que partout ailleurs. C'est ce qui rend applicable la liberté laissée juste en dessous : « celui qui désigne explicitement une inactive sait ce qu'il fait » suppose qu'il puisse le savoir. C'est aussi le plus tôt qu'un avertissement puisse arriver — avant le comptage, pas pendant.
 - **Le Catalogue affiche les références inactives par défaut, grisées**, avec une case à cocher pour les masquer. L'inverse recréerait en miniature le défaut qui a justifié cet écran : les Réglages étaient un entonnoir en écriture seule où l'on ne retrouvait jamais rien. Le drapeau `actif` nettoie les **sélecteurs de saisie**, pas la surface de lecture. Le grisé est ici légitime là où il ne l'était pas dans le rappel des références à compter : il encode un **état stocké**, `actif = false`, et non une complétude inférée. Griser sur un fait est juste ; griser sur une déduction — « déjà comptée, donc finie » — ment.
-- **Une référence inactive sort des périmètres construits automatiquement.** Un inventaire lancé par client compose son périmètre depuis le catalogue de ce client : il ne retient que les références actives. Sans ce filtre, le drapeau ne servirait à rien le jour où le comptage se lance par client — c'est-à-dire au comptage mensuel — et la référence écartée des sélecteurs reviendrait par la porte du rappel « références à compter ». Un périmètre choisi **référence par référence** peut en désigner une : la ligne reste grisée et sélectionnable, et le lancement demande si l'on réactive, sans l'imposer — voir « Deux confirmations au lancement » ci-dessous. Compter une inactive pour vérifier qu'elle est bien vide est une raison valable de ne pas la réactiver.
+- **Une référence inactive reste dans tous les périmètres d'inventaire.** Le drapeau retire une référence des surfaces de saisie courante, jamais d'un comptage : ce qui est physiquement là doit pouvoir être compté, et c'est le comptage qui tranche son statut, pas l'inverse. Elle s'affiche au rappel avec sa mention, et la fenêtre informative du lancement prévient de sa présence (§6.5).
 - **Désactivation refusée tant qu'un inventaire en cours couvre la référence**, au même titre que le stock non nul. Le périmètre d'un inventaire ne doit pas rétrécir sous les pieds de celui qui compte : c'est la même règle que le gel du stock théorique au `frozen_ts`. Comme un seul inventaire peut être ouvert à la fois, le contrôle est immédiat. Message nommant l'inventaire concerné, et la désactivation redevient possible dès sa clôture ou son abandon.
 - **Désactivation refusée tant que le stock n'est pas nul**, avec le stock affiché. Ce n'est pas un fait physique que l'on refuserait (§4) mais un acte administratif : une référence inactive qui porte du stock sortirait des périmètres d'inventaire, et ce stock cesserait d'être compté sans que personne le voie.
 
@@ -1140,6 +1152,12 @@ Révisé le 18 septembre. L'app est un outil de comptage jusqu'à fin octobre : 
 7. **Sortie du comptage en CSV.** Requête en lecture seule sur `comptage_lignes`, en `distinct on` pour ne retenir que la dernière valeur par casier × référence × conditionnement — sans quoi une correction serait comptée deux fois. Rend cheap la comparaison hebdomadaire avec l'Excel, qui est l'unique mesure de la phase 1.
 
 ### Phase 2 — à partir de l'amorçage, fin octobre
+
+8 bis. **Deux niveaux de retrait : inactive et archivée.** Question posée le 30 septembre, **à ne pas trancher avant que le catalogue l'impose**. Depuis la 2.78, une inactive reste dans tous les périmètres d'inventaire : à vingt-deux références c'est sans coût, à trois cents ce serait faire parcourir chaque mois des allées pour des produits abandonnés depuis des années.
+
+   La forme pressentie : **inactive** = retirée des surfaces de saisie courante, mais toujours comptée ; **archivée** = retirée aussi des périmètres. Dans les deux cas, une saisie qui lui donne du stock la remet en circulation — la règle de remontée ne change pas, seul le point de départ diffère.
+
+   Le déclencheur n'est pas une date mais un seuil de gêne : **le jour où l'inventaire complet fait perdre du temps sur des références que personne ne s'attend à trouver.** Avant ça, un second drapeau serait un état de plus à tenir pour un problème qui ne se pose pas. À réexaminer quand le périmètre s'étendra au-delà de REUZEL.
 
 8. **Catalogue, compléments** (§6.8) : une **mise en page adaptée au grand écran**, obtenue par points de rupture CSS sur le même écran — jamais un second écran « version ordinateur ». Le Catalogue est la seule surface du module réellement utilisée assis, et un téléphone étiré sur vingt-sept pouces gâche l'essentiel de la largeur. Mais deux implémentations d'un même écran divergent, et on vient d'en payer le prix sur le déplacement : ce sera la même liste, la même logique, une grille plus large. Puis  les champs `code_tarifaire`, `famille_melange` et dimensions quand leurs tables existeront. Le drapeau `actif` est passé en phase 1 (point 4 bis) ; ce qui reste ici est la vérification de sa règle de stock nul, qui n'a rien à éprouver tant qu'aucun stock n'existe.
 8 bis. **Bascule sur une base neuve, avant l'amorçage.** Depuis le premier jour, le développement écrit dans la base qui sert aussi de production — c'est ce qui a produit les inventaires de test et les références fantômes nettoyés le 26 septembre. Tant que le stock est à zéro, cette dette ne coûte rien ; à l'amorçage, elle deviendrait indéfendable. Plutôt que d'ouvrir une seconde base aujourd'hui pour développer proprement, on tranche à l'autre bout : **la production sera une base neuve, et l'actuelle deviendra la base de développement.** Rien à faire d'ici là, aucune règle à tenir, et la saleté accumulée reste du bon côté de la frontière.
