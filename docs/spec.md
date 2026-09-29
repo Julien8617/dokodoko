@@ -1,6 +1,6 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.75 — 30 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.76 — 30 septembre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -499,6 +499,8 @@ Dans les deux cas, le retour au choix laisse l'écran en l'état, sans rien effa
 
 Défaut constaté le 19 septembre sur un inventaire à périmètre `references` : toutes les références apparaissent dans les suggestions, rien ne rappelle celles à compter, et une référence hors périmètre a pu être saisie. C'est le cas d'usage de chaque vendredi — le comptage hebdomadaire porte sur les références sorties dans la semaine.
 
+**La question de réactivation ne se déclenche que si la saisie donne du stock.** Une saisie à zéro — « vérifié, vide » — confirme l'invariant au lieu de le contredire : elle ne doit donc rien réactiver. Sans cette réserve, « continuer sans réactiver » perdrait sa seule raison d'être, puisque le geste même de vérifier qu'une référence est vide la remettrait en circulation. Constaté le 30 septembre.
+
 **Une référence inactive tapée en entier est acceptée, avec une question.** Le champ libre de la marche ne la refuse pas : si l'opérateur a des cartons devant lui, c'est un fait physique, et le module n'a jamais le droit de refuser un fait physique (§4). Une référence marquée inactive porte en principe un stock nul — en trouver signifie donc soit que la désactivation était fautive, soit qu'un mouvement a échappé au système. Les deux sont des informations, pas des erreurs, et les taire les détruirait. La saisie déclenche donc la **même forme de question que la référence hors périmètre** : nommer l'état, demander confirmation, et proposer la réactivation dans le même geste. Pas un second mécanisme : le même.
 
 La saisie libre reste la règle du module, parce qu'elle seule révèle une palette déplacée. Mais elle vise **l'emplacement** : une référence du périmètre trouvée dans un casier inattendu. Une référence **hors périmètre** est une autre question — non pas où elle se trouve, mais si elle appartient à cet inventaire.
@@ -519,7 +521,11 @@ Et **jamais l'emplacement attendu** — ce serait afficher le théorique, donc c
 
 **Le rappel liste le périmètre, tel qu'il est.** Pas « les références actives du périmètre » : le périmètre. Une version antérieure y filtrait les inactives une seconde fois, ce qui produisait une contradiction relevée le 30 septembre — une référence inactive délibérément gardée au périmètre pour vérifier qu'elle est bien vide disparaissait de la liste censée dire quoi aller vérifier.
 
-**Le filtrage des inactives a lieu une seule fois, à la composition du périmètre**, et nulle part ailleurs. Un périmètre construit automatiquement les exclut ; un périmètre désigné à la main peut en contenir, et alors elles s'affichent comme les autres, avec leur mention « · Inactif ». Filtrer deux fois, c'est se donner deux occasions de diverger — et c'est exactement ce qui vient d'arriver.
+**Le filtrage des inactives a lieu une seule fois, à la composition du périmètre**, et nulle part ailleurs. Et il n'a lieu que là où le périmètre **restreint** quelque chose.
+
+**`tout` ne filtre rien, y compris les inactives.** C'est ce qui en fait le mode exhaustif : `scopeRefCodes` y renvoie délibérément `undefined`, sans restriction, pour qu'un comptage complet puisse révéler du stock là où le système n'en attend pas. Si `tout` filtrait à son tour, **aucun mode ne serait exhaustif** — et le comptage mensuel qui amorce le stock laisserait silencieusement de côté toutes les inactives, c'est-à-dire précisément les références dont l'invariant « stock nul » n'a jamais été vérifié. Un inventaire complet est là pour éprouver les affirmations du système, pas pour les supposer vraies.
+
+L'asymétrie avec `client` est voulue et elle a un sens : un périmètre par client est une **commodité** — « ce que ce client a en circulation » — tandis que `tout` est une **garantie d'exhaustivité**. Qui veut compter un client en incluant ses inactives choisit ses références à la main ; rien n'est hors d'atteinte. Un périmètre construit automatiquement les exclut ; un périmètre désigné à la main peut en contenir, et alors elles s'affichent comme les autres, avec leur mention « · Inactif ». Filtrer deux fois, c'est se donner deux occasions de diverger — et c'est exactement ce qui vient d'arriver.
 
 **Le rappel n'a pas de seuil.** Deux règles se sont succédé ici, fausses toutes les deux, et pour la même raison. La première le réservait au périmètre `references` — elle prenait le mode de composition pour un indicateur de taille, et un inventaire par client sur vingt-deux références se retrouvait sans rappel. La seconde l'a remplacé par un plafond de cinquante références — elle prenait un nombre pour un indicateur d'utilité, et un client de deux cents références se retrouverait sans rappel précisément là où il en a le plus besoin.
 
