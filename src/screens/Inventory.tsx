@@ -410,6 +410,10 @@ function Launch({ onBack, onReady }: { onBack: () => void; onReady: (inv: Invent
                 <span>
                   {r.code}
                   {r.libelle ? ` — ${r.libelle}` : ''}
+                  {/* Spec 2.71 §6.8 : choisir une inactive à la main reste
+                      libre, mais on doit pouvoir le voir — avant le
+                      comptage, pas pendant. Même clé que partout. */}
+                  {!r.actif ? ` · ${t.catalogue.inactiveLabel}` : ''}
                 </span>
                 {selectedRefs.has(r.code) && <span className="casier-status">✓</span>}
               </button>

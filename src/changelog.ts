@@ -10,6 +10,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.44',
+    date: '2026-09-29',
+    items: [
+      'Inventaire sur une liste de références : une référence inactive porte la mention « Inactif » dans la liste de choix, avant le lancement du comptage — elle reste sélectionnable',
+    ],
+  },
+  {
     version: '0.9.43',
     date: '2026-09-29',
     items: [

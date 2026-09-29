@@ -5,6 +5,10 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.44 — 2026-09-29
+
+- Inventaire sur une liste de références : une référence inactive porte la mention « Inactif » dans la liste de choix, avant le lancement du comptage — elle reste sélectionnable
+
 ## 0.9.43 — 2026-09-29
 
 - Marche : le rappel des références à compter s'affiche maintenant pour tout inventaire dont le périmètre tient sous une cinquantaine de références — y compris un inventaire lancé par client ou sur tout le catalogue, qui n'en avaient pas. Au-delà, il disparaît (liste trop longue pour servir)
