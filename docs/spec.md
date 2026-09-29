@@ -1,6 +1,6 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.74 — 30 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.75 — 30 septembre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -475,7 +475,9 @@ Confirmation simple avec récapitulatif — « Déplacer REU003 de A-02-1 vers A
 
 Le lancement engage tout ce qui suit : le périmètre gèle le théorique, oriente le rappel et décide de ce qui sera refusé à la saisie. Il mérite d'être confirmé, et **par deux questions distinctes** — deux décisions sans rapport que l'on ne fusionne pas sous un seul bouton.
 
-**1. Les inactives du périmètre, s'il y en a.** Liste des références inactives sélectionnées, et la question de leur réactivation. Elle ne s'affiche que si au moins une est concernée.
+**1. Les inactives du périmètre, s'il y en a.** Liste des références inactives **que l'utilisateur a lui-même désignées**, et la question de leur réactivation.
+
+**Cette fenêtre n'existe donc qu'en périmètre `references`.** En `client` et en `tout`, le périmètre est construit automatiquement et exclut déjà les inactives : il n'y en a aucune à lister, la fenêtre ne s'affiche pas. La proposer là reviendrait à offrir, derrière un bouton unique, la réactivation de **tout le catalogue inactif** — une action de masse irréversible, déclenchée par un geste que l'opérateur fait en pensant simplement démarrer son comptage. Aucune fenêtre de confirmation ne doit pouvoir faire plus que ce que l'utilisateur a désigné.
 
 > Les références suivantes sont inactives :
 > REU007, REU012
@@ -515,7 +517,9 @@ Le texte de ce point est resté en contradiction avec cette décision jusqu'au 2
 
 Et **jamais l'emplacement attendu** — ce serait afficher le théorique, donc compter vers une cible (§6.5).
 
-**Le rappel ne liste que les références actives**, y compris en périmètre `tout`. Une inactive porte un stock nul par invariant (§6.8) : l'inscrire au rappel enverrait chercher ce qui n'existe pas. Ce n'est pas une restriction de saisie — en périmètre `tout`, tout reste enregistrable, et trouver des cartons sur une inactive déclenche la question d'inactivité qui la réactive. Le rappel dit **où aller chercher**, la garde dit **ce qui peut être écrit** : deux questions différentes, et leur asymétrie est voulue.
+**Le rappel liste le périmètre, tel qu'il est.** Pas « les références actives du périmètre » : le périmètre. Une version antérieure y filtrait les inactives une seconde fois, ce qui produisait une contradiction relevée le 30 septembre — une référence inactive délibérément gardée au périmètre pour vérifier qu'elle est bien vide disparaissait de la liste censée dire quoi aller vérifier.
+
+**Le filtrage des inactives a lieu une seule fois, à la composition du périmètre**, et nulle part ailleurs. Un périmètre construit automatiquement les exclut ; un périmètre désigné à la main peut en contenir, et alors elles s'affichent comme les autres, avec leur mention « · Inactif ». Filtrer deux fois, c'est se donner deux occasions de diverger — et c'est exactement ce qui vient d'arriver.
 
 **Le rappel n'a pas de seuil.** Deux règles se sont succédé ici, fausses toutes les deux, et pour la même raison. La première le réservait au périmètre `references` — elle prenait le mode de composition pour un indicateur de taille, et un inventaire par client sur vingt-deux références se retrouvait sans rappel. La seconde l'a remplacé par un plafond de cinquante références — elle prenait un nombre pour un indicateur d'utilité, et un client de deux cents références se retrouverait sans rappel précisément là où il en a le plus besoin.
 
