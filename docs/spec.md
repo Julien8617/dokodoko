@@ -1,6 +1,6 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.70 — 29 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.71 — 29 septembre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -1095,6 +1095,19 @@ Révisé le 18 septembre. L'app est un outil de comptage jusqu'à fin octobre : 
 ### Phase 2 — à partir de l'amorçage, fin octobre
 
 8. **Catalogue, compléments** (§6.8) : une **mise en page adaptée au grand écran**, obtenue par points de rupture CSS sur le même écran — jamais un second écran « version ordinateur ». Le Catalogue est la seule surface du module réellement utilisée assis, et un téléphone étiré sur vingt-sept pouces gâche l'essentiel de la largeur. Mais deux implémentations d'un même écran divergent, et on vient d'en payer le prix sur le déplacement : ce sera la même liste, la même logique, une grille plus large. Puis  les champs `code_tarifaire`, `famille_melange` et dimensions quand leurs tables existeront. Le drapeau `actif` est passé en phase 1 (point 4 bis) ; ce qui reste ici est la vérification de sa règle de stock nul, qui n'a rien à éprouver tant qu'aucun stock n'existe.
+8 bis. **Bascule sur une base neuve, avant l'amorçage.** Depuis le premier jour, le développement écrit dans la base qui sert aussi de production — c'est ce qui a produit les inventaires de test et les références fantômes nettoyés le 26 septembre. Tant que le stock est à zéro, cette dette ne coûte rien ; à l'amorçage, elle deviendrait indéfendable. Plutôt que d'ouvrir une seconde base aujourd'hui pour développer proprement, on tranche à l'autre bout : **la production sera une base neuve, et l'actuelle deviendra la base de développement.** Rien à faire d'ici là, aucune règle à tenir, et la saleté accumulée reste du bon côté de la frontière.
+
+   Bénéfice qui n'est pas qu'un nettoyage : reconstruire le schéma depuis les seules migrations du dépôt **prouve** que le dépôt les contient toutes. C'est le doute soulevé le 29 septembre à propos des policies `DELETE`, transformé en vérification.
+
+   Dans l'ordre, et **avant** le comptage mensuel, jamais le jour même :
+   1. Créer le nouveau projet Supabase.
+   2. Y appliquer toutes les migrations du dépôt, dans l'ordre. Un échec ici est une bonne nouvelle : il nomme ce qui manquait, à un moment où ça ne coûte rien.
+   3. Y porter le référentiel — clients, `references`, conditionnements, emplacements, `autorises`. Quelques centaines de lignes, extraites de l'ancienne base.
+   4. Changer la clé publishable dans le build, redéployer, se reconnecter une fois pour recréer le compte.
+   5. Noter la date au README : c'est elle qui borne l'analyse du point de situation (§ Mesure).
+
+   Condition qui ne se négocie pas : **toute migration est un fichier committé**. Un changement appliqué à la main et jamais écrit n'existera pas dans la base neuve, et son absence ne se verra que longtemps après.
+
 9. **Fin du blocage sur stock négatif** (§6.4) : avertissement et confirmation à la place du refus, liste d'anomalies, confirmation proportionnée au risque, correction en un geste. Sans objet tant qu'aucun stock n'existe ; nécessaire dès le premier jour où il en existe.
 10. **Export `.xlsx`** : l'instrument de comparaison avec l'Excel tenu en parallèle.
 11. **Clôture d'inventaire**, dans cet ordre interne : découplage de `comptages.statut` (§6.5) d'abord, puis policy `DELETE` conditionnée (§3), puis couverture, justification des écarts, écriture des `ajustement_inventaire`. Y rattacher l'affichage « vide » face à « non enregistré » dans la Recherche (§6.2), les **mouvements postérieurs au gel**, et la **résolution des écarts compensés** en transfert (§6.5) — c'est une seule conversation. Sans objet en phase 1, où chaque comptage se termine par un abandon.

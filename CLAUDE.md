@@ -156,9 +156,9 @@ reste REUZEL/A/B/C — revient si le pilote s'étend.
    main).
 3. Commit + push sur `main` (déploiement automatique via
    `.github/workflows/deploy.yml`), après un `git pull` — voir « Deux
-   machines, une seule base ». Une migration de schéma ne s'applique
-   jamais depuis le Pi : écrire le fichier, signaler, laisser le PC
-   l'appliquer.
+   machines, une seule base ». Tout changement de schéma passe par un
+   fichier de migration committé, sans exception : c'est lui qui
+   reconstruira la production à la bascule.
 4. Donner un script de test concret à l'utilisateur — il vérifie en
    testant sur son iPhone en conditions réelles, pas en lisant le code.
    Voir [[user_profile]] en mémoire.
@@ -237,18 +237,30 @@ répare, un conflit de schéma est silencieux et ne se répare pas.
   `claude/<sujet>` et l'utilisateur fusionne. Ce n'est pas le
   fonctionnement courant.
 
-### La base : le PC écrit, le Pi lit
+### La base : une seule, et elle sera remplacée à l'amorçage
 
-- **Les migrations s'appliquent depuis le PC, et seulement depuis lui.**
-  Le Pi sert à travailler loin du bureau, c'est-à-dire précisément quand
-  l'utilisateur est le moins en mesure de juger un changement de schéma.
-- **Le serveur MCP Supabase du Pi est en lecture seule**, et c'est
-  structurel, pas procédural. Une règle qui repose sur le fait de se
-  souvenir de demander finit par être oubliée un soir de fatigue ; une
-  connexion qui ne peut pas écrire ne l'oublie jamais.
-- Une session sur le Pi qui a besoin d'une migration **écrit le fichier
-  de migration, ne l'applique pas**, et le signale. Elle sera appliquée
-  depuis le PC.
+Les deux machines travaillent contre la **même base**, et c'est sans
+conséquence jusqu'à fin octobre : elle ne contient aucun stock réel, son
+référentiel se reconstruit, et tout ce qu'on y salit disparaîtra. Aucune
+règle ne restreint donc l'écriture, ni par machine ni par geste —
+développer, migrer, tester depuis le PC comme depuis le Pi.
+
+Ce qui tient lieu de protection, ce n'est pas une règle, c'est une date :
+**à l'amorçage du stock, la production sera une base neuve**, construite
+depuis les seules migrations du dépôt, et l'actuelle deviendra la base de
+développement (§12 de la spec). Toute la saleté accumulée reste alors du
+bon côté de la frontière.
+
+Deux conséquences pour une session qui code :
+
+- **Une migration doit être un fichier committé**, toujours, sans
+  exception. C'est elle qui reconstruira la production le jour de la
+  bascule : un changement appliqué à la main et jamais écrit en migration
+  n'existera pas dans la base neuve, et le défaut ne se verra que
+  longtemps après.
+- **Ne jamais présumer du contenu de la base.** Elle sera vidée. Aucune
+  logique, aucun test, aucun script ne doit dépendre d'un identifiant,
+  d'une référence ou d'un inventaire précis qui s'y trouve aujourd'hui.
 
 ### Ce qui ne traverse pas GitHub
 
