@@ -1,6 +1,6 @@
 # どこどこ — Spec v2 : pilote de suivi de stock
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.72 — 29 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.74 — 30 septembre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -471,6 +471,28 @@ Confirmation simple avec récapitulatif — « Déplacer REU003 de A-02-1 vers A
 
 **Le correctif ne vaut que pour l'avenir.** Une correction de référence faite avant le 23 septembre a laissé une ligne fantôme en base, et rien ne la distingue en SQL d'une référence légitimement comptée à ce casier : deux références au même endroit sont le cas normal. Il n'y a donc pas de requête de détection à écrire. Le seul contrôle est la comparaison au physique, qui est précisément ce que fait le comptage du vendredi.
 
+#### Deux confirmations au lancement d'un inventaire
+
+Le lancement engage tout ce qui suit : le périmètre gèle le théorique, oriente le rappel et décide de ce qui sera refusé à la saisie. Il mérite d'être confirmé, et **par deux questions distinctes** — deux décisions sans rapport que l'on ne fusionne pas sous un seul bouton.
+
+**1. Les inactives du périmètre, s'il y en a.** Liste des références inactives sélectionnées, et la question de leur réactivation. Elle ne s'affiche que si au moins une est concernée.
+
+> Les références suivantes sont inactives :
+> REU007, REU012
+> [ Réactiver et continuer ] [ Continuer sans réactiver ] [ Revenir au choix ]
+
+**Trois issues, parce qu'il y a trois intentions**, et les confondre reviendrait à décider à la place de l'opérateur. Réactiver : la référence est de retour en circulation, on le dit tout de suite. Continuer sans réactiver : on va vérifier qu'elle est bien vide, ce qui est une raison légitime de la compter sans la remettre en service — si du stock apparaît, la question posée à la saisie la réactivera de toute façon (§6.8). Revenir au choix : on s'est trompé de sélection.
+
+**Les libellés disent l'action, jamais « oui », « non » et « annuler ».** Une fenêtre qui écrit nomme ses conséquences (§6.5) ; avec trois issues, « non » et « annuler » seraient indiscernables — l'un poursuit, l'autre non, et rien dans les mots ne le dit.
+
+**2. Le périmètre lui-même**, toujours affichée, après la première le cas échéant.
+
+> Commencer l'inventaire sur :
+> — la liste des références, ou le nom du client, ou « tout l'entrepôt »
+> [ Commencer l'inventaire ] [ Revenir au choix ]
+
+Dans les deux cas, le retour au choix laisse l'écran en l'état, sans rien effacer de la sélection en cours : on revient corriger, pas recommencer.
+
 #### Inventaire partiel — le périmètre doit se voir pendant le comptage
 
 Défaut constaté le 19 septembre sur un inventaire à périmètre `references` : toutes les références apparaissent dans les suggestions, rien ne rappelle celles à compter, et une référence hors périmètre a pu être saisie. C'est le cas d'usage de chaque vendredi — le comptage hebdomadaire porte sur les références sorties dans la semaine.
@@ -485,7 +507,7 @@ La saisie libre reste la règle du module, parce qu'elle seule révèle une pale
 
 Étendre un périmètre en cours de route est **sans danger**, et c'est une décision antérieure qui le rend possible : le théorique n'est jamais une copie figée au lancement, il se recalcule sur `ts < frozen_ts` (§6.5). Une référence ajoutée après coup est comparée au même instant que les autres. Avec un théorique copié au lancement, l'extension aurait été impossible.
 
-**3. Rappel des références à compter**, dès que le périmètre est énumérable. **Liste uniforme : code et libellé, rien d'autre.**
+**3. Rappel des références à compter**, toujours, quel que soit le périmètre. **Liste uniforme : code et libellé, rien d'autre.**
 
 Aucun état par référence — ni « non comptée », ni « comptée dans N casiers », ni grisé, ni compteur global. La version antérieure de cette règle en prévoyait, en se croyant prudente puisqu'elle interdisait déjà le mot « terminée ». C'était insuffisant, et c'est l'utilisateur qui l'a tranché le 24 septembre : **une référence est éparpillée sur plusieurs casiers, donc l'avoir comptée quelque part ne dit rien sur le fait qu'elle soit comptée.** Tout marqueur — même formulé comme un fait, « comptée dans 3 casiers » — se lit comme une progression et invite à passer à la suivante. Un indicateur d'avancement dont l'avancement est faux est pire que pas d'indicateur.
 
@@ -495,7 +517,11 @@ Et **jamais l'emplacement attendu** — ce serait afficher le théorique, donc c
 
 **Le rappel ne liste que les références actives**, y compris en périmètre `tout`. Une inactive porte un stock nul par invariant (§6.8) : l'inscrire au rappel enverrait chercher ce qui n'existe pas. Ce n'est pas une restriction de saisie — en périmètre `tout`, tout reste enregistrable, et trouver des cartons sur une inactive déclenche la question d'inactivité qui la réactive. Le rappel dit **où aller chercher**, la garde dit **ce qui peut être écrit** : deux questions différentes, et leur asymétrie est voulue.
 
-**Le critère est la taille du périmètre, pas son mode de composition.** La version antérieure réservait le rappel au périmètre `references` et l'excluait des inventaires complets ou par client, au motif qu'une liste de trois cents lignes serait du bruit. Le motif est juste, le critère était faux : il prenait le mode de composition pour un indicateur de taille. Constaté le 28 septembre — un inventaire lancé par client sur REUZEL compose vingt-deux références, se parcourt d'un regard, et n'avait pourtant aucun rappel. La règle : le rappel s'affiche tant que le périmètre tient sous une cinquantaine de références, quel que soit le `scope_kind`, et disparaît au-delà. Un catalogue entier de vingt références mérite son rappel ; un périmètre de trois cents choisies à la main n'en mérite pas.
+**Le rappel n'a pas de seuil.** Deux règles se sont succédé ici, fausses toutes les deux, et pour la même raison. La première le réservait au périmètre `references` — elle prenait le mode de composition pour un indicateur de taille, et un inventaire par client sur vingt-deux références se retrouvait sans rappel. La seconde l'a remplacé par un plafond de cinquante références — elle prenait un nombre pour un indicateur d'utilité, et un client de deux cents références se retrouverait sans rappel précisément là où il en a le plus besoin.
+
+Les deux cherchaient un substitut à la vraie question, qui n'est pas « la liste est-elle courte » mais « la liste est-elle **parcourable** ». Une liste de deux cents lignes est parcourable dès qu'on peut y chercher. La réponse n'est donc pas de la cacher au-delà d'un seuil, c'est de lui donner un **champ de filtre**, et de la rendre disponible dans tous les cas.
+
+Le rappel existe donc dès qu'un périmètre existe, c'est-à-dire toujours. En périmètre `tout` il redit le catalogue, ce qui est peu utile mais jamais nuisible — et une exception à cet endroit serait une surprise de plus à expliquer. Le filtre partage le comportement du filtre de recherche (§6.2) : code ou libellé, même logique, pas une seconde implémentation.
 
 **4. Les saisies hors périmètre déjà enregistrées ne doivent pas disparaître.** Vérifié le 19 septembre : aucune n'était perdue. Elles figuraient déjà à l'écran des écarts et sur la feuille imprimée, avec un théorique nul — le défaut était un manque de signalement, pas une perte. Elles apparaissent désormais marquées **hors périmètre**, avec la même action « ajouter au périmètre ».
 
@@ -679,7 +705,7 @@ Manque révélé le 18 septembre : les Réglages sont un entonnoir en écriture 
 - Réactivable à tout moment.
 - **L'état inactif se voit au moment où l'on compose le périmètre.** Dans le choix référence par référence, une inactive porte la même mention « · Inactif » que partout ailleurs. C'est ce qui rend applicable la liberté laissée juste en dessous : « celui qui désigne explicitement une inactive sait ce qu'il fait » suppose qu'il puisse le savoir. C'est aussi le plus tôt qu'un avertissement puisse arriver — avant le comptage, pas pendant.
 - **Le Catalogue affiche les références inactives par défaut, grisées**, avec une case à cocher pour les masquer. L'inverse recréerait en miniature le défaut qui a justifié cet écran : les Réglages étaient un entonnoir en écriture seule où l'on ne retrouvait jamais rien. Le drapeau `actif` nettoie les **sélecteurs de saisie**, pas la surface de lecture. Le grisé est ici légitime là où il ne l'était pas dans le rappel des références à compter : il encode un **état stocké**, `actif = false`, et non une complétude inférée. Griser sur un fait est juste ; griser sur une déduction — « déjà comptée, donc finie » — ment.
-- **Une référence inactive sort des périmètres construits automatiquement.** Un inventaire lancé par client compose son périmètre depuis le catalogue de ce client : il ne retient que les références actives. Sans ce filtre, le drapeau ne servirait à rien le jour où le comptage se lance par client — c'est-à-dire au comptage mensuel — et la référence écartée des sélecteurs reviendrait par la porte du rappel « références à compter ». Un périmètre choisi **référence par référence** reste libre : l'utilisateur qui désigne explicitement une inactive sait ce qu'il fait.
+- **Une référence inactive sort des périmètres construits automatiquement.** Un inventaire lancé par client compose son périmètre depuis le catalogue de ce client : il ne retient que les références actives. Sans ce filtre, le drapeau ne servirait à rien le jour où le comptage se lance par client — c'est-à-dire au comptage mensuel — et la référence écartée des sélecteurs reviendrait par la porte du rappel « références à compter ». Un périmètre choisi **référence par référence** peut en désigner une : la ligne reste grisée et sélectionnable, et le lancement demande si l'on réactive, sans l'imposer — voir « Deux confirmations au lancement » ci-dessous. Compter une inactive pour vérifier qu'elle est bien vide est une raison valable de ne pas la réactiver.
 - **Désactivation refusée tant qu'un inventaire en cours couvre la référence**, au même titre que le stock non nul. Le périmètre d'un inventaire ne doit pas rétrécir sous les pieds de celui qui compte : c'est la même règle que le gel du stock théorique au `frozen_ts`. Comme un seul inventaire peut être ouvert à la fois, le contrôle est immédiat. Message nommant l'inventaire concerné, et la désactivation redevient possible dès sa clôture ou son abandon.
 - **Désactivation refusée tant que le stock n'est pas nul**, avec le stock affiché. Ce n'est pas un fait physique que l'on refuserait (§4) mais un acte administratif : une référence inactive qui porte du stock sortirait des périmètres d'inventaire, et ce stock cesserait d'être compté sans que personne le voie.
 
