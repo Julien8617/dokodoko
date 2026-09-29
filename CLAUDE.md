@@ -155,7 +155,10 @@ reste REUZEL/A/B/C — revient si le pilote s'étend.
    `package.json` ensemble (les trois changent, un seul est édité à la
    main).
 3. Commit + push sur `main` (déploiement automatique via
-   `.github/workflows/deploy.yml`).
+   `.github/workflows/deploy.yml`), après un `git pull` — voir « Deux
+   machines, une seule base ». Une migration de schéma ne s'applique
+   jamais depuis le Pi : écrire le fichier, signaler, laisser le PC
+   l'appliquer.
 4. Donner un script de test concret à l'utilisateur — il vérifie en
    testant sur son iPhone en conditions réelles, pas en lisant le code.
    Voir [[user_profile]] en mémoire.
@@ -204,11 +207,82 @@ pour la clôture (non implémentée) :
   l'utilisateur. Le zéro implicite est bon pour regarder, mauvais pour
   signer : deux mécanismes séparés, pas un seul champ recyclé.
 
+## Deux machines, une seule base
+
+Le dépôt existe en deux copies — le PC sous Windows et le Raspberry Pi
+sous Linux — qui ne communiquent que par GitHub. La base Supabase, elle,
+n'existe qu'en un seul exemplaire.
+
+Cette asymétrie est tout le sujet : un conflit de code est bruyant et se
+répare, un conflit de schéma est silencieux et ne se répare pas.
+
+- **`main` est la branche de déploiement et le reste.** Pousser dessus
+  déclenche `deploy.yml`, donc met l'app à jour sur l'iPhone de
+  l'utilisateur, qui teste en conditions réelles. Faire travailler Claude
+  sur des branches `claude/<sujet>` insérerait une fusion manuelle dans
+  une boucle parcourue dix fois par jour, au bénéfice d'une relecture que
+  personne ne fera — l'utilisateur n'est pas développeur et ne lit pas
+  les diffs. Une relecture que personne n'exécute est un rituel, pas un
+  garde-fou.
+- **Une seule machine en service à la fois.** C'est la règle qui évite
+  réellement les conflits ; les branches ne les évitent pas, elles les
+  déplacent à la fusion. La passation est explicite : la machine qui
+  quitte pousse, la machine qui prend tire avant de toucher quoi que ce
+  soit.
+- **`git pull` au début de chaque tâche, `push` à la fin.** Sans
+  exception, même pour un changement d'une ligne : c'est l'oubli sur les
+  petits changements qui fabrique les divergences.
+- **Exception, et elle reste une exception** : si deux sessions doivent
+  tourner en même temps, la seconde travaille sur une branche
+  `claude/<sujet>` et l'utilisateur fusionne. Ce n'est pas le
+  fonctionnement courant.
+
+### La base : le PC écrit, le Pi lit
+
+- **Les migrations s'appliquent depuis le PC, et seulement depuis lui.**
+  Le Pi sert à travailler loin du bureau, c'est-à-dire précisément quand
+  l'utilisateur est le moins en mesure de juger un changement de schéma.
+- **Le serveur MCP Supabase du Pi est en lecture seule**, et c'est
+  structurel, pas procédural. Une règle qui repose sur le fait de se
+  souvenir de demander finit par être oubliée un soir de fatigue ; une
+  connexion qui ne peut pas écrire ne l'oublie jamais.
+- Une session sur le Pi qui a besoin d'une migration **écrit le fichier
+  de migration, ne l'applique pas**, et le signale. Elle sera appliquée
+  depuis le PC.
+
+### Ce qui ne traverse pas GitHub
+
+- **`.env`** est ignoré par git. Modifié sur une machine, il doit être
+  recopié sur l'autre (`scp`). Ne contient que la clé publishable —
+  jamais `service_role`.
+- **`node_modules`** est propre à chaque machine. Après un `pull` qui
+  touche `package.json`, lancer `npm install` sur la machine concernée
+  avant de builder.
+- **Plusieurs sessions Claude sur le Pi partagent le même dossier de
+  travail.** N'en faire tourner qu'une à la fois : deux sessions
+  éditeraient les mêmes fichiers sans se voir, et aucune des deux ne s'en
+  apercevrait.
+- **Fins de ligne** : `.gitattributes` porte `* text=auto eol=lf`, pour
+  que les deux machines voient les mêmes octets. Ne pas le modifier. Si
+  un jour des fichiers apparaissent entièrement modifiés sans qu'une
+  ligne ait changé, c'est ce réglage qu'il faut vérifier en premier —
+  et la renormalisation (`git add --renormalize .`) se fait **depuis une
+  seule machine**, l'autre tirant ensuite.
+
 ## Environnement
 
-- Windows + Git Bash (outil Bash) et PowerShell (outil PowerShell) tous
-  deux disponibles — préférer Bash pour la syntaxe POSIX déjà utilisée
-  dans les commandes de ce projet (`npm run build 2>&1 | tail -N`, etc.).
+- **Deux environnements.** Sur le PC : Windows, avec Git Bash (outil
+  Bash) et PowerShell tous deux disponibles — préférer Bash pour la
+  syntaxe POSIX déjà utilisée dans les commandes de ce projet
+  (`npm run build 2>&1 | tail -N`, etc.). Sur le Raspberry Pi : Linux,
+  shell POSIX natif. Écrire les commandes du projet en POSIX pour
+  qu'elles tournent des deux côtés sans variante ; ne jamais introduire
+  de commande PowerShell dans un script partagé.
+- La sauvegarde hebdomadaire de la base vit aujourd'hui sur le PC
+  (`C:\dokodoko-backups\backup-dokodoko.ps1`, procédure dans
+  `docs/sauvegarde.md`). Le jour où elle passera en quotidien, sa place
+  sera sur le Pi, allumé en permanence — ne pas l'automatiser côté
+  Windows entre-temps.
 - **Ne jamais taper d'échappement `\uXXXX` littéral dans le contenu
   passé à Write/Edit** — converti silencieusement en octet de contrôle
   réel sur disque dans cet environnement. Voir

@@ -1,2 +1,3 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# Normalisation des fins de ligne : LF partout, dans le depot comme dans
+# la copie de travail, pour que Windows et Linux voient les memes octets.
+* text=auto eol=lf
