@@ -10,6 +10,16 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.49',
+    date: '2026-09-30',
+    items: [
+      'Lancer un inventaire avec des références inactives dans le périmètre affiche une fenêtre purement informative (un seul bouton) au lieu de demander de réactiver ou non — la décision revient au comptage, pas au lancement',
+      'Un périmètre par client inclut maintenant ses références inactives, comme les deux autres modes — aucun périmètre ne les exclut plus',
+      'Écran des écarts : nouvelle liste séparée des références du périmètre qu\'aucune saisie n\'a touchées, distincte des écarts calculés — affichage seulement, sans effet sur la clôture',
+      'Un échec d\'enregistrement pendant la question de réactivation ou de doublon (marche) s\'affichait derrière le fond assombri de la fenêtre, donc invisible — le message apparaît maintenant dans la fenêtre elle-même',
+    ],
+  },
+  {
     version: '0.9.48',
     date: '2026-09-30',
     items: [

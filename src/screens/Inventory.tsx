@@ -30,6 +30,7 @@ import {
   MoveCasierLignePartialError,
   saveCasierLigne,
   scopeRefCodes,
+  type NeverTouchedReference,
   type SaisieLine,
   type SyntheseLigneEmplacement,
   type SyntheseReference,
@@ -244,9 +245,6 @@ function Launch({ onBack, onReady }: { onBack: () => void; onReady: (inv: Invent
     step: 'inactive' | 'confirm'
   }
   const [pendingLaunch, setPendingLaunch] = useState<PendingLaunch | null>(null)
-  const [pendingLaunchStatus, setPendingLaunchStatus] = useState<
-    { kind: 'idle' } | { kind: 'saving' } | { kind: 'error'; message: string }
-  >({ kind: 'idle' })
   // Abandon accessible dès cet écran (spec 2.46 §6.5, revu après relecture
   // advisor) : sans lui, un inventaire resté ouvert d'une session
   // précédente n'a comme seule sortie visible que « Reprendre » — il
@@ -296,67 +294,47 @@ function Launch({ onBack, onReady }: { onBack: () => void; onReady: (inv: Invent
     }
   }
 
-  // Premier pas des deux confirmations (spec 2.75 §6.5) : jamais appelé
+  // Premier pas des deux confirmations (spec 2.78 §6.5) : jamais appelé
   // directement par un bouton "Démarrer" — c'est lui qui décide si la
-  // question des inactives doit s'afficher avant la confirmation de
-  // périmètre. Cette question n'existe qu'en périmètre `references` : c'est
-  // le seul où l'utilisateur désigne des références une par une. "tout" et
-  // "client" n'en désignent aucune (une seule case cochée ou aucun choix
-  // individuel) — `inactiveCodes` y est donc toujours vide, pas parce que
-  // leur périmètre exclurait les inactives (faux pour "tout", §6.8 :
-  // `scopeRefCodes` y renvoie `undefined`, délibérément sans filtre).
-  // Erreur commise une fois (spec 2.74), corrigée ici : sans ce test,
-  // "tout" aurait listé toutes les inactives du CATALOGUE entier, et
-  // "Réactiver et continuer" les aurait réactivées en masse derrière un
-  // geste censé démarrer un comptage — aucune fenêtre ne doit pouvoir faire
-  // plus que ce que l'utilisateur a désigné.
+  // fenêtre informative des inactives doit s'afficher avant la confirmation
+  // de périmètre. Depuis la 2.78, aucun périmètre ne filtre les inactives
+  // (ni `references`, ni `client`, ni `tout` — `scopeRefCodes` §6.5) :
+  // cette fenêtre peut donc s'afficher sur les trois modes, calculée
+  // directement depuis le catalogue plutôt que depuis un périmètre déjà
+  // résolu, qui demanderait un aller-retour réseau supplémentaire pour
+  // "tout" et "client". "tout" : toutes les inactives du catalogue : le
+  // périmètre, c'est tout, donc c'est la même liste. "client" : celles de
+  // ce client. "references" : celles désignées à la main. Purement
+  // informative (voir la fenêtre plus bas) : plus aucun risque d'action de
+  // masse, contrairement à la version à trois boutons de la spec 2.74/2.75.
   function requestLaunch(scopeKind: ScopeKind, options: { clientCode?: string; refCodes?: string[] } = {}) {
     const inactiveCodes =
-      scopeKind === 'references'
-        ? references.filter((r) => !r.actif && (options.refCodes ?? []).includes(r.code)).map((r) => r.code)
-        : []
+      scopeKind === 'tout'
+        ? references.filter((r) => !r.actif).map((r) => r.code)
+        : scopeKind === 'client'
+          ? references.filter((r) => !r.actif && r.client_code === options.clientCode).map((r) => r.code)
+          : references.filter((r) => !r.actif && (options.refCodes ?? []).includes(r.code)).map((r) => r.code)
     setLaunchError(null)
-    setPendingLaunchStatus({ kind: 'idle' })
     setPendingLaunch({ scopeKind, options, inactiveCodes, step: inactiveCodes.length > 0 ? 'inactive' : 'confirm' })
   }
 
-  // "Réactiver et continuer" (spec 2.74 §6.5) : même geste que la
-  // réactivation depuis la marche (confirmScopeExtension) — écrit, puis
-  // rafraîchit le cache référentiel avant de passer à la confirmation de
-  // périmètre.
-  async function reactivateAndContinue() {
-    if (!pendingLaunch) return
-    setPendingLaunchStatus({ kind: 'saving' })
-    try {
-      for (const code of pendingLaunch.inactiveCodes) {
-        await setReferenceActif(code, true)
-      }
-      await refreshReferentielCache()
-      setReferences((prev) =>
-        prev.map((r) => (pendingLaunch.inactiveCodes.includes(r.code) ? { ...r, actif: true } : r)),
-      )
-      setPendingLaunch({ ...pendingLaunch, step: 'confirm' })
-      setPendingLaunchStatus({ kind: 'idle' })
-    } catch (err) {
-      setPendingLaunchStatus({ kind: 'error', message: extractErrorMessage(err, t.common.unknownError) })
-    }
-  }
-
-  // "Continuer sans réactiver" (spec 2.74 §6.5) : cas légitime — vérifier
-  // qu'une inactive est bien vide. Si des cartons apparaissent pendant la
-  // marche, la question posée à la saisie la réactivera de toute façon
-  // (§6.8) : rien à écrire ici, seulement avancer d'une étape.
-  function continueWithoutReactivating() {
+  // Fenêtre 1 (spec 2.78 §6.5) : un seul bouton, aucune décision. La
+  // version antérieure en offrait trois, dont une réactivation immédiate —
+  // demander à l'opérateur de trancher au seul moment où il ne peut pas
+  // savoir s'il va en trouver. La fenêtre ne demande plus, elle prévient :
+  // avance simplement à la confirmation du périmètre, sans rien écrire. Si
+  // du stock apparaît pendant le comptage, la question de réactivation se
+  // pose alors, au bon moment (§6.8).
+  function acknowledgeInactiveNotice() {
     if (!pendingLaunch) return
     setPendingLaunch({ ...pendingLaunch, step: 'confirm' })
   }
 
-  // "Revenir au choix" (spec 2.74 §6.5), pour les deux fenêtres : laisse
-  // l'écran en l'état, sans effacer la sélection en cours — mode,
-  // clientCode, selectedRefs restent intacts, seule pendingLaunch se ferme.
+  // "Revenir au choix" (spec 2.74 §6.5), pour la fenêtre 2 : laisse l'écran
+  // en l'état, sans effacer la sélection en cours — mode, clientCode,
+  // selectedRefs restent intacts, seule pendingLaunch se ferme.
   function cancelPendingLaunch() {
     setPendingLaunch(null)
-    setPendingLaunchStatus({ kind: 'idle' })
   }
 
   // Libellé du périmètre dans la seconde confirmation (spec 2.74 §6.5) :
@@ -378,31 +356,18 @@ function Launch({ onBack, onReady }: { onBack: () => void; onReady: (inv: Invent
   // déplacement en spec 2.66 point 4 ter).
   const launchModals = (
     <>
+      {/* Fenêtre 1 (spec 2.78 §6.5) : purement informative, un seul bouton.
+          Pas de `onClose` malgré l'absence d'écriture — cohérent avec la
+          fenêtre 2 juste en dessous, dont elle est la première étape d'un
+          même geste ; fermer l'une au toucher extérieur sans l'autre
+          brouillerait la séquence. */}
       {pendingLaunch && pendingLaunch.step === 'inactive' && (
         <Modal>
           <p>{t.inventory.launchInactiveIntro}</p>
           <p className="quantity-formula">{[...pendingLaunch.inactiveCodes].sort().join(', ')}</p>
-          <button type="button" onClick={reactivateAndContinue} disabled={pendingLaunchStatus.kind === 'saving'}>
-            {t.inventory.launchReactivateButton}
+          <button type="button" className="arm-button" onClick={acknowledgeInactiveNotice}>
+            {t.inventory.launchInactiveAck}
           </button>
-          <button
-            type="button"
-            onClick={continueWithoutReactivating}
-            disabled={pendingLaunchStatus.kind === 'saving'}
-          >
-            {t.inventory.launchContinueInactiveButton}
-          </button>
-          <button
-            type="button"
-            className="back-link"
-            onClick={cancelPendingLaunch}
-            disabled={pendingLaunchStatus.kind === 'saving'}
-          >
-            {t.inventory.launchBackToChoice}
-          </button>
-          {pendingLaunchStatus.kind === 'error' && (
-            <p className="form-status form-error">{pendingLaunchStatus.message}</p>
-          )}
         </Modal>
       )}
 
@@ -1045,24 +1010,20 @@ function Walk({
       : allReferences
   ).filter((r) => r.actif)
 
-  // Rappel des références à compter (spec 2.76 §6.5) : liste le périmètre
-  // TEL QU'IL EST, jamais "les actives du périmètre" — le filtrage des
-  // inactives a lieu une seule fois, à la composition du périmètre, et
-  // seulement là où le périmètre RESTREINT quelque chose. "client" exclut
-  // déjà les inactives à la source (scopeRefCodes filtre sur `actif`,
-  // §6.8) : rien à refiltrer. "references" est composé à la main et peut
-  // légitimement en contenir : affichées comme les autres, avec leur
-  // mention « · Inactif » (rendu plus bas). "tout" ne filtre RIEN, pas même
-  // les inactives (scopeRefCodes y renvoie `undefined`, délibérément sans
-  // restriction) : c'est ce qui en fait le mode exhaustif — si "tout"
-  // filtrait à son tour, aucun mode ne le serait, et le comptage mensuel
-  // d'amorçage laisserait de côté précisément les références dont
-  // l'invariant "stock nul" n'a jamais été vérifié. Erreur commise une
-  // fois ici (un filtre `actif` posé pour ce cas, spec 2.75, corrigé en
-  // 2.76) : le catalogue ENTIER en tient lieu pour "tout", inactives
-  // comprises. `undefined` tant que le périmètre client n'est pas chargé —
-  // pas de bouton plutôt qu'une liste vide qui se lirait comme « rien à
-  // compter ».
+  // Rappel des références à compter (spec 2.78 §6.5) : liste le périmètre
+  // TEL QU'IL EST, jamais "les actives du périmètre" — la règle finale,
+  // la plus simple des quatre qui se sont succédé ici : aucun périmètre ne
+  // filtre les inactives, ni `references`, ni `client`, ni `tout`. Le
+  // drapeau `actif` ne compose plus aucun périmètre — il vit dans les
+  // suggestions de l'écran Mouvement et l'affichage du Catalogue, nulle
+  // part ailleurs. Les trois branches ci-dessous n'ont donc plus besoin de
+  // filtrer chacune à sa façon : "tout" prend tout le catalogue (aucune
+  // liste de `scopeRefCodes`, volontairement sans restriction, §6.5) ;
+  // "client" et "references" prennent leurs codes tels que `scopeRefCodes`
+  // les renvoie, inactives comprises — affichées comme les autres, avec
+  // leur mention « · Inactif » (rendu plus bas). `undefined` tant que le
+  // périmètre client n'est pas chargé — pas de bouton plutôt qu'une liste
+  // vide qui se lirait comme « rien à compter ».
   const checklistReferences: Reference[] | undefined = (() => {
     if (inventaire.scope_kind === 'tout') return allReferences
     const codes = inventaire.scope_kind === 'client' ? clientScopeCodes : referencesScope
@@ -1257,13 +1218,13 @@ function Walk({
       // 2.67 point 1), donc sa désactivation aurait de toute façon été
       // refusée si elle appartenait au périmètre en cours.
       //
-      // Ne se déclenche que si la saisie donne du stock (spec 2.76 §6.5,
-      // corrige un défaut trouvé le 30 septembre) : une saisie à zéro —
-      // "vérifié, vide" — confirme l'invariant "stock nul" au lieu de le
-      // contredire, elle ne doit donc rien réactiver. Sans cette réserve,
-      // "continuer sans réactiver" (spec 2.75, lancement d'un inventaire)
-      // perdrait sa seule raison d'être : vérifier qu'une inactive est bien
-      // vide la remettrait de force en circulation.
+      // Ne se déclenche que si la saisie donne du stock (spec 2.78 §6.5) :
+      // une saisie à zéro — "vérifié, vide" — confirme l'invariant "stock
+      // nul" au lieu de le contredire, elle ne doit donc rien réactiver.
+      // Depuis la 2.78, une inactive entre au périmètre SANS être
+      // réactivée (plus de question au lancement) : c'est cette garde-ci,
+      // à la saisie, qui reste l'unique déclencheur de la réactivation, et
+      // seulement quand du stock apparaît réellement.
       const needsReactivation =
         (cartonsValue > 0 || piecesValue > 0) && allReferences.find((r) => r.code === code)?.actif === false
       if (needsScopeExtension || needsReactivation) {
@@ -1778,6 +1739,13 @@ function Walk({
           <button type="button" className="back-link" onClick={cancelDuplicate} disabled={status.kind === 'saving'}>
             {t.common.cancel}
           </button>
+          {/* Sans elle, un échec d'écriture (réseau, entre autres) rendait
+              les boutons de nouveau cliquables sans rien montrer derrière le
+              fond assombri — CLAUDE.md, "un échec d'écriture doit être
+              visible à l'écran". Même défaut que MoveConfirmDialog, corrigé
+              le 26 septembre pour lui (spec 2.64 §6.5), relevé ici le 30
+              septembre. */}
+          {status.kind === 'error' && <p className="form-status form-error">{status.message}</p>}
         </Modal>
       )}
 
@@ -1806,6 +1774,11 @@ function Walk({
           >
             {t.common.cancel}
           </button>
+          {/* Même correctif que pendingDuplicate ci-dessus, même raison :
+              addReferenceToScope/setReferenceActif/refreshReferentielCache
+              peuvent échouer (réseau) et laissaient jusqu'ici les boutons
+              se réactiver sans rien montrer derrière le fond assombri. */}
+          {status.kind === 'error' && <p className="form-status form-error">{status.message}</p>}
         </Modal>
       )}
 
@@ -1948,6 +1921,13 @@ function Ecarts({
   // 2.35).
   const [loadError, setLoadError] = useState<string | null>(null)
   const [references, setReferences] = useState<SyntheseReference[]>([])
+  // Références du périmètre qu'aucune saisie n'a touchées (spec 2.78 §6.5)
+  // : à part de `references` ci-dessus, qui n'en contient aucune trace —
+  // ni théorique ni comptée, donc absente de tout bucket de la fusion. Pas
+  // un état de la clôture (non implémentée) : afficher "non comptée donc
+  // zéro" est juste, écrire un ajustement sur cette base détruirait du
+  // stock réel sur la foi d'une absence — CLAUDE.md, module Inventaire.
+  const [neverTouched, setNeverTouched] = useState<NeverTouchedReference[]>([])
   const [clients, setClients] = useState<Client[]>([])
   // Feuille de contre-validation (spec 2.49) : source = journal complet des
   // saisies, PAS `references`/`parEmplacement` (filtrée par
@@ -2003,6 +1983,7 @@ function Ecarts({
   async function refresh() {
     const result = await getInventaireSynthese(inventaire)
     setReferences(result.references)
+    setNeverTouched(result.neverTouched)
   }
 
   // Inventaire partiel (spec 2.54, point 2/4) : une saisie hors périmètre
@@ -2049,6 +2030,7 @@ function Ecarts({
       .then(([synthese, saisieList, refList, condByRef, refScope]) => {
         if (cancelled) return
         setReferences(synthese.references)
+        setNeverTouched(synthese.neverTouched)
         setSaisies(saisieList)
         setRefLibelleByCode(new Map(refList.map((r) => [r.code, r.libelle])))
         const byId = new Map<string, Conditionnement>()
@@ -2268,6 +2250,15 @@ function Ecarts({
   const visibleReferences = matchedCodes ? references.filter((r) => matchedCodes.has(r.refCode)) : references
   const enEcart = visibleReferences.filter((r) => r.ecartTotal !== 0 || r.compense)
   const sansEcart = visibleReferences.filter((r) => r.ecartTotal === 0 && !r.compense)
+  // Même filtre de recherche, appliqué à la liste séparée (spec 2.78 §6.5)
+  // — `neverTouched` n'a pas de clé conditionnement, matchReferences n'en a
+  // pas besoin.
+  const visibleNeverTouched = query.trim()
+    ? matchReferences(
+        query,
+        neverTouched.map((r) => ({ code: r.refCode, libelle: r.refLibelle, client_code: '', actif: true })),
+      ).map((m) => neverTouched.find((r) => r.refCode === m.code)!)
+    : neverTouched
 
   // Fonction (pas un composant JSX) : une réf corrigée depuis ce même écran
   // peut passer d'"en écart" à "sans écart" après `refresh()`, donc les deux
@@ -2479,6 +2470,32 @@ function Ecarts({
               <>
                 <h2>{t.inventory.sansEcartLabel}</h2>
                 {sansEcart.map(renderReferenceRow)}
+              </>
+            )}
+
+            {/* Le pendant du rappel affiché pendant la marche (spec 2.78
+                §6.5) : là-bas un marqueur d'avancement mentirait (une
+                référence peut se trouver dans un casier de plus) ; ici,
+                l'opérateur a décidé qu'il avait fini, et savoir ce qu'il
+                n'a pas touché est exactement la question utile. Piège à ne
+                pas reproduire (CLAUDE.md, module Inventaire) : "non
+                comptée donc zéro" est juste à l'affichage, mais ne doit
+                jamais nourrir une clôture — écrire un ajustement sur cette
+                base détruirait du stock réel sur la foi d'une absence. */}
+            {visibleNeverTouched.length > 0 && (
+              <>
+                <h2>{t.inventory.neverTouchedTitle}</h2>
+                <ul className="casier-list">
+                  {visibleNeverTouched.map((r) => (
+                    <li key={r.refCode} className="casier-row checklist-row">
+                      <span>
+                        {r.refCode}
+                        {r.refLibelle ? ` — ${r.refLibelle}` : ''}
+                        {!r.actif ? ` · ${t.catalogue.inactiveLabel}` : ''}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </>
             )}
           </>

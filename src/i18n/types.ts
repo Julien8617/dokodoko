@@ -180,15 +180,16 @@ export interface Dictionary {
     referenceSearch: string
     selectedCount: string
     start: string
-    // Deux confirmations au lancement (spec 2.74 §6.5) : deux décisions
-    // sans rapport, jamais fusionnées sous un seul bouton. La première ne
-    // s'affiche que si le périmètre choisi contient des inactives ; la
-    // seconde, toujours. Les libellés disent l'action, jamais "oui",
-    // "non" ou "annuler" — avec trois issues sur la première fenêtre, "non"
-    // et "annuler" seraient indiscernables.
+    // Deux fenêtres au lancement (spec 2.74, simplifiée en 2.78 §6.5) :
+    // deux décisions sans rapport, jamais fusionnées sous un seul bouton.
+    // La première ne s'affiche que si le périmètre désigné contient des
+    // inactives (calculées depuis le catalogue, aucun périmètre ne les
+    // filtrant plus) ; la seconde, toujours. Depuis la 2.78, la première
+    // est purement informative — un seul bouton, aucune décision : demander
+    // à l'opérateur de réactiver ou non au moment du lancement, c'est
+    // trancher avant que le comptage ait répondu.
     launchInactiveIntro: string
-    launchReactivateButton: string
-    launchContinueInactiveButton: string
+    launchInactiveAck: string
     launchBackToChoice: string
     launchConfirmTitle: string
     launchConfirmButton: string
@@ -278,6 +279,11 @@ export interface Dictionary {
     syntheseTitle: string
     noEcart: string
     sansEcartLabel: string
+    // Le pendant du rappel de la marche, à la lecture des écarts (spec
+    // 2.78 §6.5) : les références du périmètre qu'aucune saisie n'a
+    // touchées — pas un état de clôture, seulement un affichage. Voir
+    // NeverTouchedReference (inventaireDb.ts).
+    neverTouchedTitle: string
     ecartCompense: string
     ecartReel: string
     detailByEmplacement: string

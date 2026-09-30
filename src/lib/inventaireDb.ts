@@ -109,15 +109,13 @@ export async function abandonInventaire(inventaireId: string, motif: string): Pr
 // se dérive de `scope_kind`, jamais saisi — pour le périmètre "références",
 // il faut la liste explicite des codes du périmètre.
 //
-// Périmètre "client" filtré sur `actif` (spec 2.67 §6.8) : sans ce filtre,
-// le drapeau `actif` ne sert à rien le jour où le comptage se lance par
-// client — la référence désactivée reviendrait par la porte du rappel
-// « références à compter ». Un périmètre "références" choisi à la main
-// reste libre : celui qui désigne explicitement une inactive sait ce qu'il
-// fait. "tout" reste sans filtre : une désactivation ne fige le stock qu'à
-// zéro au moment où elle est acceptée (§6.8), pas pour toujours — un
-// comptage exhaustif doit encore pouvoir révéler qu'une inactive porte un
-// stock qu'elle ne devrait pas avoir.
+// Aucun périmètre ne filtre les inactives (spec 2.78 §6.5, dernière d'une
+// suite de trois règles successives, chacune corrigeant un symptôme de la
+// précédente — voir la spec pour l'historique). Le drapeau `actif` ne
+// compose aucun périmètre : il vit dans les suggestions de l'écran
+// Mouvement et l'affichage du Catalogue, nulle part ailleurs. Un inventaire
+// compte ce qui est là ; le statut administratif d'une référence n'a
+// jamais décidé de ce qui se trouve sur une étagère.
 export async function scopeRefCodes(inventaire: Inventaire): Promise<string[] | undefined> {
   if (inventaire.scope_kind === 'tout') return undefined
   if (inventaire.scope_kind === 'client') {
@@ -125,7 +123,6 @@ export async function scopeRefCodes(inventaire: Inventaire): Promise<string[] | 
       .from('references')
       .select('code')
       .eq('client_code', inventaire.scope_client_code as string)
-      .eq('actif', true)
     if (error) throw error
     return data.map((r) => r.code)
   }
@@ -144,15 +141,10 @@ export async function scopeRefCodes(inventaire: Inventaire): Promise<string[] | 
 // compte. Un seul inventaire `en_cours` possible (index partiel), le
 // contrôle est donc immédiat.
 //
-// N'appelle PAS scopeRefCodes (relevé par advisor()) : cette dernière filtre
-// désormais le périmètre "client" sur `actif`, ce qui est juste pour
-// COMPOSER un périmètre mais faux pour tester une COUVERTURE — la référence
-// qu'on est en train de désactiver est par définition encore active à cet
-// instant, donc `scopeRefCodes` la retrouverait toujours et le test serait
-// inutile ; pire, si elle avait déjà été désactivée puis réactivée pendant
-// un comptage en cours, scopeRefCodes la retrouverait quand même, masquant
-// exactement le rétrécissement qu'on veut empêcher. Deux questions
-// différentes, deux requêtes différentes.
+// N'appelle PAS scopeRefCodes : inutile de relire toute la liste du
+// périmètre pour tester l'appartenance d'UNE référence — une comparaison
+// directe (client_code, ou une requête ciblée sur inventaire_references)
+// suffit et évite l'aller-retour réseau supplémentaire.
 export async function activeInventaireCovering(reference: {
   code: string
   client_code: string
@@ -434,17 +426,30 @@ export interface SyntheseReference {
   compense: boolean
 }
 
+// Référence du périmètre qu'aucune saisie n'a touchée (spec 2.78 §6.5) :
+// distinct de `SyntheseReference`, qui exige au moins une ligne (théorique
+// ou comptée) pour exister — une référence à théorique nul ET jamais
+// visitée n'apparaît dans AUCUN bucket de la fusion ci-dessous, donc
+// disparaît silencieusement de la synthèse sans cette liste séparée.
+export interface NeverTouchedReference {
+  refCode: string
+  refLibelle: string | null
+  actif: boolean
+}
+
 // Synthèse en lecture seule (phase 1, 2026-09-14 : le traitement des écarts
 // — recompter/corriger/justifier, clôture avec écriture des mouvements —
 // vient dans une itération suivante). Ne modifie jamais le stock.
 export async function getInventaireSynthese(inventaire: Inventaire): Promise<{
   references: SyntheseReference[]
+  neverTouched: NeverTouchedReference[]
 }> {
   const refCodes = await scopeRefCodes(inventaire)
   const theorique = await stockAsOf(inventaire.frozen_ts, refCodes)
+  const allReferences = await listReferences()
   // Libellé du produit, pour affichage seulement — n'entre dans aucune clé
   // ni aucun regroupement de la fusion théorique/compté ci-dessous.
-  const refLibelleByCode = new Map((await listReferences()).map((r) => [r.code, r.libelle]))
+  const refLibelleByCode = new Map(allReferences.map((r) => [r.code, r.libelle]))
 
   const { data: comptages, error: comptagesError } = await supabase
     .from('comptages')
@@ -554,5 +559,30 @@ export async function getInventaireSynthese(inventaire: Inventaire): Promise<{
   }
 
   references.sort((a, b) => a.refCode.localeCompare(b.refCode))
-  return { references }
+
+  // Le pendant du rappel affiché pendant la marche (§6.5), pour l'écran des
+  // écarts : "non comptée vaut absente, donc stock nul" est déjà la règle
+  // de calcul ci-dessus, cette liste la nomme au lieu de la laisser
+  // deviner. "Touchée" reprend exactement le même critère que `compte`
+  // dans la fusion : une ligne dont le comptage est `clos` (même filtre
+  // que la boucle plus haut, §14, dette assumée) — jamais le théorique,
+  // qui n'a rien à voir avec le fait d'avoir compté ou non.
+  const touchedRefCodes = new Set(
+    references.filter((r) => r.parEmplacement.some((l) => l.compte !== null)).map((r) => r.refCode),
+  )
+  // Périmètre explicite : "tout" n'a pas de liste (`refCodes` undefined,
+  // volontairement sans restriction, §6.5) — le catalogue entier, actives
+  // et inactives, en tient lieu ici aussi, par cohérence avec le rappel.
+  const perimeterCodes = refCodes ?? allReferences.map((r) => r.code)
+  const actifByCode = new Map(allReferences.map((r) => [r.code, r.actif]))
+  const neverTouched: NeverTouchedReference[] = perimeterCodes
+    .filter((code) => !touchedRefCodes.has(code))
+    .map((code) => ({
+      refCode: code,
+      refLibelle: refLibelleByCode.get(code) ?? null,
+      actif: actifByCode.get(code) ?? true,
+    }))
+    .sort((a, b) => a.refCode.localeCompare(b.refCode))
+
+  return { references, neverTouched }
 }
