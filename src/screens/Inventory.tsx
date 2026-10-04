@@ -992,23 +992,27 @@ function Walk({
   const resolvedEmplacement = resolveEmplacementInput(emplacementCode)
   const emplacementSuggestions = emplacementFieldSuggestions(emplacementCode, knownEmplacements)
 
-  // Inventaire partiel (spec 2.54, point 1) : la liste déroulante ne
-  // propose que les références du périmètre — mais le champ reste libre,
-  // un code tapé en entier est toujours accepté (voir handleSave, qui
-  // propose d'étendre le périmètre plutôt que de refuser). Sans objet sur
-  // un inventaire complet ou par client (`referencesScope` reste undefined).
-  // Référence inactive (spec 2.66 point 4 bis) : retirée des suggestions,
-  // jamais de `allReferences` lui-même — une saisie déjà comptée sur une
-  // référence depuis désactivée doit garder son libellé dans la liste des
-  // saisies et le rappel de périmètre (lignes 1461/1545 plus bas), qui
-  // lisent `allReferences` directement. Un code tapé en entier reste
-  // accepté (même règle que le périmètre partiel ci-dessus) : la
-  // désactivation retire du sélecteur, elle ne bloque pas la saisie.
-  const suggestableReferences = (
-    inventaire.scope_kind === 'references' && referencesScope
-      ? allReferences.filter((r) => referencesScope.includes(r.code))
-      : allReferences
-  ).filter((r) => r.actif)
+  // Pendant un inventaire, c'est le périmètre qui gouverne, pas le drapeau
+  // (spec 3.0 §6.8) : une référence du périmètre est suggérée quel que soit
+  // son état — sinon le rappel demande de compter une référence que ce
+  // champ refuse de suggérer, et il faut taper son code entier.
+  //   - `references` : le périmètre, et lui seul (spec 2.54 point 1) — un
+  //     code hors périmètre tapé en entier reste accepté, handleSave propose
+  //     alors d'étendre ;
+  //   - `tout` : le périmètre est le catalogue entier ;
+  //   - `client` : le périmètre client quel que soit l'état, plus les
+  //     références actives hors périmètre (comportement antérieur conservé
+  //     pour celles-là : la spec ne tranche pas le hors-périmètre client).
+  // Tant que le périmètre client n'est pas chargé, retombe sur les seules
+  // actives — jamais une liste vide.
+  const suggestableReferences = (() => {
+    if (inventaire.scope_kind === 'tout') return allReferences
+    if (inventaire.scope_kind === 'references') {
+      return referencesScope ? allReferences.filter((r) => referencesScope.includes(r.code)) : allReferences.filter((r) => r.actif)
+    }
+    const clientCodes = new Set(clientScopeCodes ?? [])
+    return allReferences.filter((r) => r.actif || clientCodes.has(r.code))
+  })()
 
   // Rappel des références à compter (spec 2.78 §6.5) : liste le périmètre
   // TEL QU'IL EST, jamais "les actives du périmètre" — la règle finale,

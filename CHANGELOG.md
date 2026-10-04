@@ -5,6 +5,10 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.50 — 2026-10-05
+
+- Inventaire : une référence inactive du périmètre est maintenant proposée dans les suggestions du champ référence, comme dans le rappel des références à compter — plus besoin de taper son code en entier (l'écran Mouvement, lui, continue de masquer les inactives)
+
 ## 0.9.49 — 2026-09-30
 
 - Lancer un inventaire avec des références inactives dans le périmètre affiche une fenêtre purement informative (un seul bouton) au lieu de demander de réactiver ou non — la décision revient au comptage, pas au lancement

@@ -10,6 +10,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.50',
+    date: '2026-10-05',
+    items: [
+      'Inventaire : une référence inactive du périmètre est maintenant proposée dans les suggestions du champ référence, comme dans le rappel des références à compter — plus besoin de taper son code en entier (l\'écran Mouvement, lui, continue de masquer les inactives)',
+    ],
+  },
+  {
     version: '0.9.49',
     date: '2026-09-30',
     items: [
