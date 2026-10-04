@@ -261,6 +261,9 @@ export interface Dictionary {
     // réellement aux deux endroits. Jamais un message générique ici : un
     // réessai naïf duplique une seconde fois.
     moveDuplicatedError: string
+    // Verrou de writeSaisie (ReactivationRequiredError) : du stock sur une
+    // inactive sans réactivation confirmée — rien n'a été écrit. {refCode}
+    reactivationNotConfirmedError: string
     // {emplacement}, {refCode}, {cartons}, {pieces} remplacés via
     // interpolate() — la quantité déjà en place à la destination doit être
     // visible dans la question (spec 2.61 §6.5) : depuis que ce choix peut

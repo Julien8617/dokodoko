@@ -185,6 +185,7 @@ const en: Dictionary = {
     moveSameEmplacement: 'Choose a location different from the original one',
     moveDuplicatedError:
       'The entry was written at the new location, but removing it from the old one failed — it now exists in both places. Delete it at the old location from the differences screen; do not retry the move.',
+    reactivationNotConfirmedError: '{refCode} is inactive and reactivation was not confirmed: nothing was saved. Submit the entry again.',
     duplicateEntry: 'Already recorded for {refCode} at {emplacement} — {cartons} cartons, {pieces} pieces. Replace the value or add to it?',
     replaceEntry: 'Replace',
     addEntry: 'Add',

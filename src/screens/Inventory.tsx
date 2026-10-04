@@ -3,7 +3,6 @@ import { useI18n, interpolate, type Dictionary } from '../i18n'
 import { supabase } from '../lib/supabase'
 import { extractErrorMessage } from '../lib/errors'
 import {
-  ensureEmplacement,
   listClients,
   listConditionnements,
   listConditionnementsByRef,
@@ -13,9 +12,7 @@ import {
   matchReferences,
   parseEmplacementCode,
   resolveEmplacementInput,
-  setReferenceActif,
 } from '../lib/db'
-import { refreshReferentielCache } from '../lib/referentielCache'
 import {
   abandonInventaire,
   addReferenceToScope,
@@ -23,13 +20,12 @@ import {
   deleteCasierLignesForRef,
   getActiveInventaire,
   getInventaireSynthese,
-  getOrCreateCasier,
   listInventaireSaisies,
-  markCasierVisite,
-  moveCasierLigne,
   MoveCasierLignePartialError,
-  saveCasierLigne,
+  reactivationNeeded,
+  ReactivationRequiredError,
   scopeRefCodes,
+  writeSaisie,
   type NeverTouchedReference,
   type SaisieLine,
   type SyntheseLigneEmplacement,
@@ -593,199 +589,209 @@ function sameKey(a: EntryKey, b: EntryKey): boolean {
 // quelle : la ligne a déjà été écrite au casier cible, un réessai naïf la
 // duplique une seconde fois. Message dédié, jamais le message générique —
 // partagée entre la marche (Modifier) et l'écran des écarts (Déplacer),
-// les deux seuls appelants de moveCasierLigne.
+// les deux appelants de writeSaisie. ReactivationRequiredError : verrou de
+// writeSaisie, rien n'a été écrit — ne devrait jamais atteindre l'opérateur
+// (la question est posée avant), mais traduit s'il l'atteint.
 function describeSaveError(err: unknown, t: Dictionary): string {
   if (err instanceof MoveCasierLignePartialError) return t.inventory.moveDuplicatedError
+  if (err instanceof ReactivationRequiredError) {
+    return interpolate(t.inventory.reactivationNotConfirmedError, { refCode: err.refCode })
+  }
   return extractErrorMessage(err, t.common.unknownError)
 }
 
-// Saisie en attente du choix "remplacer ou ajouter" (spec v2 §6.5) —
-// posée après résolution complète de la saisie tapée, avant tout appel
-// réseau d'écriture.
-interface PendingDuplicate extends EntryKey {
+// Écriture en attente d'une réponse de l'opérateur (spec 3.0 §6.5, « une
+// écriture ne pose qu'une question ») : UN seul type, UN seul état par
+// écran, UNE seule fenêtre (WriteConfirmDialog). Quel que soit le nombre de
+// conditions qu'une saisie déclenche — réactivation, extension de
+// périmètre, déplacement, collision — l'opérateur répond une fois, dans une
+// fenêtre qui les nomme toutes. Avant ce type, trois états séparés
+// (doublon, extension/réactivation, déplacement) s'enchaînaient : confirmer
+// une réactivation ouvrait ensuite la question de doublon, et une
+// modification qui changeait de casier sur une référence inactive ou hors
+// périmètre partait sans jamais montrer le récapitulatif de déplacement.
+interface PendingWrite extends EntryKey {
   cartonsValue: number
   piecesValue: number
-  // Quantité déjà présente à la destination (spec 2.61 §6.5) : depuis que
-  // cette question peut naître d'un déplacement en mode modification, la
-  // valeur en place peut être un second comptage réel, ailleurs sur
-  // l'écran (l'opérateur n'est plus devant ce casier) — sans ce nombre, le
-  // choix remplacer/ajouter se ferait à l'aveugle.
-  existingCartons: number
-  existingPieces: number
-}
-
-// Saisie en attente d'une confirmation avant écriture pour une raison qui
-// n'est PAS un doublon (spec 2.54 point 2, généralisée spec 2.67 §6.2) —
-// posée avant même la résolution du casier/comptage, donc pas de
-// `comptageId` ici contrairement à PendingDuplicate. Un seul mécanisme pour
-// les deux raisons plutôt qu'un second pendingX + un second bloc JSX (spec
-// 2.67 : « si tu te retrouves à écrire une deuxième boîte de dialogue,
-// arrête-toi ») : les deux drapeaux peuvent être vrais ensemble (une
-// référence inactive ET hors périmètre), auquel cas les deux questions
-// s'affichent dans la même fenêtre et confirmScopeExtension résout les deux
-// avant d'écrire.
-interface PendingScopeExtension extends EntryKey {
-  cartonsValue: number
-  piecesValue: number
-  needsScopeExtension: boolean
-  needsReactivation: boolean
-}
-
-// Changement de casier en mode modification (spec 2.60 §6.5) : le casier du
-// formulaire est la destination, le changer n'est pas une correction de
-// champ mais un déplacement — même récapitulatif de confirmation que
-// "Déplacer" sur l'écran des écarts, jamais un update silencieux.
-interface PendingMove extends EntryKey {
-  fromEmplacementCode: string
-  cartonsValue: number
-  piecesValue: number
-  // Quantité de la ligne AVANT modification (spec 2.65 §6.5) : la marche
-  // passe par le formulaire de saisie, dont les champs de quantité restent
-  // éditables pendant un déplacement — contrairement aux Écarts, qui n'ont
-  // pas de champ de quantité. Défaut constaté le 24 septembre : la
-  // confirmation nommait le déplacement et taisait le changement de
-  // quantité, un opérateur croyant scinder perdait le reliquat sans le
-  // voir. Sert uniquement à détecter et afficher l'écart avec
-  // `cartonsValue`/`piecesValue` ci-dessus — jamais à borner ce qui est
-  // écrit.
-  originalCartons: number
-  originalPieces: number
-  // Collision à la destination (spec 2.62 §6.5) : détectée AU MOMENT où le
-  // récapitulatif de déplacement se pose, pas après confirmation — pour que
-  // les deux questions ("déplacer ?" et "remplacer ou ajouter ?") se
-  // fondent dans un seul écran plutôt que de s'enchaîner. Deux dialogues
-  // d'affilée feraient confirmer un déplacement avant d'en connaître la
-  // conséquence, et découperaient en deux gestes ce qui est un seul choix.
-  // `undefined` : aucune collision, le simple récapitulatif de déplacement
-  // suffit. Union explicite plutôt qu'un `?` optionnel — exactOptionalPropertyTypes
-  // interdit d'assigner `undefined` à un champ simplement optionnel.
+  // Changement de casier (spec 2.60 §6.5) : récapitulatif de déplacement.
+  // `originalCartons`/`originalPieces` = quantité de la ligne AVANT
+  // modification (spec 2.65) — servent uniquement à afficher un changement
+  // de quantité, jamais à borner ce qui est écrit. Côté Écarts (pas de
+  // champ de quantité), ils valent toujours `cartonsValue`/`piecesValue`.
+  move: { fromEmplacementCode: string; originalCartons: number; originalPieces: number } | undefined
+  // Autre ligne déjà présente au triplet de destination (spec 2.61-2.62) :
+  // Ajouter / Remplacer, totaux affichés. `undefined` aussi quand cette
+  // ligne porte 0/0 — les deux branches donnent alors le même résultat,
+  // la question ne se pose pas (buildPendingWrite).
   collision: { existingCartons: number; existingPieces: number } | undefined
+  needsScopeExtension: boolean
+  // Au moins une branche donne du stock à une inactive. La confirmation
+  // autorise la réactivation ; writeSaisie ne la fait que si la quantité
+  // finalement écrite en donne (Remplacer par 0 ne réactive rien).
+  reactivation: boolean
+}
+
+// Construit la question — ou décide qu'il n'y en a pas (`null` : écrire
+// directement). Partagé entre la marche et les Écarts : les deux règles
+// « branches convergentes » et « réactivation annoncée » ne s'écrivent
+// qu'ici, jamais chez les appelants, qui ne passent que les faits bruts.
+// `existingAtTarget` : une AUTRE ligne au triplet de destination — jamais la
+// ligne qu'on corrige elle-même (collision avec soi-même = l'objet de la
+// correction, spec 2.61) ; c'est à l'appelant de l'exclure.
+function buildPendingWrite(params: {
+  key: EntryKey
+  cartonsValue: number
+  piecesValue: number
+  move: PendingWrite['move']
+  existingAtTarget: { cartons: number; pieces: number } | undefined
+  referenceActif: boolean
+  needsScopeExtension: boolean
+}): PendingWrite | null {
+  const { key, cartonsValue, piecesValue, existingAtTarget: existing } = params
+  // Spec 3.0 §6.5 : « une question dont les branches donnent le même
+  // résultat ne se pose pas » — ligne existante à 0 carton et 0 pièce,
+  // Ajouter = Remplacer, on écrit sans demander.
+  const collision =
+    existing && (existing.cartons !== 0 || existing.pieces !== 0)
+      ? { existingCartons: existing.cartons, existingPieces: existing.pieces }
+      : undefined
+  const reactivation =
+    reactivationNeeded(params.referenceActif, cartonsValue, piecesValue) ||
+    (collision !== undefined &&
+      reactivationNeeded(
+        params.referenceActif,
+        cartonsValue + collision.existingCartons,
+        piecesValue + collision.existingPieces,
+      ))
+  if (!params.move && !collision && !params.needsScopeExtension && !reactivation) return null
+  return {
+    emplacementCode: key.emplacementCode,
+    refCode: key.refCode,
+    conditionnementId: key.conditionnementId,
+    cartonsValue,
+    piecesValue,
+    move: params.move,
+    collision,
+    needsScopeExtension: params.needsScopeExtension,
+    reactivation,
+  }
 }
 
 // Trois variantes plutôt qu'une chaîne toujours-les-deux-unités (spec 2.65
 // §6.5) : l'exemple de spec ne nomme que l'unité qui change. `null` = rien
-// n'a changé, la ligne ne s'affiche pas.
-function moveQuantityChangeLabel(move: PendingMove, t: Dictionary): string | null {
-  const cartonsChanged = move.cartonsValue !== move.originalCartons
-  const piecesChanged = move.piecesValue !== move.originalPieces
+// n'a changé (ou pas de déplacement), la ligne ne s'affiche pas.
+function moveQuantityChangeLabel(pending: PendingWrite, t: Dictionary): string | null {
+  const move = pending.move
+  if (!move) return null
+  const cartonsChanged = pending.cartonsValue !== move.originalCartons
+  const piecesChanged = pending.piecesValue !== move.originalPieces
   if (cartonsChanged && piecesChanged) {
     return interpolate(t.inventory.moveQuantityChangeBoth, {
       fromCartons: move.originalCartons,
-      toCartons: move.cartonsValue,
+      toCartons: pending.cartonsValue,
       fromPieces: move.originalPieces,
-      toPieces: move.piecesValue,
+      toPieces: pending.piecesValue,
     })
   }
   if (cartonsChanged) {
-    return interpolate(t.inventory.moveQuantityChangeCartons, { from: move.originalCartons, to: move.cartonsValue })
+    return interpolate(t.inventory.moveQuantityChangeCartons, { from: move.originalCartons, to: pending.cartonsValue })
   }
   if (piecesChanged) {
-    return interpolate(t.inventory.moveQuantityChangePieces, { from: move.originalPieces, to: move.piecesValue })
+    return interpolate(t.inventory.moveQuantityChangePieces, { from: move.originalPieces, to: pending.piecesValue })
   }
   return null
-}
-
-// Construit un PendingMove (spec 2.66 point 4 ter) : fonction partagée entre
-// la marche et les Écarts, seule la source de `existingAtTarget` diffère
-// (`saisies` d'un côté, `ref.parEmplacement` de l'autre — les deux appelants
-// font eux-mêmes cette recherche et ne passent ici que son résultat).
-function buildPendingMove(params: {
-  key: EntryKey
-  fromEmplacementCode: string
-  cartonsValue: number
-  piecesValue: number
-  originalCartons: number
-  originalPieces: number
-  existingAtTarget: { cartons: number; pieces: number } | undefined
-}): PendingMove {
-  return {
-    ...params.key,
-    fromEmplacementCode: params.fromEmplacementCode,
-    cartonsValue: params.cartonsValue,
-    piecesValue: params.piecesValue,
-    originalCartons: params.originalCartons,
-    originalPieces: params.originalPieces,
-    collision: params.existingAtTarget
-      ? { existingCartons: params.existingAtTarget.cartons, existingPieces: params.existingAtTarget.pieces }
-      : undefined,
-  }
 }
 
 // Quantité réellement écrite (spec 2.62 §6.5, "ajouter" somme sur l'état
 // local déjà connu, jamais une relecture serveur) — partagée entre la
 // marche et les Écarts.
-function computeMoveFinalQuantity(
-  move: PendingMove,
+function computeFinalQuantity(
+  pending: PendingWrite,
   mode: 'remplacer' | 'ajouter' | undefined,
 ): { cartons: number; pieces: number } {
-  if (mode === 'ajouter' && move.collision) {
+  if (mode === 'ajouter' && pending.collision) {
     return {
-      cartons: move.cartonsValue + move.collision.existingCartons,
-      pieces: move.piecesValue + move.collision.existingPieces,
+      cartons: pending.cartonsValue + pending.collision.existingCartons,
+      pieces: pending.piecesValue + pending.collision.existingPieces,
     }
   }
-  return { cartons: move.cartonsValue, pieces: move.piecesValue }
+  return { cartons: pending.cartonsValue, pieces: pending.piecesValue }
 }
 
-// Composant de confirmation partagé entre la marche et les Écarts (spec 2.66
-// point 4 ter) : avant ce commit, deux copies alignées à la main avaient déjà
-// produit deux défauts distincts (spec 2.62, 2.64 §6.5). Fenêtre modale sans
-// `onClose` (spec 2.64 §6.5) : cette confirmation écrit, elle exige un choix
-// explicite par bouton. Ligne de quantité (spec 2.65 §6.5) affichée
-// seulement si elle change — toujours absente côté Écarts, qui n'a pas de
-// champ de quantité, `originalCartons`/`originalPieces` y valant toujours
-// `cartonsValue`/`piecesValue`. `error` (spec 2.66 point 4, dette assumée en
-// spec) : un échec d'écriture pendant la confirmation s'affichait hors de la
-// modale, donc derrière le fond assombri — invisible. L'appelant garde son
-// propre paragraphe d'erreur pour les échecs hors confirmation (casier
-// invalide avant validation, etc.) ; celui-ci ne double que le cas où la
-// modale est ouverte. Affiché avant le bloc collision et ses boutons, pas
-// après : `.modal-dialog` défile en interne (max-height 80vh) et le message
-// le plus long (MoveCasierLignePartialError) ne doit pas finir sous les
-// boutons, dans la partie qu'il faudrait faire défiler pour lire — même
-// défaut que le test 7 (spec 2.64 §6.5), un niveau plus bas.
-function MoveConfirmDialog({
-  move,
+// LA fenêtre de confirmation d'une écriture, partagée entre la marche et
+// les Écarts (spec 2.66 point 4 ter, généralisée spec 3.0 §6.5) : elle
+// nomme toutes les conditions de la saisie, et pose un seul choix. Fenêtre
+// modale sans `onClose` (spec 2.64 §6.5) : elle écrit, elle exige un choix
+// explicite par bouton. `error` affiché DANS la fenêtre, avant les boutons :
+// hors de la modale il serait derrière le fond assombri, et après les
+// boutons dans la partie qu'il faudrait faire défiler (`.modal-dialog`,
+// max-height 80vh) — même défaut que le test 7 (spec 2.64 §6.5).
+function WriteConfirmDialog({
+  pending,
   t,
   saving,
   error,
   onConfirm,
   onCancel,
 }: {
-  move: PendingMove
+  pending: PendingWrite
   t: Dictionary
   saving: boolean
   error: string | null
   onConfirm: (mode?: 'remplacer' | 'ajouter') => void
   onCancel: () => void
 }) {
-  const quantityChange = moveQuantityChangeLabel(move, t)
+  const quantityChange = moveQuantityChangeLabel(pending, t)
+  const collision = pending.collision
   return (
     <Modal>
-      <p>
-        {interpolate(t.inventory.moveConfirm, {
-          refCode: move.refCode,
-          from: move.fromEmplacementCode,
-          to: move.emplacementCode,
-        })}
-      </p>
+      {pending.reactivation && (
+        <p>{interpolate(t.inventory.inactiveReferenceQuestion, { refCode: pending.refCode })}</p>
+      )}
+      {pending.needsScopeExtension && (
+        <p>{interpolate(t.inventory.scopeExtensionQuestion, { refCode: pending.refCode })}</p>
+      )}
+      {pending.move && (
+        <p>
+          {interpolate(t.inventory.moveConfirm, {
+            refCode: pending.refCode,
+            from: pending.move.fromEmplacementCode,
+            to: pending.emplacementCode,
+          })}
+        </p>
+      )}
       {quantityChange && <p>{quantityChange}</p>}
+      {collision && (
+        <p>
+          {pending.move
+            ? interpolate(t.inventory.moveCollisionExisting, {
+                emplacement: pending.emplacementCode,
+                cartons: collision.existingCartons,
+                pieces: collision.existingPieces,
+              })
+            : interpolate(t.inventory.duplicateEntry, {
+                emplacement: pending.emplacementCode,
+                refCode: pending.refCode,
+                cartons: collision.existingCartons,
+                pieces: collision.existingPieces,
+              })}
+        </p>
+      )}
       {error && <p className="form-status form-error">{error}</p>}
-      {move.collision ? (
+      {collision ? (
         <>
-          <p>
-            {interpolate(t.inventory.moveCollisionExisting, {
-              emplacement: move.emplacementCode,
-              cartons: move.collision.existingCartons,
-              pieces: move.collision.existingPieces,
-            })}
-          </p>
-          <button type="button" onClick={() => onConfirm('ajouter')} disabled={saving}>
-            {t.inventory.addEntry} ({move.cartonsValue + move.collision.existingCartons}c +{' '}
-            {move.piecesValue + move.collision.existingPieces}p)
-          </button>
+          {/* Remplacer avant Ajouter (choix explicite de l'utilisateur,
+              5 octobre 2026) : c'était l'ordre historique de la fenêtre de
+              doublon sur la marche, où ce choix se pose le plus souvent —
+              un appui réflexe par habitude doit retomber sur "remplacer",
+              pas sur "ajouter". Même ordre pour le déplacement : une seule
+              fenêtre partagée ne doit pas avoir deux ordres. */}
           <button type="button" onClick={() => onConfirm('remplacer')} disabled={saving}>
-            {t.inventory.replaceEntry} ({move.cartonsValue}c + {move.piecesValue}p)
+            {t.inventory.replaceEntry} ({pending.cartonsValue}c + {pending.piecesValue}p)
+          </button>
+          <button type="button" onClick={() => onConfirm('ajouter')} disabled={saving}>
+            {t.inventory.addEntry} ({pending.cartonsValue + collision.existingCartons}c +{' '}
+            {pending.piecesValue + collision.existingPieces}p)
           </button>
         </>
       ) : (
@@ -862,7 +868,9 @@ function Walk({
   const [editingOriginalQuantity, setEditingOriginalQuantity] = useState<{ cartons: number; pieces: number } | null>(
     null,
   )
-  const [pendingDuplicate, setPendingDuplicate] = useState<PendingDuplicate | null>(null)
+  // La seule question en attente (spec 3.0 §6.5, voir PendingWrite) —
+  // remplace les trois états séparés qui s'enchaînaient.
+  const [pendingWrite, setPendingWrite] = useState<PendingWrite | null>(null)
   // Étiquette de conditionnement par id, pour l'afficher dans la liste des
   // saisies (spec v2 §6.5 : "casier, référence, conditionnement, quantité")
   // — sans elle, deux lignes de la même réf sur deux conditionnements
@@ -874,19 +882,13 @@ function Walk({
   // rappel des références à compter, lui, couvre tous les scope_kind
   // (spec 2.71, voir checklistCodes).
   const [referencesScope, setReferencesScope] = useState<string[] | undefined>(undefined)
-  // Périmètre "client" (spec 2.71 §6.5) : sert UNIQUEMENT au rappel des
-  // références à compter. Volontairement distinct de `referencesScope`, qui
+  // Périmètre "client" (spec 2.71 §6.5) : sert au rappel des références à
+  // compter et aux suggestions du champ référence (spec 3.0 §6.8), jamais
+  // à la garde de saisie. Volontairement distinct de `referencesScope`, qui
   // porte la garde de saisie et la question d'extension — deux mécanismes
   // séparés, pour qu'élargir le rappel ne change jamais ce qui est refusé
   // ou confirmé à l'enregistrement.
   const [clientScopeCodes, setClientScopeCodes] = useState<string[] | undefined>(undefined)
-  // Confirmation avant d'écrire une référence hors périmètre (spec 2.54,
-  // point 2) : jamais en silence.
-  const [pendingScopeExtension, setPendingScopeExtension] = useState<PendingScopeExtension | null>(null)
-  // Confirmation de déplacement en mode modification (spec 2.60 §6.5) :
-  // changer le casier du formulaire pendant une édition n'est jamais un
-  // update silencieux — même récapitulatif que "Déplacer" côté écarts.
-  const [pendingMove, setPendingMove] = useState<PendingMove | null>(null)
   // Rappel des références à compter (spec 2.56 §6.5) : ouvert depuis un
   // bouton, jamais affiché en flux — un déroulant en place repousserait le
   // formulaire, qui sert en permanence, pour une liste qui sert rarement.
@@ -1094,15 +1096,12 @@ function Walk({
   // quantité, y compris en mode modification, où changer le casier aux
   // flèches est un choix de destination, pas un abandon de la correction en
   // cours. Seule la validation d'une saisie vide les champs (commitSave),
-  // parce que là le contenu a été écrit quelque part. pendingDuplicate,
-  // pendingScopeExtension et pendingMove restent liés à une tentative de
-  // soumission précise : naviguer les referme, sans quoi une question posée
-  // à l'ancien casier resterait affichée au nouveau.
+  // parce que là le contenu a été écrit quelque part. pendingWrite reste
+  // lié à une tentative de soumission précise : naviguer le referme, sans
+  // quoi une question posée à l'ancien casier resterait affichée au nouveau.
   function goToEmplacement(code: string) {
     setEmplacementCode(code)
-    setPendingDuplicate(null)
-    setPendingScopeExtension(null)
-    setPendingMove(null)
+    setPendingWrite(null)
     closeEntryMenu()
   }
 
@@ -1111,40 +1110,6 @@ function Walk({
     ? (Number(cartons) || 0) * selectedConditionnement.pieces_par_carton + (Number(pieces) || 0)
     : null
   const matchedReference = allReferences.find((r) => r.code === refCode.trim().toUpperCase()) ?? null
-
-  // Partagée entre handleSave (chemin normal) et confirmScopeExtension
-  // (après avoir accepté d'étendre le périmètre) : le contrôle de doublon
-  // ne change pas selon la façon dont on y arrive. En mode modification, la
-  // question ne disparaît pas — elle change de cible (spec 2.61 §6.5,
-  // corrige une erreur de 2.60) :
-  //   - collision AVEC SOI-MÊME (sameKey(editingKey, key)) : le triplet ne
-  //     change pas, ce n'est pas une collision, c'est l'objet même de la
-  //     correction — aucune question.
-  //   - collision avec une AUTRE ligne déjà présente à la destination :
-  //     exactement le cas pour lequel la question a été écrite. Deux
-  //     comptages réels distincts (deux étagères effectivement comptées)
-  //     se retrouveraient au même endroit ; écraser sans demander perd l'un
-  //     des deux sans trace. La question se pose donc à la destination,
-  //     avant écriture — resolveDuplicate appelle ensuite commitSave avec
-  //     `key` (la destination), qui détecte lui-même le déplacement
-  //     (editingKey encore défini, différent de `key`) et retire la ligne
-  //     d'origine dans les deux branches, remplacer comme ajouter.
-  function checkDuplicateThenSave(key: EntryKey, cartonsValue: number, piecesValue: number): Promise<void> {
-    if (editingKey && sameKey(editingKey, key)) return commitSave(key, cartonsValue, piecesValue)
-    const existing = saisies.find((s) => sameKey(s, key))
-    if (existing) {
-      setStatus({ kind: 'idle' })
-      setPendingDuplicate({
-        ...key,
-        existingCartons: existing.cartons,
-        existingPieces: existing.pieces,
-        cartonsValue,
-        piecesValue,
-      })
-      return Promise.resolve()
-    }
-    return commitSave(key, cartonsValue, piecesValue)
-  }
 
   async function handleSave(e: FormEvent) {
     e.preventDefault()
@@ -1202,139 +1167,104 @@ function Walk({
         }
       }
 
+      // Toutes les conditions de cette saisie sont réunies ICI, avant toute
+      // question (spec 3.0 §6.5, « une écriture ne pose qu'une question ») :
+      // buildPendingWrite en fait une seule fenêtre, ou décide qu'il n'y a
+      // rien à demander.
+      //
       // Inventaire partiel (spec 2.54, point 2) : jamais enregistrer une
-      // référence hors périmètre en silence — proposer d'étendre le
-      // périmètre d'abord. Priorité sur le contrôle de doublon ci-dessous :
-      // tant que la référence n'est pas dans le périmètre, la question à
-      // trancher est "appartient-elle à cet inventaire", pas "remplacer ou
-      // ajouter".
+      // référence hors périmètre en silence — proposer d'étendre.
       const needsScopeExtension = inventaire.scope_kind === 'references' && !!scope && !scope.includes(code)
       // Référence inactive tapée en entier (spec 2.67 §6.2) : acceptée, pas
-      // refusée — des cartons devant soi sont un fait physique (§4), et un
-      // stock trouvé sur une référence censée être à zéro est une
-      // information, pas une erreur à taire. Même mécanisme que ci-dessus,
-      // pas un second : lu dans `allReferences` déjà chargé, jamais une
-      // relecture réseau. `allReferences` ne se rafraîchit qu'au montage de
-      // cet écran — potentiellement périmé si une désactivation a lieu
-      // ailleurs pendant la marche, mais sans conséquence pratique
-      // (advisor()) : une référence désactivée en cours de route resterait
-      // couverte par l'inventaire actif (activeInventaireCovering, spec
-      // 2.67 point 1), donc sa désactivation aurait de toute façon été
-      // refusée si elle appartenait au périmètre en cours.
-      //
-      // Ne se déclenche que si la saisie donne du stock (spec 2.78 §6.5) :
-      // une saisie à zéro — "vérifié, vide" — confirme l'invariant "stock
-      // nul" au lieu de le contredire, elle ne doit donc rien réactiver.
-      // Depuis la 2.78, une inactive entre au périmètre SANS être
-      // réactivée (plus de question au lancement) : c'est cette garde-ci,
-      // à la saisie, qui reste l'unique déclencheur de la réactivation, et
-      // seulement quand du stock apparaît réellement.
-      const needsReactivation =
-        (cartonsValue > 0 || piecesValue > 0) && allReferences.find((r) => r.code === code)?.actif === false
-      if (needsScopeExtension || needsReactivation) {
+      // refusée — des cartons devant soi sont un fait physique (§4). Lu dans
+      // `allReferences` déjà chargé, jamais une relecture réseau (§6.5) ;
+      // potentiellement périmé si une désactivation a lieu ailleurs pendant
+      // la marche, mais une référence couverte par l'inventaire en cours ne
+      // peut pas être désactivée (§6.8). La condition elle-même
+      // (reactivationNeeded) vit dans inventaireDb.ts, nulle part ici.
+      const referenceActif = allReferences.find((r) => r.code === code)?.actif ?? true
+      // Collision : une AUTRE ligne au triplet de destination. Avec soi-même
+      // (le triplet ne change pas), ce n'est pas une collision, c'est
+      // l'objet de la correction (spec 2.61 §6.5). Recherche dans `saisies`
+      // (état local), jamais une relecture serveur (spec 2.62).
+      const existing = editingKey && sameKey(editingKey, key) ? undefined : saisies.find((s) => sameKey(s, key))
+      const pending = buildPendingWrite({
+        key,
+        cartonsValue,
+        piecesValue,
+        // Mode modification : le casier du formulaire est la destination
+        // (spec 2.60 §6.5) — le changer est un déplacement, récapitulatif
+        // obligatoire. Référence ou conditionnement changés SANS le casier
+        // ne le montrent pas (spec 2.60 ne le demande que pour le casier),
+        // mais writeSaisie les traite bien en déplacement à l'écriture.
+        move:
+          editingKey && editingKey.emplacementCode !== key.emplacementCode
+            ? {
+                fromEmplacementCode: editingKey.emplacementCode,
+                // Capturée à l'ouverture du mode modification (editEntry),
+                // jamais redérivée de `saisies` ici (spec 2.65 §6.5).
+                originalCartons: editingOriginalQuantity?.cartons ?? cartonsValue,
+                originalPieces: editingOriginalQuantity?.pieces ?? piecesValue,
+              }
+            : undefined,
+        existingAtTarget: existing ? { cartons: existing.cartons, pieces: existing.pieces } : undefined,
+        referenceActif,
+        needsScopeExtension,
+      })
+      if (pending) {
         setStatus({ kind: 'idle' })
-        setPendingScopeExtension({ ...key, cartonsValue, piecesValue, needsScopeExtension, needsReactivation })
+        setPendingWrite(pending)
         return
       }
 
-      // Mode modification : le casier du formulaire est la destination
-      // (spec 2.60 §6.5). Le changer n'est pas une correction de champ,
-      // c'est un déplacement — même récapitulatif de confirmation que
-      // "Déplacer" côté écarts, jamais un update silencieux. Référence ou
-      // conditionnement changés SANS le casier ne posent pas cette
-      // question : seul le casier rend le déplacement visible pour
-      // l'opérateur (spec 2.59 les traite identiquement en écriture, mais
-      // spec 2.60 ne demande la confirmation que sur celui-ci).
-      if (editingKey && editingKey.emplacementCode !== key.emplacementCode) {
-        setStatus({ kind: 'idle' })
-        // Collision détectée ICI, avant de poser la question (spec 2.62
-        // §6.5) : pour fusionner "déplacer ?" et "remplacer ou ajouter ?"
-        // en un seul écran plutôt que de les enchaîner. Recherche dans
-        // `saisies` (état local), jamais une relecture serveur — même
-        // règle que resolveDuplicate, et pour la même raison.
-        const existing = saisies.find((s) => sameKey(s, key))
-        setPendingMove(
-          buildPendingMove({
-            key,
-            fromEmplacementCode: editingKey.emplacementCode,
-            cartonsValue,
-            piecesValue,
-            // Capturée à l'ouverture du mode modification (editEntry), jamais
-            // redérivée de `saisies` ici — cette ligne peut avoir disparu de
-            // l'état local entre-temps (spec 2.65 §6.5, voir commentaire sur
-            // `editingOriginalQuantity`).
-            originalCartons: editingOriginalQuantity?.cartons ?? cartonsValue,
-            originalPieces: editingOriginalQuantity?.pieces ?? piecesValue,
-            existingAtTarget: existing ? { cartons: existing.cartons, pieces: existing.pieces } : undefined,
-          }),
-        )
-        return
-      }
-
-      await checkDuplicateThenSave(key, cartonsValue, piecesValue)
+      await commitSave(key, cartonsValue, piecesValue, false)
     } catch (err) {
       setStatus({ kind: 'error', message: describeSaveError(err, t) })
     }
   }
 
-  // Écrit réellement la ligne — appelé directement (pas de doublon détecté)
-  // ou après le choix "remplacer"/"ajouter" sur un doublon.
-  async function commitSave(key: EntryKey, cartonsValue: number, piecesValue: number) {
+  // Écrit réellement la ligne — appelé directement (aucune question) ou
+  // depuis confirmWrite. Toute la décision d'écriture (correction de valeur
+  // ou déplacement, réactivation) appartient à writeSaisie, partagée avec
+  // l'écran des écarts : rien de cela ne se décide ici.
+  async function commitSave(key: EntryKey, cartonsValue: number, piecesValue: number, reactivationConfirmed: boolean) {
     // Ne devrait jamais arriver : handleSave vérifie déjà `auteur` avant
-    // d'atteindre ce point, y compris via le détour par pendingDuplicate.
-    // Un throw ici remonte dans le catch de l'appelant (message d'erreur
-    // visible) au lieu de laisser le bouton bloqué en "saving" sans rien
-    // afficher.
+    // d'atteindre ce point. Un throw ici remonte dans le catch de
+    // l'appelant (message d'erreur visible) au lieu de laisser le bouton
+    // bloqué en "saving" sans rien afficher.
     if (!auteur) throw new Error('auteur manquant')
-    // Capturés au moment du geste (l'appui sur Enregistrer, ou sur
-    // remplacer/ajouter), jamais plus tard : voir le commentaire sur
-    // saveCasierLigne pour la raison exacte (file hors ligne, spec v2 §3).
+    // Capturés au moment du geste (l'appui sur Enregistrer, ou sur un
+    // bouton de la confirmation), jamais plus tard : voir le commentaire
+    // sur saveCasierLigne pour la raison exacte (file hors ligne, spec v2 §3).
     const ligneId = crypto.randomUUID()
     const ligneTs = new Date().toISOString()
 
-    await ensureEmplacement(key.emplacementCode)
-
-    // Correction via "Modifier" (spec 2.58, §6.5) : dès que le triplet
-    // (casier, réf, conditionnement) change — pas seulement le casier —
-    // ce n'est PAS une simple écriture à la nouvelle clé : la ligne
-    // d'origine doit disparaître de son comptage d'origine, sinon elle se
-    // retrouve comptée aux deux endroits (le même défaut existe qu'on
-    // corrige le casier ou la référence — advisor l'a relevé après une
-    // première version qui ne couvrait que le casier). Même chemin que
-    // "Déplacer" sur l'écran des écarts (moveCasierLigne), jamais un
-    // update de comptages.emplacement_code.
+    // Correction via "Modifier" (spec 2.58, §6.5) : la ligne d'origine, si
+    // elle existe encore dans l'état local (l'opérateur peut l'avoir
+    // supprimée via le menu "…" pendant qu'il l'éditait). writeSaisie
+    // compare elle-même le triplet avant/après.
     const relocatingFrom =
       editingKey && !sameKey(editingKey, key) ? saisies.find((s) => sameKey(s, editingKey)) : undefined
 
-    let comptageId: string
-    if (relocatingFrom) {
-      const result = await moveCasierLigne(
-        inventaire.id,
-        ligneId,
-        ligneTs,
-        {
-          comptageId: relocatingFrom.comptageId,
-          refCode: relocatingFrom.refCode,
-          conditionnementId: relocatingFrom.conditionnementId,
-        },
-        { emplacementCode: key.emplacementCode, refCode: key.refCode, conditionnementId: key.conditionnementId, cartons: cartonsValue, pieces: piecesValue },
-        auteur,
-      )
-      comptageId = result.comptageId
-    } else {
-      const { comptage } = await getOrCreateCasier(inventaire.id, key.emplacementCode)
-      await saveCasierLigne(
-        ligneId,
-        ligneTs,
-        comptage.id,
-        key.refCode,
-        key.conditionnementId,
-        cartonsValue,
-        piecesValue,
-        auteur,
-      )
-      await markCasierVisite(comptage.id) // "touché" = compté, dans ce modèle il n'y a pas d'état intermédiaire
-      comptageId = comptage.id
+    const { comptageId, reactivated } = await writeSaisie({
+      inventaireId: inventaire.id,
+      ligneId,
+      ts: ligneTs,
+      auteur,
+      source: relocatingFrom
+        ? {
+            comptageId: relocatingFrom.comptageId,
+            emplacementCode: relocatingFrom.emplacementCode,
+            refCode: relocatingFrom.refCode,
+            conditionnementId: relocatingFrom.conditionnementId,
+          }
+        : undefined,
+      target: { ...key, cartons: cartonsValue, pieces: piecesValue },
+      referenceActif: allReferences.find((r) => r.code === key.refCode)?.actif ?? true,
+      reactivationConfirmed,
+    })
+    if (reactivated) {
+      setAllReferences((prev) => prev.map((r) => (r.code === key.refCode ? { ...r, actif: true } : r)))
     }
 
     setEmplacementCode(key.emplacementCode) // forme canonique réellement enregistrée (ex. "A11" -> "A-01-1")
@@ -1359,119 +1289,48 @@ function Walk({
     setPieces('')
     setEditingKey(null)
     setEditingOriginalQuantity(null)
-    setPendingDuplicate(null)
+    setPendingWrite(null)
     setStatus({ kind: 'idle' })
   }
 
-  // "Ajouter" somme sur la valeur LOCALE (`existingCartons`/`existingPieces`,
-  // déjà connue au moment où la collision a été détectée), jamais une
-  // relecture serveur (spec 2.62 §6.5, revient sur une règle antérieure
-  // écrite pour la raison inverse) : sur un seul appareil, l'état local est
-  // la vue la PLUS complète, puisqu'il intègre les écritures encore en file
-  // hors ligne que le serveur ignore encore — une relecture donnerait la
-  // mauvaise valeur précisément quand une saisie est en attente, et
-  // poserait une dépendance réseau au milieu d'une confirmation, en allée,
-  // où la coupure est le cas courant. Cette règle ne tient QUE tant qu'un
-  // seul appareil écrit — voir §14 : le jour d'un second compteur,
-  // l'addition doit devenir un incrément atomique côté serveur.
-  async function resolveDuplicate(mode: 'remplacer' | 'ajouter') {
-    if (!pendingDuplicate) return
-    const { cartonsValue, piecesValue, existingCartons, existingPieces } = pendingDuplicate
+  // Réponse à LA question (spec 3.0 §6.5) : résout chaque condition
+  // nommée par la fenêtre, puis écrit — la confirmation conclut l'action
+  // qu'elle confirme, aucune seconde fenêtre ne suit (défaut du 30
+  // septembre). "Ajouter" somme sur la valeur LOCALE déjà connue
+  // (computeFinalQuantity), jamais une relecture serveur (spec 2.62 §6.5) :
+  // sur un seul appareil, l'état local est la vue la plus complète. Cette
+  // règle ne tient QUE tant qu'un seul appareil écrit — voir §14.
+  // `key` reconstruit explicitement plutôt qu'un rest-spread : PendingWrite
+  // porte des champs qu'EntryKey n'a pas, un rest-spread les laisserait
+  // traîner sans que tsc s'en plaigne.
+  async function confirmWrite(mode?: 'remplacer' | 'ajouter') {
+    if (!pendingWrite) return
     const key: EntryKey = {
-      emplacementCode: pendingDuplicate.emplacementCode,
-      refCode: pendingDuplicate.refCode,
-      conditionnementId: pendingDuplicate.conditionnementId,
+      emplacementCode: pendingWrite.emplacementCode,
+      refCode: pendingWrite.refCode,
+      conditionnementId: pendingWrite.conditionnementId,
     }
     setStatus({ kind: 'saving' })
     try {
-      const finalCartons = mode === 'ajouter' ? cartonsValue + existingCartons : cartonsValue
-      const finalPieces = mode === 'ajouter' ? piecesValue + existingPieces : piecesValue
-      // En mode modification (editingKey encore défini, différent de `key`
-      // puisque c'est ce qui a déclenché la collision) : commitSave détecte
-      // lui-même le déplacement et retire la ligne d'origine, remplacer
-      // comme ajouter (spec 2.61 §6.5) — rien de spécial à faire ici.
-      await commitSave(key, finalCartons, finalPieces)
-    } catch (err) {
-      setStatus({ kind: 'error', message: describeSaveError(err, t) })
-    }
-  }
-
-  function cancelDuplicate() {
-    setPendingDuplicate(null)
-    setStatus({ kind: 'idle' })
-  }
-
-  // "Oui" (spec 2.54 point 2, généralisée 2.67 §6.2) : résout chaque raison
-  // qui a posé la question — ajout au périmètre, réactivation, les deux à
-  // la fois si les deux drapeaux sont vrais — puis la saisie suit son
-  // chemin normal (contrôle de doublon inclus, une référence ajoutée ou
-  // réactivée peut très bien être une correction d'une saisie déjà là).
-  // Reconstruit `key` explicitement plutôt qu'un rest-spread : les deux
-  // drapeaux `needsX` sont des champs de PendingScopeExtension qu'EntryKey
-  // n'a pas, un rest-spread les aurait laissés traîner sans que tsc s'en
-  // plaigne (même piège que confirmPendingMove).
-  async function confirmScopeExtension() {
-    if (!pendingScopeExtension) return
-    const { cartonsValue, piecesValue, needsScopeExtension, needsReactivation } = pendingScopeExtension
-    const key: EntryKey = {
-      emplacementCode: pendingScopeExtension.emplacementCode,
-      refCode: pendingScopeExtension.refCode,
-      conditionnementId: pendingScopeExtension.conditionnementId,
-    }
-    setStatus({ kind: 'saving' })
-    try {
-      if (needsScopeExtension) {
+      if (pendingWrite.needsScopeExtension) {
+        // Rejouable (ignoreDuplicates) : un réessai après un échec de
+        // l'écriture qui suit ne crée rien de plus.
         await addReferenceToScope(inventaire.id, key.refCode)
-        setReferencesScope((prev) => (prev ? [...prev, key.refCode] : [key.refCode]))
+        setReferencesScope((prev) =>
+          prev ? (prev.includes(key.refCode) ? prev : [...prev, key.refCode]) : [key.refCode],
+        )
       }
-      if (needsReactivation) {
-        await setReferenceActif(key.refCode, true)
-        await refreshReferentielCache()
-        setAllReferences((prev) => prev.map((r) => (r.code === key.refCode ? { ...r, actif: true } : r)))
-      }
-      setPendingScopeExtension(null)
-      await checkDuplicateThenSave(key, cartonsValue, piecesValue)
+      const { cartons: finalCartons, pieces: finalPieces } = computeFinalQuantity(pendingWrite, mode)
+      await commitSave(key, finalCartons, finalPieces, pendingWrite.reactivation)
     } catch (err) {
       setStatus({ kind: 'error', message: describeSaveError(err, t) })
     }
   }
 
-  // "Non" : rien n'est écrit (spec 2.54, point 2) — jamais en silence,
+  // Annuler : rien n'est écrit (spec 2.54 point 2) — jamais en silence,
   // jamais forcé non plus.
-  function cancelScopeExtension() {
-    setPendingScopeExtension(null)
-    setStatus({ kind: 'idle' })
-  }
-
-  // Confirmation du déplacement en mode modification (spec 2.62 §6.5) : la
-  // collision, s'il y en a une, a déjà été détectée quand pendingMove a été
-  // posé — appelle directement commitSave (jamais checkDuplicateThenSave,
-  // qui reposerait une question déjà résolue ici), qui détecte lui-même le
-  // déplacement en comparant le triplet avant/après et retire la ligne
-  // d'origine. `mode` n'a de sens que si pendingMove.collision existe ;
-  // absent sinon (simple confirmation, pas de choix à faire).
-  async function confirmPendingMove(mode?: 'remplacer' | 'ajouter') {
-    if (!pendingMove) return
-    // Reconstruit explicitement plutôt qu'un rest-spread : PendingMove porte
-    // des champs qu'EntryKey n'a pas, un rest-spread les aurait laissés
-    // traîner dans `key` sans que tsc s'en plaigne (assignable, pas exact).
-    const key: EntryKey = {
-      emplacementCode: pendingMove.emplacementCode,
-      refCode: pendingMove.refCode,
-      conditionnementId: pendingMove.conditionnementId,
-    }
-    setStatus({ kind: 'saving' })
-    try {
-      const { cartons: finalCartons, pieces: finalPieces } = computeMoveFinalQuantity(pendingMove, mode)
-      await commitSave(key, finalCartons, finalPieces)
-      setPendingMove(null)
-    } catch (err) {
-      setStatus({ kind: 'error', message: describeSaveError(err, t) })
-    }
-  }
-
-  function cancelPendingMove() {
-    setPendingMove(null)
+  function cancelWrite() {
+    setPendingWrite(null)
     setStatus({ kind: 'idle' })
   }
 
@@ -1512,9 +1371,7 @@ function Walk({
     setCartons(String(entry.cartons))
     setPieces(String(entry.pieces))
     setStatus({ kind: 'idle' })
-    setPendingDuplicate(null)
-    setPendingScopeExtension(null)
-    setPendingMove(null)
+    setPendingWrite(null)
     setArmedRemoveId(null)
     setEditingKey({
       emplacementCode: entry.emplacementCode,
@@ -1540,9 +1397,7 @@ function Walk({
     setCartons('')
     setPieces('')
     setStatus({ kind: 'idle' })
-    setPendingDuplicate(null)
-    setPendingScopeExtension(null)
-    setPendingMove(null)
+    setPendingWrite(null)
   }
 
   return (
@@ -1575,7 +1430,7 @@ function Walk({
               type="button"
               className="step-button"
               onClick={() => stepEmplacement(-1)}
-              disabled={status.kind === 'saving' || pendingDuplicate !== null || pendingScopeExtension !== null || pendingMove !== null}
+              disabled={status.kind === 'saving' || pendingWrite !== null}
               aria-label={t.inventory.previousCasier}
             >
               ←
@@ -1585,14 +1440,14 @@ function Walk({
               onChange={setEmplacementCode}
               suggestions={emplacementSuggestions}
               placeholder={t.inventory.casierPlaceholder}
-              disabled={status.kind === 'saving' || pendingDuplicate !== null || pendingScopeExtension !== null || pendingMove !== null}
+              disabled={status.kind === 'saving' || pendingWrite !== null}
               selectOnFocus
             />
             <button
               type="button"
               className="step-button"
               onClick={() => stepEmplacement(1)}
-              disabled={status.kind === 'saving' || pendingDuplicate !== null || pendingScopeExtension !== null || pendingMove !== null}
+              disabled={status.kind === 'saving' || pendingWrite !== null}
               aria-label={t.inventory.nextCasier}
             >
               →
@@ -1608,7 +1463,7 @@ function Walk({
             onBlur={() => lookupReference()}
             suggestions={referenceSuggestions}
             placeholder={t.inventory.referencePlaceholder}
-            disabled={status.kind === 'saving' || pendingDuplicate !== null || pendingScopeExtension !== null || pendingMove !== null}
+            disabled={status.kind === 'saving' || pendingWrite !== null}
           />
         </label>
         {/* Confirmation avant écriture (§6.2, spec 2.23) : ComboInput se
@@ -1648,7 +1503,7 @@ function Walk({
           </label>
         </div>
         {totalPieces !== null && <p className="quantity-formula">{totalPieces} pièces</p>}
-        <button type="submit" disabled={status.kind === 'saving' || pendingDuplicate !== null || pendingScopeExtension !== null || pendingMove !== null}>
+        <button type="submit" disabled={status.kind === 'saving' || pendingWrite !== null}>
           {t.common.save}
         </button>
         {status.kind === 'error' && <p className="form-status form-error">{status.message}</p>}
@@ -1719,85 +1574,16 @@ function Walk({
         </Modal>
       )}
 
-      {/* Fenêtre modale sans `onClose` (spec 2.63 §6.5) : cette confirmation
-          écrit, elle exige donc un choix explicite par bouton — pas de
-          fermeture au toucher extérieur. Partage le même risque de
-          position que le test 7 (spec 2.64 §6.5), et se déclenche plus
-          souvent : à chaque référence déjà relevée au même casier. */}
-      {pendingDuplicate && (
-        <Modal>
-          <p>
-            {interpolate(t.inventory.duplicateEntry, {
-              emplacement: pendingDuplicate.emplacementCode,
-              refCode: pendingDuplicate.refCode,
-              cartons: pendingDuplicate.existingCartons,
-              pieces: pendingDuplicate.existingPieces,
-            })}
-          </p>
-          <button type="button" onClick={() => resolveDuplicate('remplacer')} disabled={status.kind === 'saving'}>
-            {t.inventory.replaceEntry}
-          </button>
-          <button type="button" onClick={() => resolveDuplicate('ajouter')} disabled={status.kind === 'saving'}>
-            {t.inventory.addEntry}
-          </button>
-          <button type="button" className="back-link" onClick={cancelDuplicate} disabled={status.kind === 'saving'}>
-            {t.common.cancel}
-          </button>
-          {/* Sans elle, un échec d'écriture (réseau, entre autres) rendait
-              les boutons de nouveau cliquables sans rien montrer derrière le
-              fond assombri — CLAUDE.md, "un échec d'écriture doit être
-              visible à l'écran". Même défaut que MoveConfirmDialog, corrigé
-              le 26 septembre pour lui (spec 2.64 §6.5), relevé ici le 30
-              septembre. */}
-          {status.kind === 'error' && <p className="form-status form-error">{status.message}</p>}
-        </Modal>
-      )}
-
-      {/* Fenêtre modale sans `onClose` (spec 2.63 §6.5) : même raison que
-          pendingDuplicate ci-dessus — cette confirmation écrit. Les deux
-          paragraphes sont indépendants (spec 2.67 §6.2) : une référence
-          inactive ET hors périmètre affiche les deux, confirmScopeExtension
-          résout les deux avant d'écrire — un seul mécanisme, jamais deux
-          dialogues à la suite. */}
-      {pendingScopeExtension && (
-        <Modal>
-          {pendingScopeExtension.needsReactivation && (
-            <p>{interpolate(t.inventory.inactiveReferenceQuestion, { refCode: pendingScopeExtension.refCode })}</p>
-          )}
-          {pendingScopeExtension.needsScopeExtension && (
-            <p>{interpolate(t.inventory.scopeExtensionQuestion, { refCode: pendingScopeExtension.refCode })}</p>
-          )}
-          <button type="button" onClick={confirmScopeExtension} disabled={status.kind === 'saving'}>
-            {t.common.confirm}
-          </button>
-          <button
-            type="button"
-            className="back-link"
-            onClick={cancelScopeExtension}
-            disabled={status.kind === 'saving'}
-          >
-            {t.common.cancel}
-          </button>
-          {/* Même correctif que pendingDuplicate ci-dessus, même raison :
-              addReferenceToScope/setReferenceActif/refreshReferentielCache
-              peuvent échouer (réseau) et laissaient jusqu'ici les boutons
-              se réactiver sans rien montrer derrière le fond assombri. */}
-          {status.kind === 'error' && <p className="form-status form-error">{status.message}</p>}
-        </Modal>
-      )}
-
-      {/* Déplacement en mode modification (spec 2.60 §6.5) — confirmation
-          rendue par le composant partagé MoveConfirmDialog (spec 2.66 point
-          4 ter), commun à la marche et aux Écarts. Voir le commentaire sur
-          MoveConfirmDialog pour le détail des règles qu'il applique. */}
-      {pendingMove && (
-        <MoveConfirmDialog
-          move={pendingMove}
+      {/* LA question d'une écriture (spec 3.0 §6.5) — composant partagé
+          avec l'écran des écarts, voir WriteConfirmDialog. */}
+      {pendingWrite && (
+        <WriteConfirmDialog
+          pending={pendingWrite}
           t={t}
           saving={status.kind === 'saving'}
           error={status.kind === 'error' ? status.message : null}
-          onConfirm={confirmPendingMove}
-          onCancel={cancelPendingMove}
+          onConfirm={confirmWrite}
+          onCancel={cancelWrite}
         />
       )}
 
@@ -1939,6 +1725,12 @@ function Ecarts({
   // censé être complet ne peut pas hériter de ce filtre fragile.
   const [saisies, setSaisies] = useState<SaisieLine[]>([])
   const [refLibelleByCode, setRefLibelleByCode] = useState<Map<string, string | null>>(new Map())
+  // Drapeau `actif` par référence (spec 3.0 §6.5) : writeSaisie l'exige —
+  // la détection de réactivation appartient à l'écriture, et cet écran
+  // écrivait jusqu'ici une quantité sans aucun contrôle sur `actif`.
+  // Absent de la map (chargement échoué) = traité comme actif, même
+  // convention que la marche.
+  const [actifByCode, setActifByCode] = useState<Map<string, boolean>>(new Map())
   const [conditionnementById, setConditionnementById] = useState<Map<string, Conditionnement>>(new Map())
   // Titre du document imprimé (spec 2.52) : liste explicite des codes du
   // périmètre pour scope_kind === 'references' — undefined pour les deux
@@ -1951,20 +1743,25 @@ function Ecarts({
   const [editStatus, setEditStatus] = useState<
     { kind: 'idle' } | { kind: 'saving' } | { kind: 'error'; message: string }
   >({ kind: 'idle' })
+  // Correction de quantité en attente de confirmation (spec 3.0 §6.5) —
+  // aujourd'hui seulement la réactivation d'une inactive, mais construite
+  // par buildPendingWrite et rendue par WriteConfirmDialog comme toute
+  // autre écriture : pas une fenêtre propre à cet écran.
+  const [pendingEdit, setPendingEdit] = useState<PendingWrite | null>(null)
   // Double appui sur Supprimer (spec 2.58 §6.5) : un seul panneau d'édition
   // ouvert à la fois (editingLigneId), donc un seul booléen suffit — remis
   // à zéro à chaque ouverture/fermeture de panneau (voir toggleEdit).
   const [deleteArmed, setDeleteArmed] = useState(false)
   // Déplacement d'une saisie vers un autre casier (spec 2.58 §6.5) :
   // moveTarget est la saisie brute ; pendingMove, construit par
-  // buildPendingMove une fois le casier validé, porte le récapitulatif ET
-  // la collision de destination éventuelle (spec 2.66 point 4 ter — même
-  // type et même composant de confirmation que la marche, `MoveConfirmDialog`
-  // ; seule la source des données diffère : `ref.parEmplacement` ici,
+  // buildPendingWrite une fois le casier validé, porte le récapitulatif, la
+  // collision de destination et la réactivation éventuelles (même type et
+  // même composant de confirmation que la marche, `WriteConfirmDialog` ;
+  // seule la source des données diffère : `ref.parEmplacement` ici,
   // `saisies` côté marche).
   const [movingLigneId, setMovingLigneId] = useState<string | null>(null)
   const [moveTarget, setMoveTarget] = useState('')
-  const [pendingMove, setPendingMove] = useState<PendingMove | null>(null)
+  const [pendingMove, setPendingMove] = useState<PendingWrite | null>(null)
   const [moveStatus, setMoveStatus] = useState<
     { kind: 'idle' } | { kind: 'saving' } | { kind: 'error'; message: string }
   >({ kind: 'idle' })
@@ -2037,6 +1834,7 @@ function Ecarts({
         setNeverTouched(synthese.neverTouched)
         setSaisies(saisieList)
         setRefLibelleByCode(new Map(refList.map((r) => [r.code, r.libelle])))
+        setActifByCode(new Map(refList.map((r) => [r.code, r.actif])))
         const byId = new Map<string, Conditionnement>()
         for (const list of condByRef.values()) for (const c of list) byId.set(c.id, c)
         setConditionnementById(byId)
@@ -2058,6 +1856,7 @@ function Ecarts({
     setEditCartons(String(l.cartons ?? 0))
     setEditPieces(String(l.pieces ?? 0))
     setEditStatus({ kind: 'idle' })
+    setPendingEdit(null)
     setDeleteArmed(false)
     cancelMove()
   }
@@ -2070,6 +1869,7 @@ function Ecarts({
     if (editingLigneId === l.ligneId) {
       setEditingLigneId(null)
       setDeleteArmed(false)
+      setPendingEdit(null)
       cancelMove()
     } else {
       startEdit(l)
@@ -2078,8 +1878,44 @@ function Ecarts({
 
   // Corriger ou retirer une saisie DEPUIS l'écran Écarts, sans repasser par
   // la marche (2026-09-14, retour terrain) : on est déjà en train de
-  // regarder l'écart, c'est le bon moment pour le corriger.
-  async function saveEdit(ref: SyntheseReference, l: SyntheseLigneEmplacement) {
+  // regarder l'écart, c'est le bon moment pour le corriger. Même question
+  // que la marche, construite par le même buildPendingWrite (spec 3.0
+  // §6.5) : une ligne posée à zéro pendant la marche puis portée à cinq
+  // cartons ici donne du stock à une inactive — la réactivation doit être
+  // demandée, et writeSaisie refuse d'écrire sinon.
+  function saveEdit(ref: SyntheseReference, l: SyntheseLigneEmplacement) {
+    if (!auteur || !l.comptageId) return
+    const cartonsValue = Number(editCartons) || 0
+    const piecesValue = Number(editPieces) || 0
+    const pending = buildPendingWrite({
+      key: { emplacementCode: l.emplacementCode, refCode: ref.refCode, conditionnementId: ref.conditionnementId },
+      cartonsValue,
+      piecesValue,
+      move: undefined,
+      // Même triplet que la ligne corrigée : collision avec soi-même, donc
+      // pas une collision (spec 2.61 §6.5).
+      existingAtTarget: undefined,
+      referenceActif: actifByCode.get(ref.refCode) ?? true,
+      // Une ligne déjà en base hors périmètre est marquée ici avec sa
+      // propre action « ajouter au périmètre » (spec 2.54 point 4) : la
+      // corriger ne pose pas la question d'extension.
+      needsScopeExtension: false,
+    })
+    if (pending) {
+      setEditStatus({ kind: 'idle' })
+      setPendingEdit(pending)
+      return
+    }
+    void commitEdit(ref, l, cartonsValue, piecesValue, false)
+  }
+
+  async function commitEdit(
+    ref: SyntheseReference,
+    l: SyntheseLigneEmplacement,
+    cartonsValue: number,
+    piecesValue: number,
+    reactivationConfirmed: boolean,
+  ) {
     if (!auteur || !l.comptageId) return
     // Nouvelle ligne (latest-wins), donc nouvel id — capturé ici, au geste,
     // pas dans saveCasierLigne (voir son commentaire).
@@ -2087,21 +1923,40 @@ function Ecarts({
     const ligneTs = new Date().toISOString()
     setEditStatus({ kind: 'saving' })
     try {
-      await saveCasierLigne(
+      const { reactivated } = await writeSaisie({
+        inventaireId: inventaire.id,
         ligneId,
-        ligneTs,
-        l.comptageId,
-        ref.refCode,
-        ref.conditionnementId,
-        Number(editCartons) || 0,
-        Number(editPieces) || 0,
+        ts: ligneTs,
         auteur,
-      )
+        source: {
+          comptageId: l.comptageId,
+          emplacementCode: l.emplacementCode,
+          refCode: ref.refCode,
+          conditionnementId: ref.conditionnementId,
+        },
+        target: {
+          emplacementCode: l.emplacementCode,
+          refCode: ref.refCode,
+          conditionnementId: ref.conditionnementId,
+          cartons: cartonsValue,
+          pieces: piecesValue,
+        },
+        referenceActif: actifByCode.get(ref.refCode) ?? true,
+        reactivationConfirmed,
+      })
+      if (reactivated) setActifByCode((prev) => new Map(prev).set(ref.refCode, true))
+      setPendingEdit(null)
       setEditingLigneId(null)
+      setEditStatus({ kind: 'idle' })
       await refresh()
     } catch (err) {
-      setEditStatus({ kind: 'error', message: extractErrorMessage(err, t.common.unknownError) })
+      setEditStatus({ kind: 'error', message: describeSaveError(err, t) })
     }
+  }
+
+  function cancelPendingEdit() {
+    setPendingEdit(null)
+    setEditStatus({ kind: 'idle' })
   }
 
   // Même chemin de suppression que la marche (arbitrage 2026-09-16) : sur
@@ -2176,15 +2031,20 @@ function Ecarts({
     // Écarts n'a pas de champ de quantité (spec 2.65 §6.5) : original =
     // valeur déplacée, donc moveQuantityChangeLabel ne s'affiche jamais ici
     // — pas un cas particulier, une conséquence de valeurs égales.
+    // Toujours une fenêtre ici (`move` défini), jamais `null`.
     setPendingMove(
-      buildPendingMove({
+      buildPendingWrite({
         key: { emplacementCode: targetCode, refCode: ref.refCode, conditionnementId: ref.conditionnementId },
-        fromEmplacementCode: l.emplacementCode,
         cartonsValue: l.cartons ?? 0,
         piecesValue: l.pieces ?? 0,
-        originalCartons: l.cartons ?? 0,
-        originalPieces: l.pieces ?? 0,
+        move: {
+          fromEmplacementCode: l.emplacementCode,
+          originalCartons: l.cartons ?? 0,
+          originalPieces: l.pieces ?? 0,
+        },
         existingAtTarget: existing ? { cartons: existing.cartons ?? 0, pieces: existing.pieces ?? 0 } : undefined,
+        referenceActif: actifByCode.get(ref.refCode) ?? true,
+        needsScopeExtension: false,
       }),
     )
   }
@@ -2195,22 +2055,29 @@ function Ecarts({
     const ligneTs = new Date().toISOString()
     setMoveStatus({ kind: 'saving' })
     try {
-      await ensureEmplacement(pendingMove.emplacementCode)
-      const { cartons: finalCartons, pieces: finalPieces } = computeMoveFinalQuantity(pendingMove, mode)
-      await moveCasierLigne(
-        inventaire.id,
+      const { cartons: finalCartons, pieces: finalPieces } = computeFinalQuantity(pendingMove, mode)
+      const { reactivated } = await writeSaisie({
+        inventaireId: inventaire.id,
         ligneId,
-        ligneTs,
-        { comptageId: l.comptageId, refCode: ref.refCode, conditionnementId: ref.conditionnementId },
-        {
+        ts: ligneTs,
+        auteur,
+        source: {
+          comptageId: l.comptageId,
+          emplacementCode: l.emplacementCode,
+          refCode: ref.refCode,
+          conditionnementId: ref.conditionnementId,
+        },
+        target: {
           emplacementCode: pendingMove.emplacementCode,
           refCode: ref.refCode,
           conditionnementId: ref.conditionnementId,
           cartons: finalCartons,
           pieces: finalPieces,
         },
-        auteur,
-      )
+        referenceActif: actifByCode.get(ref.refCode) ?? true,
+        reactivationConfirmed: pendingMove.reactivation,
+      })
+      if (reactivated) setActifByCode((prev) => new Map(prev).set(ref.refCode, true))
       cancelMove()
       setEditingLigneId(null)
       await refresh()
@@ -2367,6 +2234,21 @@ function Ecarts({
                         {deleteArmed ? t.inventory.removeArmed : t.inventory.deleteEntry}
                       </button>
                       {editStatus.kind === 'error' && <p className="form-status form-error">{editStatus.message}</p>}
+                      {/* Même fenêtre que la marche (spec 3.0 §6.5) ;
+                          l'échec s'affiche DANS la fenêtre, jamais derrière
+                          le fond assombri. */}
+                      {pendingEdit && (
+                        <WriteConfirmDialog
+                          pending={pendingEdit}
+                          t={t}
+                          saving={editStatus.kind === 'saving'}
+                          error={editStatus.kind === 'error' ? editStatus.message : null}
+                          onConfirm={() =>
+                            void commitEdit(ref, l, pendingEdit.cartonsValue, pendingEdit.piecesValue, pendingEdit.reactivation)
+                          }
+                          onCancel={cancelPendingEdit}
+                        />
+                      )}
 
                       {/* Déplacement vers un autre casier (spec 2.58 §6.5) :
                           confirmation simple avec récapitulatif, pas de
@@ -2375,7 +2257,7 @@ function Ecarts({
                           (ComboInput + emplacementFieldSuggestions, spec
                           2.60 §6.5) — un champ recopié perd ses correctifs
                           un par un. Confirmation rendue par le composant
-                          partagé MoveConfirmDialog (spec 2.66 point 4 ter),
+                          partagé WriteConfirmDialog (spec 3.0 §6.5),
                           commun à la marche et aux Écarts — seule la source
                           de la collision diffère (`ref.parEmplacement` ici,
                           `saisies` côté marche). */}
@@ -2403,8 +2285,8 @@ function Ecarts({
                               {t.common.validate}
                             </button>
                           ) : (
-                            <MoveConfirmDialog
-                              move={pendingMove}
+                            <WriteConfirmDialog
+                              pending={pendingMove}
                               t={t}
                               saving={moveStatus.kind === 'saving'}
                               error={moveStatus.kind === 'error' ? moveStatus.message : null}

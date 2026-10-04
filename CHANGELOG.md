@@ -5,6 +5,14 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.51 — 2026-10-05
+
+- Inventaire : une saisie ne pose plus jamais deux questions de suite — réactivation d'une référence inactive, ajout au périmètre, déplacement et « déjà saisi, remplacer ou ajouter ? » apparaissent ensemble dans une seule fenêtre, et un seul bouton écrit
+- Quand la ligne déjà saisie porte 0 carton et 0 pièce, la question « remplacer ou ajouter ? » n'est plus posée : les deux donneraient le même résultat, la saisie s'enregistre directement
+- Écran des écarts : porter à du stock une ligne d'une référence inactive demande maintenant sa réactivation, comme pendant la marche — avant, la quantité s'écrivait sans question et la référence restait inactive
+- Marche : modifier une saisie en changeant de casier sur une référence inactive ou hors périmètre montre bien le récapitulatif de déplacement — avant, la confirmation de réactivation ou de périmètre le sautait
+- Dans cette fenêtre, le bouton Remplacer revient avant Ajouter, comme sur l'ancienne fenêtre de doublon de la marche — un même ordre partout, pour que l'habitude du geste le plus fréquent reste sûre
+
 ## 0.9.50 — 2026-10-05
 
 - Inventaire : une référence inactive du périmètre est maintenant proposée dans les suggestions du champ référence, comme dans le rappel des références à compter — plus besoin de taper son code en entier (l'écran Mouvement, lui, continue de masquer les inactives)

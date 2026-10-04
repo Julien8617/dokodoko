@@ -185,6 +185,7 @@ const ja: Dictionary = {
     moveSameEmplacement: '元とは異なるロケーションを選んでください',
     moveDuplicatedError:
       '新しいロケーションへの書き込みは成功しましたが、元のロケーションからの削除に失敗しました — 現在両方に存在しています。差異画面から元のロケーションの分を削除してください。移動をやり直さないでください。',
+    reactivationNotConfirmedError: '{refCode} は無効です。再有効化が確認されていないため、何も保存されていません。もう一度入力を確定してください。',
     duplicateEntry: '{emplacement} の {refCode} は入力済みです — ケース {cartons}、バラ {pieces}。置き換えますか、加算しますか？',
     replaceEntry: '置き換える',
     addEntry: '加算する',

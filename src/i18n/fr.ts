@@ -185,6 +185,7 @@ const fr: Dictionary = {
     moveSameEmplacement: 'Choisissez un casier différent de celui d’origine',
     moveDuplicatedError:
       'La saisie a bien été écrite au nouveau casier, mais son retrait de l’ancien a échoué — elle existe maintenant aux deux endroits. Supprimez-la à l’ancien emplacement depuis l’écran des écarts, ne relancez pas le déplacement.',
+    reactivationNotConfirmedError: '{refCode} est inactive et la réactivation n’a pas été confirmée : rien n’a été écrit. Revalidez la saisie.',
     duplicateEntry: 'Déjà saisi pour {refCode} en {emplacement} — {cartons} cartons, {pieces} pièces. Remplacer la valeur ou l’ajouter à l’existant ?',
     replaceEntry: 'Remplacer',
     addEntry: 'Ajouter',

@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
-import { listConditionnements, listReferences } from './db'
+import { ensureEmplacement, listConditionnements, listReferences, setReferenceActif } from './db'
+import { refreshReferentielCache } from './referentielCache'
 import type { Comptage, ComptageLigne, Conditionnement, Inventaire, ScopeKind } from './types'
 
 // Séparateur de clé composite pour les Map ci-dessous — un caractère qui ne
@@ -298,10 +299,10 @@ export async function deleteCasierLignesForRef(
 // le comptage cible (créé si besoin), puis on retire la ligne d'origine de
 // son comptage — dans cet ordre, jamais l'inverse, pour qu'un échec entre
 // les deux étapes laisse une donnée dupliquée (visible, corrigible) plutôt
-// que perdue. Seule et unique implémentation, appelée depuis la marche
-// (Modifier, quand le casier change) et depuis l'écran des écarts
-// (Déplacer) — même chemin des deux côtés, par exigence explicite de la
-// spec.
+// que perdue. Seule et unique implémentation, appelée uniquement par
+// writeSaisie — que la marche (Modifier) et l'écran des écarts (Déplacer)
+// appellent tous deux : même chemin des deux côtés, par exigence explicite
+// de la spec.
 // Distincte d'une erreur ordinaire (spec 2.36 §3, instanceof jamais un
 // message brut) : la ligne a été écrite au casier cible AVANT l'échec, elle
 // existe donc réellement aux DEUX emplacements — pas une simple erreur à
@@ -585,4 +586,89 @@ export async function getInventaireSynthese(inventaire: Inventaire): Promise<{
     .sort((a, b) => a.refCode.localeCompare(b.refCode))
 
   return { references, neverTouched }
+}
+
+// Réactivation d'une référence inactive (spec 3.0 §6.5, §6.8) : SEULE
+// occurrence de la condition dans le code. Une saisie à zéro — « vérifié,
+// vide » — confirme l'invariant « inactive = stock nul » au lieu de le
+// contredire : elle ne réactive rien. Seul du stock compté réactive.
+export function reactivationNeeded(actif: boolean, cartons: number, pieces: number): boolean {
+  return !actif && (cartons > 0 || pieces > 0)
+}
+
+// Verrou de writeSaisie : une écriture qui donnerait du stock à une
+// inactive sans que la réactivation ait été confirmée n'est jamais faite.
+// Ne devrait jamais atteindre l'opérateur — les écrans posent la question
+// avant (buildPendingWrite) ; si un appelant l'oublie, l'écriture échoue
+// visiblement au lieu de fabriquer en silence une inactive porteuse de
+// stock.
+export class ReactivationRequiredError extends Error {
+  refCode: string
+  constructor(refCode: string) {
+    super(`${refCode} est inactive : réactivation non confirmée, rien n'a été écrit`)
+    this.refCode = refCode
+  }
+}
+
+// LA fonction d'écriture d'une saisie (spec 3.0 §6.5, « un seul chemin pour
+// les trois ») : la marche et l'écran des écarts n'appellent qu'elle. Elle
+// porte les deux décisions qu'aucun écran ne doit prendre à sa place :
+//   1. correction de valeur ou déplacement — en comparant le triplet
+//      (casier, réf, conditionnement) avant et après ;
+//   2. réactivation — la détection appartient à l'écriture, pas à l'écran
+//      (défaut du 30 septembre : l'écran des écarts écrivait une quantité
+//      sans aucun contrôle sur `actif`). Le troisième écran n'aura pas le
+//      choix : `referenceActif` est obligatoire.
+// `referenceActif` vient de l'état local de l'appelant, jamais d'une
+// relecture serveur ici (§6.5 : pas de dépendance réseau au milieu d'une
+// confirmation). Sans conséquence pratique : une référence couverte par
+// l'inventaire en cours ne peut pas être désactivée (§6.8).
+// Réactivation AVANT l'écriture, jamais après : si l'écriture échoue
+// ensuite, il reste une référence active sans stock — permis ; l'ordre
+// inverse pourrait laisser une inactive porteuse de stock — interdit.
+export async function writeSaisie(params: {
+  inventaireId: string
+  ligneId: string
+  ts: string
+  auteur: string
+  // Ligne d'origine quand on corrige une saisie existante ; `undefined`
+  // pour une saisie nouvelle.
+  source: { comptageId: string; emplacementCode: string; refCode: string; conditionnementId: string } | undefined
+  target: { emplacementCode: string; refCode: string; conditionnementId: string; cartons: number; pieces: number }
+  referenceActif: boolean
+  reactivationConfirmed: boolean
+}): Promise<{ comptageId: string; reactivated: boolean }> {
+  const { inventaireId, ligneId, ts, auteur, source, target } = params
+  const reactivate = reactivationNeeded(params.referenceActif, target.cartons, target.pieces)
+  if (reactivate && !params.reactivationConfirmed) throw new ReactivationRequiredError(target.refCode)
+
+  await ensureEmplacement(target.emplacementCode)
+  if (reactivate) {
+    await setReferenceActif(target.refCode, true)
+    await refreshReferentielCache()
+  }
+
+  const relocating =
+    source !== undefined &&
+    (source.emplacementCode !== target.emplacementCode ||
+      source.refCode !== target.refCode ||
+      source.conditionnementId !== target.conditionnementId)
+  if (relocating) {
+    const { comptageId } = await moveCasierLigne(inventaireId, ligneId, ts, source, target, auteur)
+    return { comptageId, reactivated: reactivate }
+  }
+
+  const { comptage } = await getOrCreateCasier(inventaireId, target.emplacementCode)
+  await saveCasierLigne(
+    ligneId,
+    ts,
+    comptage.id,
+    target.refCode,
+    target.conditionnementId,
+    target.cartons,
+    target.pieces,
+    auteur,
+  )
+  await markCasierVisite(comptage.id) // "touché" = compté, dans ce modèle il n'y a pas d'état intermédiaire
+  return { comptageId: comptage.id, reactivated: reactivate }
 }
