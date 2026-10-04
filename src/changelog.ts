@@ -10,6 +10,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.52',
+    date: '2026-10-05',
+    items: [
+      'Inventaire par client : les suggestions du champ référence ne proposent plus les références actives d\'un autre client — seules les références du client choisi sont suggérées, comme pour un inventaire sur une liste de références',
+    ],
+  },
+  {
     version: '0.9.51',
     date: '2026-10-05',
     items: [

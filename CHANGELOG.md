@@ -5,6 +5,10 @@ Généré depuis `src/changelog.ts` par `npm run changelog` (appelé en
 écrasées au prochain build. Modifier `src/changelog.ts`, relancer le
 build.
 
+## 0.9.52 — 2026-10-05
+
+- Inventaire par client : les suggestions du champ référence ne proposent plus les références actives d'un autre client — seules les références du client choisi sont suggérées, comme pour un inventaire sur une liste de références
+
 ## 0.9.51 — 2026-10-05
 
 - Inventaire : une saisie ne pose plus jamais deux questions de suite — réactivation d'une référence inactive, ajout au périmètre, déplacement et « déjà saisi, remplacer ou ajouter ? » apparaissent ensemble dans une seule fenêtre, et un seul bouton écrit

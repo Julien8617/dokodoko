@@ -995,25 +995,40 @@ function Walk({
   const emplacementSuggestions = emplacementFieldSuggestions(emplacementCode, knownEmplacements)
 
   // Pendant un inventaire, c'est le périmètre qui gouverne, pas le drapeau
-  // (spec 3.0 §6.8) : une référence du périmètre est suggérée quel que soit
+  // (spec 3.1 §6.8) : une référence du périmètre est suggérée quel que soit
   // son état — sinon le rappel demande de compter une référence que ce
-  // champ refuse de suggérer, et il faut taper son code entier.
-  //   - `references` : le périmètre, et lui seul (spec 2.54 point 1) — un
-  //     code hors périmètre tapé en entier reste accepté, handleSave propose
-  //     alors d'étendre ;
-  //   - `tout` : le périmètre est le catalogue entier ;
-  //   - `client` : le périmètre client quel que soit l'état, plus les
-  //     références actives hors périmètre (comportement antérieur conservé
-  //     pour celles-là : la spec ne tranche pas le hors-périmètre client).
-  // Tant que le périmètre client n'est pas chargé, retombe sur les seules
-  // actives — jamais une liste vide.
+  // champ refuse de suggérer, et il faut taper son code entier. Tranché par
+  // l'architecture le 5 octobre, contre l'implémentation antérieure : les
+  // suggestions sont le périmètre et rien d'autre, quel que soit le genre
+  // de périmètre — une exception pour `client` (actives hors périmètre
+  // incluses) aurait fait de « c'est le périmètre qui gouverne » un usage
+  // au lieu d'une règle, et aurait laissé une liste déborder de ce qui
+  // appartient à cet inventaire.
+  //   - `tout` : le périmètre est le catalogue entier, la règle est sans
+  //     effet (tout y est déjà) ;
+  //   - `references` : un code hors périmètre tapé en entier reste
+  //     accepté, handleSave pose la question d'extension (needsScopeExtension) ;
+  //   - `client` : AUCUNE question d'extension n'existe pour ce genre de
+  //     périmètre — handleSave ne la calcule que pour `references`
+  //     (needsScopeExtension plus bas), et scopeRefCodes dérive le
+  //     périmètre `client` de `references.client_code`, pas de
+  //     `inventaire_references` : y construire une extension n'a pas de
+  //     sens tant que l'architecture n'en a pas décidé. Un code d'un autre
+  //     client tapé en entier s'écrit donc aujourd'hui SANS AUCUNE
+  //     question, et l'écran des écarts ne le marque pas non plus "hors
+  //     périmètre" (`outOfScope`, plus bas, ne teste que `references`).
+  //     Signalé à l'architecture le 5 octobre, pas corrigé ici : rien dans
+  //     la spec ne couvre ce cas, et ce n'est pas à cette fonction de
+  //     l'inventer.
+  //   Tant que le périmètre choisi n'est pas chargé, les deux dernières
+  //   branches retombent sur les seules actives — jamais une liste vide,
+  //   mais c'est le même débordement que la règle ci-dessus vient de
+  //   fermer, cette fois côté réseau plutôt que côté genre de périmètre.
+  //   Signalé aussi, pas corrigé : hors réseau, en allée, ce repli dure.
   const suggestableReferences = (() => {
     if (inventaire.scope_kind === 'tout') return allReferences
-    if (inventaire.scope_kind === 'references') {
-      return referencesScope ? allReferences.filter((r) => referencesScope.includes(r.code)) : allReferences.filter((r) => r.actif)
-    }
-    const clientCodes = new Set(clientScopeCodes ?? [])
-    return allReferences.filter((r) => r.actif || clientCodes.has(r.code))
+    const scope = inventaire.scope_kind === 'references' ? referencesScope : clientScopeCodes
+    return scope ? allReferences.filter((r) => scope.includes(r.code)) : allReferences.filter((r) => r.actif)
   })()
 
   // Rappel des références à compter (spec 2.78 §6.5) : liste le périmètre
