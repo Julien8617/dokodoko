@@ -33,9 +33,12 @@ chargée.
 
 ## Ce qui tourne
 
-**Mouvement** — entrée, sortie, transfert, annulation. Vérifié en conditions
-réelles contre les vraies policies RLS : une sortie supérieure au stock est
-refusée par la base, pas seulement par l'écran.
+**Mouvement** — entrée, sortie, transfert, annulation. Les règles d'écriture
+sont tenues par la base, pas seulement par l'écran : vérifié en conditions
+réelles contre les vraies policies RLS. Une sortie supérieure au stock y est
+aujourd'hui refusée — c'est une **dette**, pas une fonctionnalité : la spec
+§6.4 prévoit de l'avertir et de la suivre en liste d'anomalies plutôt que de
+la refuser, parce qu'un blocage ne prévient pas l'erreur, il la cache.
 
 **Inventaire** — saisie libre « en marchant » : emplacement, référence,
 quantité (cartons et pièces séparés), tapés dans n'importe quel ordre, sans

@@ -1,12 +1,16 @@
 # どこどこ — Spec : suivi de stock en entrepôt
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 3.1 — 5 octobre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 3.3 — 5 octobre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
 > Une fonctionnalité absente d'ici ne s'implémente pas : elle se propose, elle s'inscrit ici, puis elle s'implémente. Un écart assumé se répercute dans ce fichier **au même commit**, avec sa raison en une phrase. En cas de contradiction entre ce document et une instruction donnée en session, le signaler et demander l'arbitrage plutôt que de trancher seul.
 
 Remplace la spec v1 (cartographie seule). Ce qui en est repris est signalé.
+
+**3.3 — le dépôt reste public, par décision** (§2), et ce que ça entraîne sur les noms réels. La contrainte « public ou pas de déploiement gratuit » est vraie de GitHub Pages sur compte gratuit, pas de l'hébergement : les deux sorties sont écrites pour le jour où elles serviront.
+
+**3.2 — trois points ouverts inscrits** (extension de périmètre côté client, repli réseau des suggestions, noms de clients réels dans le dépôt), et les deux noms de clients réels retirés du corps du document. Relevés par Claude Code.
 
 **3.1 — nettoyage des traces du pilote.** La 3.0 a changé le cadre sans relire tout le document : cinq passages gardaient le vocabulaire du monde disparu — titre, phases datées, comptage du vendredi, section sans numéro. Relevés par Claude Code, corrigés ici. Le vocabulaire des phases est remplacé partout par la seule distinction qui survit au cadre : **une base détient du stock, ou elle n'en détient pas.** Elle ne dépend d'aucune date et vaudra pour n'importe quel client.
 
@@ -36,7 +40,21 @@ Trois conséquences, dont deux sont des interdictions.
 
 **Plus aucune date n'est une échéance.** Le gel avant un comptage, les dettes assumées pour tenir un vendredi, l'ordre contraint par une absence : tout ça tombe. En échange, une exigence monte d'un cran — **le backlog ne se justifie plus par l'urgence mais par la démonstration.** Un chantier entre parce qu'il rend l'app compréhensible ou utilisable par quelqu'un d'autre, pas parce qu'il serait agréable à faire.
 
-**Ce qui reste ouvert.** Le dépôt est public. C'était sans conséquence pour un outil interne ; pour un produit qu'on pourrait proposer, ça signifie que n'importe qui peut l'héberger lui-même. Ce n'est pas forcément un problème — beaucoup de produits vivent très bien ainsi — mais c'est une décision à prendre consciemment, et elle n'est pas prise.
+**Le dépôt reste public, et c'est désormais une décision, plus une contrainte.** Tranché le 5 octobre. La contrainte invoquée — « il doit être public pour être déployé gratuitement » — est vraie de **GitHub Pages sur un compte gratuit**, qui ne sert que des dépôts publics, et fausse de l'hébergement en général. Deux sorties existaient, l'une et l'autre connues et écartées :
+
+- **GitHub Pro**, autour de 4 $ par mois : dépôt privé, Pages inchangé, aucune plomberie, même URL, même PWA installée.
+- **Un autre hébergeur** — Cloudflare Pages, Netlify, Vercel — qui déploie gratuitement depuis un dépôt **privé**. Gratuit, mais ça change l'origine : chemin de base, `scope` du manifeste, portée du service worker, origines autorisées côté Supabase, et réinstallation de la PWA sur le téléphone, avec perte de la session et du cache local.
+
+Ce qu'il faut retenir et ne pas re-déduire plus tard : **ce que le plan gratuit de GitHub impose, c'est la visibilité du dépôt, pas celle du site.** Un site servi par Pages est public dans les deux cas. Le choix se paie donc en argent ou en migration, jamais en confidentialité du site.
+
+**Pourquoi public l'emporte aujourd'hui.** Ce qui mérite protection dans ce dépôt n'est pas le code, c'est la donnée de client — et elle en sort (point suivant). Un dépôt public est par ailleurs, pour son auteur, une preuve de travail consultable, ce qui a une valeur concrète dans le métier qu'il exerce. Quant au risque qu'un tiers héberge l'app lui-même : l'app sans son schéma, sa base et le mode opératoire qui va avec ne vaut rien, et personne ne vole un outil d'entrepôt pour une PME d'import. **Le moment où privé vaut son prix est l'arrivée d'un vrai client** — c'est-à-dire le moment où la base cesse d'être fictive. Les deux sorties ci-dessus sont écrites pour ce jour-là.
+
+**Ce que la décision entraîne : les noms réels sortent, l'historique reste.** Relevé par Claude Code le 5 octobre — le dépôt porte encore **19 occurrences de codes de référence réels** (`CHANGELOG.md`, `src/changelog.ts`, les trois fichiers d'internationalisation, `src/lib/db.ts`, `Inventory.tsx`, `Search.tsx`) et une migration qui insère un nom de client réel comme client de démonstration. Le `README.md` a été refondu pour cette raison et le corps de ce document nettoyé le même jour.
+
+- **Les fichiers vivants sont purgés au passage du jeu de démonstration**, `src/changelog.ts` compris. Remplacer un code d'exemple par un code de démonstration dans l'illustration d'une entrée ne contredit pas la règle « rien n'est supprimé » : ce qui est protégé, c'est le **fait** consigné — quel défaut, quel jour, quelle correction —, pas le code qui servait à l'illustrer.
+- **La migration cesse de porter des données.** Un jeu de démonstration se peuple par son script de semis, jamais par une migration de schéma. C'est vrai indépendamment des noms.
+- **Pas de réécriture d'historique, et pas de dépôt neuf.** Une réécriture ne retire jamais tout — restent les forks, les caches et les commits orphelins encore servis par l'API — et la seule forme complète serait un dépôt dont l'histoire commence au produit. Disproportionné : après purge des fichiers vivants, ce qui subsiste est quelques lignes d'exemple dans des versions antérieures, atteignables seulement par quelqu'un qui creuse exprès. Si cette évaluation change — un client qui s'inquiète, un employeur qui demande —, l'opération reste disponible, et `CHANGELOG.md` étant un fichier, il la traverse intact.
+- **On cesse d'en ajouter** dans tout nouveau texte, commentaire ou chaîne d'interface.
 
 ## 3. Architecture
 
@@ -515,6 +533,12 @@ La saisie libre reste la règle du module, parce qu'elle seule révèle une pale
 
 Étendre un périmètre en cours de route est **sans danger**, et c'est une décision antérieure qui le rend possible : le théorique n'est jamais une copie figée au lancement, il se recalcule sur `ts < frozen_ts` (§6.5). Une référence ajoutée après coup est comparée au même instant que les autres. Avec un théorique copié au lancement, l'extension aurait été impossible.
 
+**Et la question d'extension vaut pour les trois genres de périmètre, pas seulement `references`.** Correction d'une erreur d'arbitrage du 5 octobre : en tranchant que les suggestions suivent le périmètre, j'ai justifié la décision par « rien n'est perdu, le code tapé en entier reste accepté avec sa question d'extension ». Claude Code a relevé que c'était faux pour un périmètre client — `needsScopeExtension` ne connaît que `references`, si bien que le code complet d'une référence d'un autre client s'y écrit **sans aucune question**. Ma troisième raison ne tenait pas. Les deux autres suffisent à la décision, pas à laisser le trou.
+
+**Un périmètre client est donc l'union de deux ensembles, pas un seul** : les références rattachées au client, *et* les lignes d'`inventaire_references` ajoutées en cours de route. La règle à tenir : **aucune saisie ne s'enregistre dans un inventaire sans appartenir à son périmètre à la fin du geste** — soit elle y était, soit la question l'y a fait entrer. Sinon une référence comptée n'est rattachée à rien : ni au périmètre, ni au rappel, ni aux écarts, et le carton compté n'apparaît sur aucun écran. C'est la forme de défaut la plus coûteuse du module, celle qui ne se signale pas.
+
+Ce n'était pas à la fonction de suggestion de l'inventer, et Claude Code a eu raison de le signaler plutôt que de le combler : dériver un périmètre client de `references.client_code` ou de l'union des deux change ce qu'un périmètre client **est**. C'est un arbitrage, pas une correction.
+
 **3. Rappel des références à compter**, toujours, quel que soit le périmètre. **Liste uniforme : code et libellé, rien d'autre.**
 
 Aucun état par référence — ni « non comptée », ni « comptée dans N casiers », ni grisé, ni compteur global. La version antérieure de cette règle en prévoyait, en se croyant prudente puisqu'elle interdisait déjà le mot « terminée ». C'était insuffisant, et c'est l'utilisateur qui l'a tranché le 24 septembre : **une référence est éparpillée sur plusieurs casiers, donc l'avoir comptée quelque part ne dit rien sur le fait qu'elle soit comptée.** Tout marqueur — même formulé comme un fait, « comptée dans 3 casiers » — se lit comme une progression et invite à passer à la suivante. Un indicateur d'avancement dont l'avancement est faux est pire que pas d'indicateur.
@@ -546,6 +570,8 @@ Le rappel existe donc dès qu'un périmètre existe, c'est-à-dire toujours. En 
 Règle : **toute tentative de saisie qui trouve le périmètre non chargé tente d'abord de le recharger**, et ne refuse que si cette tentative échoue elle-même. Le rechargement se déclenche aussi à l'événement `online`. La garde se répare alors d'elle-même dès que le réseau revient, sans quitter l'écran.
 
 Leçon de méthode, valable au-delà de ce cas : tester qu'une garde se ferme ne suffit pas ; il faut tester qu'elle se rouvre. La première moitié du test aurait laissé passer ce défaut.
+
+**Une liste de suggestions qui ignore le périmètre ne propose rien — jamais tout.** Défaut pré-existant relevé par Claude Code le 5 octobre : tant que le périmètre n'est pas chargé, les suggestions retombent sur « toutes les références actives ». C'est le même débordement que celui fermé le 5 octobre, par le réseau au lieu de la logique — et c'est la garde de la ligne précédente prise à l'envers : la saisie **échoue fermée**, la suggestion **échoue ouverte**. Elle doit d'abord tenter le rechargement, comme la saisie ; si celui-ci échoue, la liste reste **vide** avec une ligne de raison — « périmètre non chargé » — et jamais peuplée d'un contenu faux. Rien n'est bloqué pour autant : le code tapé en entier reste la porte, et la garde de saisie dira alors ce qu'elle a à dire. Une liste vide avoue son ignorance ; une liste complète la déguise en réponse.
 
 **Étendre le périmètre engage à compter la référence partout — à dire dès que la base détient du stock.** Sur une base sans stock le théorique est nul et l'extension n'a aucun effet de bord. Dès qu'il y a du stock, ajouter une référence au périmètre rend attendus **tous** ses emplacements théoriques : ceux qui ne seront pas visités apparaîtront en écart. C'est le comportement juste, mais une extension faite au passage, pour une référence aperçue par hasard dans un casier, produirait des écarts déroutants. La question devra alors le dire : « Ses autres emplacements deviendront attendus. »
 
@@ -904,7 +930,7 @@ Extension naturelle du sélecteur de périmètre existant, qui supprime la tâch
 
 Réouverture assumée de la limite acceptée en §4, l'index `one_inventaire_en_cours`. La contrainte est trop grossière : elle interdit aussi des cas légitimes, deux clients n'ayant aucun casier en commun.
 
-**Mais la règle n'est pas « un seul à la fois », c'est « pas deux qui se recouvrent ».** Deux inventaires actifs sur un même casier auraient deux stocks théoriques gelés à des instants différents et deux jeux de lignes de comptage pour le même endroit : les écarts se contrediraient sans qu'on puisse dire lequel a raison. Or « allée A » recouvre REUZEL et YGI, alors que REUZEL et YGI ne se recouvrent pas.
+**Mais la règle n'est pas « un seul à la fois », c'est « pas deux qui se recouvrent ».** Deux inventaires actifs sur un même casier auraient deux stocks théoriques gelés à des instants différents et deux jeux de lignes de comptage pour le même endroit : les écarts se contrediraient sans qu'on puisse dire lequel a raison. Or un périmètre « allée A » recouvre deux clients à la fois, alors que deux périmètres par client ne se recouvrent pas.
 
 Le remplacement de l'index n'est donc pas sa suppression : c'est un contrôle au lancement contre l'**union des périmètres actifs**, refusant tout chevauchement de casier ou de référence. Plus fin à écrire qu'un index partiel, et c'est la seule forme qui autorise le cas voulu sans ouvrir le cas dangereux.
 
@@ -1005,11 +1031,11 @@ Trois décisions à retenir maintenant :
 
   `max_par_palette` reste **mesuré** et non calculé : il dépend du schéma de gerbage et de la hauteur disponible, pas seulement du volume.
 
-- **Le mélange se gouverne par familles, pas par paires ni par booléen.** Les exemples réels — matelas entre eux, parcs entre eux mais pas avec les matelas, Reuzel seulement avec Reuzel — décrivent tous la même forme : des groupes fermés. La règle tient en une phrase : **deux références peuvent partager une palette si et seulement si elles appartiennent à la même famille de mélange.**
+- **Le mélange se gouverne par familles, pas par paires ni par booléen.** Les exemples relevés en entrepôt — matelas entre eux, parcs entre eux mais pas avec les matelas, les produits d'un même client cosmétique seulement entre eux — décrivent tous la même forme : des groupes fermés. La règle tient en une phrase : **deux références peuvent partager une palette si et seulement si elles appartiennent à la même famille de mélange.**
 
   ```sql
   familles_melange (
-    code    text primary key,   -- 'matelas', 'parcs', 'reuzel'
+    code    text primary key,   -- 'matelas', 'parcs', 'cosmetique'
     libelle text not null
   )
   -- references.famille_melange_code → familles_melange(code)
