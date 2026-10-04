@@ -149,6 +149,14 @@ Trois conséquences pour une session qui code :
 4. Donner un script de test concret à l'utilisateur — il vérifie en
    testant sur son iPhone en conditions réelles, pas en lisant le code.
    Voir [[user_profile]] en mémoire.
+5. **À la fin de chaque épisode de codage**, donner en plus un résumé
+   destiné à l'agent d'architecture : ce qui a été fait (et à quel
+   commit), les écarts assumés par rapport à la spec, les traces de
+   l'ancien cadre ou incohérences relevées en cours de route, et les
+   points qui attendent son arbitrage plutôt que d'avoir été tranchés
+   seul. Distinct du script de test du point 4, qui s'adresse à
+   l'utilisateur-testeur et non à l'architecte — l'utilisateur relaie
+   ce résumé, il n'a pas à relire le diff pour le reconstituer lui-même.
 
 ## Module Inventaire — vigilance particulière
 
