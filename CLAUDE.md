@@ -50,52 +50,39 @@ facturation.
 
 La dimension client existe uniquement comme rattachement sur la
 référence, pour filtrer un périmètre d'inventaire et une recherche —
-jamais comme séparation d'accès entre clients.
+jamais comme séparation d'accès entre clients. Cette liste reste la
+même après le changement de cadre du 5 octobre : ce n'est pas le
+périmètre d'un pilote qui l'a produite, c'est le refus de construire
+pour un besoin que personne n'a exprimé.
 
-## Priorité jusqu'au point de situation du 18 octobre 2026
+## Ce que vise le projet
 
-Le démarrage du pilote (18 septembre 2026) n'est bloqué par aucun de ces
-chantiers — l'app se lance en l'état :
-- **Stock d'ouverture** REUZEL/A/B/C : saisi à la main en mouvements
-  `stock_initial`, une session, qui sert aussi de premier comptage
-  physique. Pas d'import en masse pour ça.
-- **Repli papier** : un échec d'écriture doit être visible à l'écran
-  (jamais avalé en silence — c'est le seul défaut capable de fausser
-  l'indicateur du pilote sans laisser de trace) ; la consigne de repli
-  est dans `README.md`.
+**Changement de cadre, 5 octobre 2026.** どこどこ n'est plus un pilote
+d'entreprise. Il n'y a plus d'entrepôt réel, plus de comptage
+hebdomadaire, plus d'indicateur à mesurer, plus de date de décision,
+et plus aucune donnée réelle de client. Le projet continue hors du
+cadre professionnel, sur des **données fictives**.
 
-Ensuite, dans cet ordre, et rien d'autre avant le point de situation
-(ordre révisé le 2026-09-16 — voir raison du point 2 ci-dessous) :
+La destination : **un produit présentable à une autre société.** Le
+critère qui tranche tout arbitrage de priorité est donc : *est-ce que
+ce chantier rend l'app compréhensible ou utilisable par quelqu'un qui
+ne l'a pas écrite ?* L'ordre de livraison en découle — §12 de la spec,
+qui fait foi.
 
-1. **Cache de lecture** (§3, `src/lib/referentielCache.ts`) — fait. Sans
-   lui, hors réseau, aucun référentiel n'est disponible et il n'y a rien à
-   saisir. Portée volontairement étroite : referentiels + instantané de
-   stock informatif, jamais `getStock` (vérification bloquante d'une
-   sortie) ni le théorique figé d'un inventaire, qui doivent rester exacts
-   donc réseau.
-2. **Fin du blocage sur stock négatif** (§6.4 : avertir plutôt que
-   refuser). Promu avant la file — pas seulement une histoire de
-   confirmation en conditions réelles : si `getStock` reste un verrou
-   réseau, une sortie hors ligne échoue avant même d'atteindre l'écriture,
-   donc la file d'écriture n'aurait rien à mettre en file tant que ce
-   blocage existe. C'est un prérequis, pas une suite.
-3. **File hors ligne** et bandeau « n en attente ».
-4. Export `.xlsx`
-5. Justification et clôture d'inventaire — **un seul chantier**
-   regroupant :
-   - couverture de casiers exigée pour clôturer (voir nuance ci-dessous)
-   - mouvements postérieurs au gel affichés sur l'écran des écarts
-   - résolution d'une paire détectée comme compensée (voir Module
-     Inventaire) : la clôture écrit un **transfert** (deux mouvements,
-     même `transfert_id`, somme nulle), jamais deux
-     `ajustement_inventaire` — sinon une palette simplement déplacée
-     gonfle à tort les statistiques d'écart de fin de pilote, qui sont
-     l'indicateur du pilote
-6. Synthèse imprimable
+Trois conséquences pour une session qui code :
 
-**Repoussé** : imports en masse (références/emplacements/stock en CSV).
-Fonction de passage à l'échelle, pas nécessaire tant que le périmètre
-reste REUZEL/A/B/C — revient si le pilote s'étend.
+- **Plus aucune date n'est une échéance.** Il n'y a plus de gel avant
+  un comptage, plus de dette à assumer pour tenir un vendredi. En
+  échange, un chantier ne se justifie plus par l'urgence : il se
+  justifie par la démonstration.
+- **Pas de séparation multi-société** tant qu'un second client réel
+  n'existe pas. C'est le réflexe naturel et ce serait l'erreur la plus
+  coûteuse disponible — chaque table, chaque policy, chaque requête —
+  pour un besoin que personne n'a encore exprimé. Le modèle actuel ne
+  la bloque pas ; la retrofitter sera mécanique, pas une réécriture.
+- **Les données de démonstration se conçoivent, elles ne se remplissent
+  pas.** Chaque cas présent en base doit démontrer une règle du §4 ou
+  du §6 de la spec. Un jeu de `TEST001` démontre qu'on n'a pas fini.
 
 ## Contraintes qui ne se négocient pas
 
@@ -158,7 +145,7 @@ reste REUZEL/A/B/C — revient si le pilote s'étend.
    `.github/workflows/deploy.yml`), après un `git pull` — voir « Deux
    machines, une seule base ». Tout changement de schéma passe par un
    fichier de migration committé, sans exception : c'est lui qui
-   reconstruira la production à la bascule.
+   permet de reconstruire la base à l'identique.
 4. Donner un script de test concret à l'utilisateur — il vérifie en
    testant sur son iPhone en conditions réelles, pas en lisant le code.
    Voir [[user_profile]] en mémoire.
@@ -237,30 +224,27 @@ répare, un conflit de schéma est silencieux et ne se répare pas.
   `claude/<sujet>` et l'utilisateur fusionne. Ce n'est pas le
   fonctionnement courant.
 
-### La base : une seule, et elle sera remplacée à l'amorçage
+### La base : neuve, et peuplée de données fictives
 
-Les deux machines travaillent contre la **même base**, et c'est sans
-conséquence jusqu'à fin octobre : elle ne contient aucun stock réel, son
-référentiel se reconstruit, et tout ce qu'on y salit disparaîtra. Aucune
-règle ne restreint donc l'écriture, ni par machine ni par geste —
-développer, migrer, tester depuis le PC comme depuis le Pi.
+La base de production porte un **jeu de démonstration fictif**,
+reconstruit depuis les seules migrations du dépôt puis chargé par un
+script committé. Aucune donnée réelle de client n'y figure, ni dans le
+dépôt — qui est public.
 
-Ce qui tient lieu de protection, ce n'est pas une règle, c'est une date :
-**à l'amorçage du stock, la production sera une base neuve**, construite
-depuis les seules migrations du dépôt, et l'actuelle deviendra la base de
-développement (§12 de la spec). Toute la saleté accumulée reste alors du
-bon côté de la frontière.
+Les deux machines travaillent contre cette base sans restriction :
+développer, migrer, tester depuis le PC comme depuis le Pi. Il n'y a
+rien à protéger qui ne soit reconstructible.
 
 Deux conséquences pour une session qui code :
 
 - **Une migration doit être un fichier committé**, toujours, sans
-  exception. C'est elle qui reconstruira la production le jour de la
-  bascule : un changement appliqué à la main et jamais écrit en migration
-  n'existera pas dans la base neuve, et le défaut ne se verra que
-  longtemps après.
-- **Ne jamais présumer du contenu de la base.** Elle sera vidée. Aucune
-  logique, aucun test, aucun script ne doit dépendre d'un identifiant,
-  d'une référence ou d'un inventaire précis qui s'y trouve aujourd'hui.
+  exception. C'est ce qui a permis de reconstruire la base, et ce qui
+  permettra la prochaine reconstruction. Un changement appliqué à la
+  main et jamais écrit n'existe nulle part.
+- **Le jeu de démonstration se modifie par son script, jamais à la
+  main dans l'éditeur SQL.** Une base peuplée par des gestes manuels
+  n'est plus reproductible, et cesse d'être une démonstration pour
+  redevenir un état accidentel.
 
 ### Ce qui ne traverse pas GitHub
 
@@ -290,11 +274,10 @@ Deux conséquences pour une session qui code :
   shell POSIX natif. Écrire les commandes du projet en POSIX pour
   qu'elles tournent des deux côtés sans variante ; ne jamais introduire
   de commande PowerShell dans un script partagé.
-- La sauvegarde hebdomadaire de la base vit aujourd'hui sur le PC
-  (`C:\dokodoko-backups\backup-dokodoko.ps1`, procédure dans
-  `docs/sauvegarde.md`). Le jour où elle passera en quotidien, sa place
-  sera sur le Pi, allumé en permanence — ne pas l'automatiser côté
-  Windows entre-temps.
+- La sauvegarde de la base est automatisée sur le Pi (minuteur
+  systemd, hebdomadaire). Procédure, critère de réussite et limites
+  connues dans `docs/sauvegarde.md` — ne pas en créer une seconde
+  ailleurs.
 - **Ne jamais taper d'échappement `\uXXXX` littéral dans le contenu
   passé à Write/Edit** — converti silencieusement en octet de contrôle
   réel sur disque dans cet environnement. Voir
@@ -305,5 +288,7 @@ Deux conséquences pour une session qui code :
 
 ## Communication
 
-Répondre en français dans ce projet (utilisateur non développeur, testeur
-terrain — voir [[user_profile]] en mémoire pour le détail).
+Répondre en français dans ce projet. L'utilisateur n'est pas
+développeur : il vérifie en testant sur son iPhone, pas en lisant le
+code. Un script de test concret vaut donc mieux qu'une explication de
+ce qui a été changé — voir [[user_profile]] en mémoire.

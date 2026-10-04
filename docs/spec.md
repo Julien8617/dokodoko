@@ -1,6 +1,6 @@
-# どこどこ — Spec v2 : pilote de suivi de stock
+# どこどこ — Spec v2 : suivi de stock en entrepôt
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 2.78 — 30 septembre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 3.0 — 5 octobre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
@@ -8,45 +8,33 @@
 
 Remplace la spec v1 (cartographie seule). Ce qui en est repris est signalé.
 
-## 1. Ce que le changement implique
+## 1. Ce que le projet est devenu
 
-La v1 était une carte : aucune quantité, aucun engagement. Une erreur coûtait trente mètres à pied.
+**Changement de cadre, 5 octobre 2026.** どこどこ a été conçu comme un pilote d'entreprise : un périmètre réel, un comptage hebdomadaire, un indicateur à mesurer, une date de décision. Ce cadre n'existe plus — l'entrepôt sort du champ d'action de son auteur, et le projet continue en dehors du cadre professionnel.
 
-La v2 porte des quantités et des mouvements. Sur le périmètre du pilote, **l'app devient la source de vérité du stock**. Trois conséquences qui structurent tout le reste :
+Ce qui disparaît, entièrement : l'indicateur du pilote — l'écart entre l'app et le comptage physique —, les comptages du vendredi, la comparaison avec l'Excel tenu en parallèle, l'amorçage du stock d'ouverture, le point de situation d'octobre, et toute donnée réelle de client. Les sections qui les décrivaient ne sont pas archivées ici : elles sont supprimées, parce qu'une spec qui garde les règles d'un monde disparu finit par les faire appliquer.
 
-- la sauvegarde n'est plus une commodité ;
-- tout mouvement doit être justifié et jamais effaçable ;
+Ce qui reste, et c'est l'essentiel : **le modèle de données, les règles qui le protègent, et les écrans qui les mettent en œuvre.** Ils ont été éprouvés par trois semaines d'usage réel en entrepôt — chaque règle de ce document a une date et une raison, et la plupart viennent d'un défaut constaté sur appareil, pas d'une anticipation. C'est le capital du projet, et il ne dépend pas du cadre qui l'a produit.
+
+**Ce que l'app est, en une phrase.** Un outil de suivi de stock en entrepôt où l'adressage est fixe et les palettes tournantes : savoir où se trouve une référence, enregistrer les mouvements, et conduire un inventaire qui révèle les écarts plutôt que de les présumer. L'app est la source de vérité du stock sur son périmètre, ce qui impose les trois conséquences qui structurent tout le reste :
+
+- la sauvegarde n'est pas une commodité ;
+- tout mouvement est justifié et jamais effaçable ;
 - l'inventaire ne remplace pas une valeur, il enregistre un comptage et l'écart qui en découle.
 
-## 2. Cadre du pilote
+## 2. Le cadre : un produit sans client
 
-À écrire dans le README du dépôt, avant la première ligne de code :
+**La destination, arbitrée le 5 octobre : un produit présentable à une autre société.** Pas un objet fini qu'on pose, pas un terrain d'expérimentation sans fin. Cette destination commande tout l'ordre de livraison du §12, et elle se résume à une contrainte : **quelqu'un doit pouvoir ouvrir le lien et comprendre en cinq minutes.**
 
-- le périmètre exact de l'échantillon (zone, famille de produits, ou client) et pourquoi il est isolable physiquement ;
-- la date de début ;
-- le fait que l'Excel reste tenu en parallèle **sur ce périmètre** pendant toute la durée du pilote ;
-- la durée prévue et le critère d'arrêt.
+Trois conséquences, dont deux sont des interdictions.
 
-Sans ces quatre lignes écrites d'avance, un pilote ne s'arrête jamais et ne se conclut jamais.
+**Les données sont fictives, et conçues.** Plus aucune donnée réelle de client ne figure en base ni dans le dépôt. Mais « fictif » ne veut pas dire « rempli au hasard » : le jeu de démonstration est la vitrine, et il se conçoit comme un récit — un entrepôt plausible, plusieurs clients, des références dont deux conditionnements coexistent, des écarts à trouver, des emplacements sur plusieurs zones. Une base vide ne démontre rien, et une base remplie de `TEST001` démontre qu'on n'a pas fini.
 
-### Deux phases, deux indicateurs — révision du 18 septembre
+**Pas de séparation multi-société avant qu'un second client existe.** C'est le réflexe naturel — « un produit, donc plusieurs sociétés » — et ce serait l'erreur la plus coûteuse disponible : chaque table, chaque policy, chaque requête. Elle est **spéculative** tant que personne n'a dit ce dont il a besoin, et surtout ce n'est pas ce qui empêcherait une vente. Ce qui l'empêche, c'est que personne ne peut voir l'app fonctionner. Le modèle actuel ne bloque pas cette évolution : ajouter un rattachement à une organisation sera un chantier mécanique, désagréable, pas une réécriture.
 
-Le stock d'ouverture ne sera pas amorcé avant fin octobre, au retour d'un déplacement professionnel. Jusque-là l'app reste un **outil de comptage** et ne détient aucun stock. Le pilote se scinde donc en deux, et confondre les deux phases reviendrait à prétendre mesurer ce qui n'a pas été mesuré.
+**Plus aucune date n'est une échéance.** Le gel avant un comptage, les dettes assumées pour tenir un vendredi, l'ordre contraint par une absence : tout ça tombe. En échange, une exigence monte d'un cran — **le backlog ne se justifie plus par l'urgence mais par la démonstration.** Un chantier entre parce qu'il rend l'app compréhensible ou utilisable par quelqu'un d'autre, pas parce qu'il serait agréable à faire.
 
-**Phase 1 — l'app comme outil de comptage.** Du 18 septembre à fin octobre. Aucun stock en base, aucun mouvement enregistré, comparaison avec l'Excel faite à la main. Ce qui s'y mesure :
-
-- le comptage hebdomadaire du vendredi est-il plus rapide et plus sûr qu'avant ;
-- ce que la comparaison comptage/Excel révèle, semaine après semaine, sur la fiabilité du processus existant — premier point le 18 septembre : une boîte d'écart sur une référence.
-
-C'est une phase valable en soi : elle éprouve l'ergonomie de comptage sans exposer la moindre donnée de stock. Le point du 18 octobre porte sur **elle**, et sur une décision explicite d'aller ou non en phase 2.
-
-**Le point de situation se déclenche sur des comptages, pas sur une date.** Le 18 octobre est une cible, pas une échéance : arbitré le 29 septembre, la date est souple. Ce qui ne l'est pas, c'est la matière à décider — **trois comptages hebdomadaires et un inventaire complet du périmètre**. Avec eux, la décision d'aller ou non en phase 2 se prend sur des chiffres ; sans eux, elle se prendrait à l'intuition, ce qui viderait le pilote de son objet. Un vendredi qui saute repousse donc le point de situation, il ne le vide pas — c'est le sens qu'il faut donner à la souplesse de la date, et non l'autorisation de décider avec moins.
-
-**Phase 2 — l'app comme système de stock.** Démarre à l'amorçage, fin octobre au plus tôt. C'est seulement là que l'indicateur historique du pilote — l'écart entre l'app et le comptage physique — devient mesurable, et son point de situation se fixe à un mois après l'amorçage, pas au 18 octobre.
-
-La durée de six mois court sur la phase 2 : c'est elle qui engage le stock des clients.
-
-**Conséquence pendant l'absence.** L'app ne sera pas utilisée pendant le déplacement, et le collègue ne sera pas formé d'ici là. Un projet Supabase en plan gratuit se met en pause après sept jours sans activité — donc si le déplacement dépasse une semaine, l'app sera en pause au retour. Les données survivent et le projet se relance d'un bouton depuis le tableau de bord, mais il faut le savoir avant de partir plutôt que de le découvrir au retour.
+**Ce qui reste ouvert.** Le dépôt est public. C'était sans conséquence pour un outil interne ; pour un produit qu'on pourrait proposer, ça signifie que n'importe qui peut l'héberger lui-même. Ce n'est pas forcément un problème — beaucoup de produits vivent très bien ainsi — mais c'est une décision à prendre consciemment, et elle n'est pas prise.
 
 ## 3. Architecture
 
@@ -106,7 +94,7 @@ L'instantané de stock est donc **informatif**, pour la Recherche. Il est forcé
 - Pour `comptage_lignes`, `id` et `ts` doivent être fournis par le client. `id` existe déjà en base avec un défaut : **aucune migration n'est nécessaire**, il suffit de le renseigner et de passer en `upsert(ignoreDuplicates)`. Le défaut reste comme filet.
 - `ts` est le point critique : la correction d'une saisie fonctionne en *latest-wins*. Une insertion rejouée qui prendrait l'heure du vidage de file pourrait battre une correction plus récente et ressusciter la valeur erronée.
 
-**Contrepartie assumée : l'ordre dépend de l'horloge du téléphone.** Un appareil mal réglé peut dater une correction avant l'original qu'elle corrige, et casser le *latest-wins* par l'autre bout. Accepté pour un pilote mono-opérateur avec l'heure réseau active. Deux précisions :
+**Contrepartie assumée : l'ordre dépend de l'horloge du téléphone.** Un appareil mal réglé peut dater une correction avant l'original qu'elle corrige, et casser le *latest-wins* par l'autre bout. Accepté tant qu'un seul opérateur saisit, avec l'heure réseau active. Deux précisions :
 
 - Le tri secondaire sur `id` donne du **déterminisme, pas de la justesse** : un UUID v4 n'a pas d'ordre signifiant, il évite seulement un résultat qui change d'un appel à l'autre. Ne pas le lire comme un correctif.
 - Mitigation immédiate et sans DDL : au démarrage, comparer l'horloge de l'appareil à celle du serveur et avertir au-delà de quelques minutes de dérive. Le cas réaliste est un téléphone à la mauvaise date, pas un décalage de trois secondes.
@@ -128,7 +116,7 @@ Si des zones mortes existent, le correctif ne passe pas par l'index unique et ne
 
 **Le bandeau affiche le nombre et l'âge.** « 3 en attente depuis 2 h » est actionnable ; « 3 en attente » devient du décor en deux jours.
 
-**L'écran des écarts doit dire quand la file n'est pas vide.** Un écart calculé alors que des lignes de comptage n'ont pas atteint la base est faux, et c'est l'indicateur du pilote.
+**L'écran des écarts doit dire quand la file n'est pas vide.** Un écart calculé alors que des lignes de comptage n'ont pas atteint la base est faux, et rien à l'écran ne le dirait.
 
 ### Sur la « synchronisation Excel »
 
@@ -249,7 +237,7 @@ Ce bloc reflète le schéma réellement appliqué en base au 15 septembre 2026.
 
 `references.client_code` étant `not null`, tout stock appartient à un client ; du stock propre demanderait un pseudo-client dédié.
 
-Un seul inventaire peut être `en_cours`, contrainte appliquée en base. Limite connue et acceptée pour le pilote : un comptage ponctuel sur trois références pour répondre à un client est impossible pendant un inventaire complet. À rouvrir seulement si le cas se présente réellement.
+Un seul inventaire peut être `en_cours`, contrainte appliquée en base. Limite connue et acceptée : un comptage ponctuel sur trois références pour répondre à un client est impossible pendant un inventaire complet. À rouvrir seulement si le cas se présente réellement.
 
 **Le stock n'est jamais une colonne.** C'est une vue : somme de `quantite_pieces` groupée par `(emplacement_code, ref_code)`. Une colonne de stock se désynchronise toujours, tôt ou tard, et rien ne permet alors de savoir laquelle des deux valeurs est la bonne.
 
@@ -312,7 +300,7 @@ Conséquence pratique constatée le 18 septembre : une référence mal saisie pu
 
 Enum en base, jamais du texte libre. Un motif obligatoire à chaque mouvement.
 
-**Le motif stocké est une clé technique, jamais un libellé traduit.** La base contient `produit_defaillant`, et l'interface affiche « Produit défaillant », 不良品 ou « Defective » selon la langue. Stocker le libellé traduit rendrait les statistiques de fin de pilote inexploitables dès qu'on change de langue.
+**Le motif stocké est une clé technique, jamais un libellé traduit.** La base contient `produit_defaillant`, et l'interface affiche « Produit défaillant », 不良品 ou « Defective » selon la langue. Stocker le libellé traduit rendrait les statistiques inexploitables dès qu'on change de langue.
 
 | Clé | FR | JA | EN |
 |---|---|---|---|
@@ -331,7 +319,7 @@ Enum en base, jamais du texte libre. Un motif obligatoire à chaque mouvement.
 
 **Sorties** — `commande_client`, `produit_defaillant`, `destruction`, `ajustement_inventaire`, `annulation`, `transfert_sortie`
 
-Le commentaire libre reste facultatif et sert au détail (numéro de commande, nature du défaut). Il ne remplace jamais le motif : c'est le motif qui rendra les statistiques exploitables à la fin du pilote — combien de défauts, combien de retours, combien d'écarts d'inventaire.
+Le commentaire libre reste facultatif et sert au détail (numéro de commande, nature du défaut). Il ne remplace jamais le motif : c'est le motif qui rend les statistiques exploitables — combien de défauts, combien de retours, combien d'écarts d'inventaire.
 
 Un **transfert** écrit deux lignes partageant un `transfert_id` : une sortie de l'emplacement source, une entrée sur l'emplacement destination, même quantité, même horodatage.
 
@@ -354,7 +342,7 @@ Repris de la v1, avec les quantités ajoutées.
 - **Normalisation avant comparaison** : minuscules, accents retirés, séparateurs ignorés — « Pommade à cheveux » et « pommade cheveux » doivent se rejoindre. Le japonais, sans espaces, reste couvert par la recherche en sous-chaîne de chaque jeton.
 - **Ordre des résultats**, sans quoi le libellé noie le code : code en préfixe exact, puis code en sous-chaîne, puis libellé. Taper « 65 » doit continuer à donner `REU065` avant tout article dont le nom contient 65.
 - **Le résultat affiche le code et le libellé** — chercher par nom et ne voir que des codes ne permet pas de choisir. Cela vaut pour l'écran Recherche comme pour les sélecteurs : un filtre partagé ne change pas ce qui est rendu, l'affichage se vérifie écran par écran.
-- **Portée de cette exigence : les résultats, pas l'état sélectionné.** Une fois une référence choisie, l'affichage ne sert plus à choisir mais à **confirmer**. Cette confirmation doit exister sur tout écran qui écrit, avant l'écriture : compter ou sortir contre la mauvaise référence fabrique un faux écart à deux endroits, ce qui touche directement l'indicateur du pilote. Elle se place en ligne en lecture seule sous le champ, sans modifier le contrat d'un composant de saisie partagé, et le libellé figure aussi dans la liste des saisies (§6.5) — l'un confirme avant, l'autre après.
+- **Portée de cette exigence : les résultats, pas l'état sélectionné.** Une fois une référence choisie, l'affichage ne sert plus à choisir mais à **confirmer**. Cette confirmation doit exister sur tout écran qui écrit, avant l'écriture : compter ou sortir contre la mauvaise référence fabrique un faux écart à deux endroits, ce qui fausse directement l'écart. Elle se place en ligne en lecture seule sous le champ, sans modifier le contrat d'un composant de saisie partagé, et le libellé figure aussi dans la liste des saisies (§6.5) — l'un confirme avant, l'autre après.
 - **`libelleCourt` désigne le conditionnement, jamais le produit.** Il a déjà été affiché à la place du nom de l'article sur deux écrans — c'est le champ qui invite à l'erreur. À renommer pour qu'il ne puisse plus se lire comme un nom de produit, et à afficher toujours en suffixe : « REU265 — Matelas XL bleu · carton de 12 ». Sans ce renommage, il y aura une troisième occurrence.
 - **Jamais de troncature silencieuse.** Un plafond de résultats est légitime dans une liste déroulante ; sur l'écran Recherche il ferait conclure qu'un article n'existe pas. Soit aucun plafond sur cet écran, soit le nombre total affiché — « 8 affichés sur 34 ».
 - `libelle` est facultatif en base. Une référence sans nom s'affiche par son seul code et ne sera jamais trouvée par nom : acceptable, et c'est une raison de renseigner les noms dès la création.
@@ -423,7 +411,7 @@ Autrement dit : le zéro implicite est bon pour regarder, mauvais pour signer.
 
 **Écarts compensés** : la détection existe — écarts de somme nette nulle sur une même référence entre casiers différents, présentés comme déplacement probable. Elle est acquise et ne se refait pas.
 
-Ce qui reste à construire est la **résolution**, à la clôture : sur une paire détectée, l'opérateur confirme le déplacement, et la clôture écrit alors **un transfert** — une sortie du casier source, une entrée sur le casier destination, même `transfert_id` — et non deux `ajustement_inventaire`. Physiquement, rien n'a disparu ni apparu : une palette a bougé. Écrire deux ajustements gonflerait artificiellement les statistiques d'écart de fin de pilote, qui sont l'indicateur du pilote. Si l'opérateur ne confirme pas, on retombe sur deux écarts ordinaires à justifier séparément.
+Ce qui reste à construire est la **résolution**, à la clôture : sur une paire détectée, l'opérateur confirme le déplacement, et la clôture écrit alors **un transfert** — une sortie du casier source, une entrée sur le casier destination, même `transfert_id` — et non deux `ajustement_inventaire`. Physiquement, rien n'a disparu ni apparu : une palette a bougé. Écrire deux ajustements gonflerait artificiellement les statistiques d'écart, qui sont ce qu'un inventaire est censé produire. Si l'opérateur ne confirme pas, on retombe sur deux écarts ordinaires à justifier séparément.
 
 **Navigation par flèches sur le champ casier, et casier persistant.** C'est le principal frottement de la marche : retaper un code à chaque casier.
 
@@ -445,7 +433,13 @@ Ces flèches sont le retour, à leur bonne place, de la navigation prévue par l
 - **« Modifier » remonte au formulaire de saisie, prérempli.** C'est là qu'on saisit, c'est donc là qu'on corrige : ouvrir un second champ de saisie sous la ligne créerait une deuxième surface d'édition sur le même écran, et l'utilisateur ne saurait plus laquelle fait foi. Le formulaire passe en **mode modification**, visiblement — il dit quelle ligne il modifie et offre une sortie sans écrire.
 - **En mode modification, la question de collision ne disparaît pas : elle change de cible.** Une collision **avec soi-même** — le triplet ne change pas — n'est pas une collision, c'est l'objet de l'opération ; la poser transformerait chaque correction en un choix piège dont une branche crée le doublon qu'on venait corriger. Mais une modification qui atterrit sur un triplet **déjà occupé par une autre ligne** est précisément le cas pour lequel la question a été écrite : deux comptages distincts se retrouvent au même endroit et rien ne dit lequel fait foi. Écraser sans demander perd un comptage réel, sans trace et sans bruit — le défaut le plus coûteux du module, puisqu'il ne se découvre qu'à la comparaison finale, quand il est trop tard pour retourner au casier. La question est donc posée **à la destination, avant écriture** : « déjà saisi à A-03-1, 6 cartons — remplacer ou ajouter ? ». Les deux branches sont explicites ; aucune ne perd de donnée que l'utilisateur n'ait choisi de perdre.
 - **Un déplacement qui entre en collision ne pose qu'une seule question.** Le récapitulatif de déplacement et la question de collision portent sur la même décision et se présentent ensemble, jamais l'un après l'autre : « Déplacer REU003 de A-02-1 vers A-03-1 ? Déjà saisi à A-03-1 : 6 cartons » avec trois issues — Ajouter (10), Remplacer (4), Annuler. Les totaux sont calculés et affichés ; on ne fait pas d'arithmétique debout dans une allée. Deux dialogues d'affilée feraient confirmer un déplacement avant d'en connaître la conséquence, et chaîneraient deux gestes là où il n'y a qu'un choix à faire.
-- **Toute confirmation qui écrit est une fenêtre modale** : centrée, sur fond assombri, fermée seulement par un de ses boutons — jamais par un toucher hors de la fenêtre. C'est le composant déjà utilisé pour le rappel des références, pas une copie de plus. Défaut constaté le 24 septembre : les boutons Ajouter / Remplacer s'affichaient hors écran et demandaient de faire défiler pour les atteindre. Un choix qu'on va chercher en faisant défiler est un choix qu'on fait mal, et une fermeture au toucher hors fenêtre transforme un geste imprécis en décision écrite. La distinction est là : ce qui **écrit** exige un choix explicite ; ce qui ne fait que **montrer** — le rappel des références — peut se fermer au toucher hors fenêtre, puisque rien ne s'y décide.
+- **Une écriture ne pose qu'une question.** Quel que soit le nombre de conditions qu'une saisie déclenche — réactivation d'une inactive, collision avec une ligne existante, extension de périmètre — l'opérateur répond **une fois**, dans une fenêtre unique qui les nomme toutes. Règle dégagée le 30 septembre, après l'avoir rencontrée deux fois : d'abord sur le déplacement en collision (§6.5), puis sur une réactivation suivie d'une question de doublon. La troisième occurrence n'aura pas lieu.
+
+Deux fenêtres à la suite ont trois défauts, dans cet ordre de gravité : elles font confirmer la première décision avant d'en connaître la conséquence ; elles découpent en deux gestes ce qui est un seul choix ; et elles installent le réflexe de valider sans lire, qui finira par emporter une fenêtre qui, elle, comptait.
+
+**Et une question dont les branches donnent le même résultat ne se pose pas.** Cas relevé le même jour : quand la ligne existante porte 0 carton et 0 pièce, « Remplacer » et « Ajouter » produisent exactement la même valeur. Poser le choix n'informe de rien et entraîne à répondre au hasard. Quand les issues convergent, on écrit sans demander.
+
+**Toute confirmation qui écrit est une fenêtre modale** : centrée, sur fond assombri, fermée seulement par un de ses boutons — jamais par un toucher hors de la fenêtre. C'est le composant déjà utilisé pour le rappel des références, pas une copie de plus. Défaut constaté le 24 septembre : les boutons Ajouter / Remplacer s'affichaient hors écran et demandaient de faire défiler pour les atteindre. Un choix qu'on va chercher en faisant défiler est un choix qu'on fait mal, et une fermeture au toucher hors fenêtre transforme un geste imprécis en décision écrite. La distinction est là : ce qui **écrit** exige un choix explicite ; ce qui ne fait que **montrer** — le rappel des références — peut se fermer au toucher hors fenêtre, puisque rien ne s'y décide.
 - **Un déplacement emporte toute la ligne.** Scinder une quantité entre deux casiers ne passe pas par le déplacement : on déplace, puis on saisit le reste à l'origine comme un comptage ordinaire. Deux quantités, chacune vraie à son casier. Ajouter un champ « quantité à déplacer » à la fenêtre chargerait, pour un cas rare, l'écran le plus tendu du module.
 - **La quantité reste néanmoins corrigeable dans le même geste, à une condition.** Dans la marche, la modification passe par le formulaire de saisie, dont les champs de quantité sont éditables : une ligne peut être fausse sur ses deux champs à la fois — « 4 cartons en A-02-1 » quand il y avait 2 cartons en A-03-1 — et exiger deux gestes pour une seule erreur serait absurde. La condition est que **la confirmation nomme les deux changements, avec leurs valeurs** : « Déplacer REU003 de A-02-1 vers A-03-1 ? Quantité : 4 → 2 cartons ». Défaut constaté le 24 septembre : la marche acceptait les deux changements et n'en montrait qu'un. Un opérateur qui croyait scinder perdait le reliquat sans le voir, sans question et sans trace. Ce n'était pas la double correction qui était fautive, c'était son silence — et la règle des deux écrans diverge ici pour une bonne raison : l'écran des écarts n'a pas de champ de quantité, la marche en a, et c'est la confirmation qui rattrape l'écart.
 - **La quantité affichée et la quantité utilisée sont le même nombre**, celui de l'état local. Ne pas relire le serveur avant de calculer : sur un seul appareil, l'état local est la vue **la plus complète**, puisqu'il intègre les écritures encore en file hors ligne que le serveur ignore. Une relecture donnerait la mauvaise valeur précisément quand une saisie est en attente, et poserait une dépendance réseau au milieu d'une confirmation, en allée, où la coupure est le cas courant — un risque d'arithmétique rare échangé contre un risque de blocage fréquent. Cette règle tient tant qu'un seul appareil écrit ; voir §14.
@@ -505,7 +499,7 @@ Défaut constaté le 19 septembre sur un inventaire à périmètre `references` 
 
 **La question de réactivation ne se déclenche que si la saisie donne du stock.** **Et elle valide la saisie en même temps que la réactivation.** Défaut constaté le 30 septembre : après avoir confirmé, l'opérateur devait ré-enregistrer sa ligne. Une confirmation qui ne conclut pas l'action qu'elle confirme n'est pas une confirmation, c'est un obstacle — et chaque geste ajouté dans une allée est un geste qu'on finit par sauter. **Et elle appartient à l'écriture, pas à l'écran.** Défaut relevé le 30 septembre : l'écran des écarts écrit une quantité sans aucun contrôle sur `actif`, si bien qu'une ligne posée à zéro pendant la marche, puis portée à cinq cartons depuis les écarts, donne du stock à une inactive **sans qu'aucune question ne se pose** — et un inventaire par client la laissera ensuite de côté. Même classe de défaut que les deux implémentations du déplacement corrigées le 29 : une règle tenue sur un écran et pas sur l'autre.
 
-La correction n'est donc pas d'ajouter un contrôle dans le second écran, ce qui ouvrirait la porte au troisième : **la détection appartient à la fonction d'écriture partagée**, la fenêtre reste le composant commun déjà en place. Sans objet en phase 1, où aucun inventaire n'écrit de stock et où tous se terminent par un abandon ; **à traiter avant l'amorçage**, où ça deviendrait une perte silencieuse. Une saisie à zéro — « vérifié, vide » — confirme l'invariant au lieu de le contredire : elle ne doit donc rien réactiver. Sans cette réserve, « continuer sans réactiver » perdrait sa seule raison d'être, puisque le geste même de vérifier qu'une référence est vide la remettrait en circulation. Constaté le 30 septembre.
+La correction n'est donc pas d'ajouter un contrôle dans le second écran, ce qui ouvrirait la porte au troisième : **la détection appartient à la fonction d'écriture partagée**, la fenêtre reste le composant commun déjà en place. Sans objet en phase 1, où aucun inventaire n'écrit de stock et où tous se terminent par un abandon ; **à traiter avant l'amorçage**, où ça deviendrait une perte silencieuse. Une saisie à zéro — « vérifié, vide » — confirme l'invariant au lieu de le contredire : elle ne doit donc rien réactiver. Sans cette réserve, vérifier qu'une référence est vide la remettrait en circulation — et l'inventaire ne pourrait plus jamais confirmer une absence. Constaté le 30 septembre.
 
 **Une référence inactive tapée en entier est acceptée, avec une question.** Le champ libre de la marche ne la refuse pas : si l'opérateur a des cartons devant lui, c'est un fait physique, et le module n'a jamais le droit de refuser un fait physique (§4). Une référence marquée inactive porte en principe un stock nul — en trouver signifie donc soit que la désactivation était fautive, soit qu'un mouvement a échappé au système. Les deux sont des informations, pas des erreurs, et les taire les détruirait. La saisie déclenche donc la **même forme de question que la référence hors périmètre** : nommer l'état, demander confirmation, et proposer la réactivation dans le même geste. Pas un second mécanisme : le même.
 
@@ -581,7 +575,7 @@ Deux points de mise en œuvre : la contrainte `check (statut in ('en_cours','clo
 
 **Première étape du chantier de clôture — une seule migration, quatre corrections de schéma :**
 
-1. **`comptages.inventaire_id` passe en `not null`.** Aujourd'hui nullable, donc un comptage peut exister sans appartenir à aucun inventaire : ses lignes n'apparaissent alors dans le calcul d'écart d'aucun inventaire. Un trou silencieux, exactement dans le module qui produit l'indicateur du pilote. Vérifier d'abord s'il existe des lignes à `null` héritées de l'avant-refonte, et les rattacher ou les supprimer.
+1. **`comptages.inventaire_id` passe en `not null`.** Aujourd'hui nullable, donc un comptage peut exister sans appartenir à aucun inventaire : ses lignes n'apparaissent alors dans le calcul d'écart d'aucun inventaire. Un trou silencieux, exactement dans le module qui produit les écarts. Vérifier d'abord s'il existe des lignes à `null` héritées de l'avant-refonte, et les rattacher ou les supprimer.
 2. **Index unique sur `(inventaire_id, emplacement_code)`.** Sans lui, `getOrCreateCasier` peut créer deux comptages pour le même casier dans le même inventaire : les lignes se répartissent entre les deux et l'écart est faux. À vérifier dès maintenant en lecture seule — si des doublons existent déjà, ce n'est plus une précaution mais un bug à traiter.
 3. **Suppression de `comptages.attendu_consulte`**, lue mais jamais écrite.
 4. **Découpler les deux notions qui partagent `comptages.statut`.**
@@ -634,7 +628,7 @@ Le périmètre se dérive de `inventaires.scope_kind` et alimente le champ 対�
 | Périmètre | 対象 |
 |---|---|
 | `tout` | 全体 |
-| `client` | 得意先 REUZEL |
+| `client` | 得意先 ○○○○ |
 | `references` | 品目指定（REU003, REU004, REU008 他5件） — trois codes puis le décompte |
 
 Ainsi disparaît aussi la redondance de « 対象：全体棚卸 », où le mot 棚卸 apparaissait deux fois.
@@ -674,7 +668,7 @@ Second document, après un saut de page : **le relevé complet du comptage**, un
 - L'ordre de tournée ne redeviendrait pertinent que si cette feuille servait un jour à un parcours physique complet. Le cas échéant, ce serait une option de tri, pas un changement de règle.
 - Case à cocher dessinée en carré vide, assez grande pour être cochée au stylo.
 - **Une seule heure d'impression, capturée une fois et partagée par les deux pages.** La feuille détachée reste ainsi prouvablement issue de la même impression que la page 1 — deux horodatages distincts sur un document en deux parties suffiraient à en faire douter.
-- **Colonnes de codes en `white-space: nowrap` avec une largeur minimale, jamais une largeur fixe.** Une largeur fixe tronque ou coupe en silence le jour où un code dépasse la longueur observée aujourd'hui — six caractères sur le jeu REUZEL. La colonne doit pouvoir s'élargir et pousser la désignation, qui absorbe sans dommage.
+- **Colonnes de codes en `white-space: nowrap` avec une largeur minimale, jamais une largeur fixe.** Une largeur fixe tronque ou coupe en silence le jour où un code dépasse la longueur observée aujourd'hui — six caractères sur le jeu de démonstration. La colonne doit pouvoir s'élargir et pousser la désignation, qui absorbe sans dommage.
 - En-têtes répétés sur chaque page, comme ci-dessus.
 - Ligne 確認者 ／ 日付 en pied de la dernière page.
 
@@ -728,11 +722,11 @@ Manque révélé le 18 septembre : les Réglages sont un entonnoir en écriture 
 - Une référence inactive disparaît des sélecteurs de saisie — mouvement, comptage — mais reste visible dans la Recherche (signalée comme telle), dans l'historique et dans les exports. Rien n'est jamais supprimé.
 - **Pendant un inventaire, c'est le périmètre qui gouverne, pas le drapeau.** Une référence du périmètre est suggérée, quel que soit son état ; une référence hors périmètre suit les règles du §6.5. Le drapeau reprend la main partout où il n'y a pas de périmètre — l'écran Mouvement, au premier chef. Formulation corrigée le 30 septembre : dire que le filtre ne s'applique « nulle part ailleurs » était trop absolu, et produisait une incohérence visible — le rappel demandait de compter une référence que le champ de saisie refusait de suggérer, obligeant à taper le code entier. Deux surfaces d'un même écran doivent répondre à la même question ; ici, cette question est « est-ce dans le périmètre ? ».
 - Réactivable à tout moment.
-- **L'état inactif se voit au moment où l'on compose le périmètre.** Dans le choix référence par référence, une inactive porte la même mention « · Inactif » que partout ailleurs. C'est ce qui rend applicable la liberté laissée juste en dessous : « celui qui désigne explicitement une inactive sait ce qu'il fait » suppose qu'il puisse le savoir. C'est aussi le plus tôt qu'un avertissement puisse arriver — avant le comptage, pas pendant.
+- **L'état inactif se voit au moment où l'on compose le périmètre.** Dans le choix référence par référence, une inactive porte la même mention « · Inactif » que partout ailleurs. C'est le plus tôt qu'un avertissement puisse arriver — avant le comptage, pas pendant — et ça prépare la fenêtre informative du lancement, qui redira la même chose au moment de partir en tournée.
 - **Le Catalogue affiche les références inactives par défaut, grisées**, avec une case à cocher pour les masquer. L'inverse recréerait en miniature le défaut qui a justifié cet écran : les Réglages étaient un entonnoir en écriture seule où l'on ne retrouvait jamais rien. Le drapeau `actif` nettoie les **sélecteurs de saisie**, pas la surface de lecture. Le grisé est ici légitime là où il ne l'était pas dans le rappel des références à compter : il encode un **état stocké**, `actif = false`, et non une complétude inférée. Griser sur un fait est juste ; griser sur une déduction — « déjà comptée, donc finie » — ment.
 - **Une référence inactive reste dans tous les périmètres d'inventaire.** Le drapeau retire une référence des surfaces de saisie courante, jamais d'un comptage : ce qui est physiquement là doit pouvoir être compté, et c'est le comptage qui tranche son statut, pas l'inverse. Elle s'affiche au rappel avec sa mention, et la fenêtre informative du lancement prévient de sa présence (§6.5).
 - **Désactivation refusée tant qu'un inventaire en cours couvre la référence**, au même titre que le stock non nul. Le périmètre d'un inventaire ne doit pas rétrécir sous les pieds de celui qui compte : c'est la même règle que le gel du stock théorique au `frozen_ts`. Comme un seul inventaire peut être ouvert à la fois, le contrôle est immédiat. Message nommant l'inventaire concerné, et la désactivation redevient possible dès sa clôture ou son abandon.
-- **Désactivation refusée tant que le stock n'est pas nul**, avec le stock affiché. Ce n'est pas un fait physique que l'on refuserait (§4) mais un acte administratif : une référence inactive qui porte du stock sortirait des périmètres d'inventaire, et ce stock cesserait d'être compté sans que personne le voie.
+- **Désactivation refusée tant que le stock n'est pas nul**, avec le stock affiché. Ce n'est pas un fait physique que l'on refuserait (§4) mais un acte administratif : une référence inactive qui porte du stock serait un mensonge du référentiel — le drapeau annonce « plus rien en circulation » alors qu'il en reste sur une étagère. Ce n'est plus une perte de comptage depuis la 2.78, puisqu'aucun périmètre ne filtre ; c'est une affirmation fausse, et le référentiel n'a pas le droit d'en porter.
 
 ## 7. Imports en masse et saisie manuelle
 
@@ -742,26 +736,15 @@ Trois fichiers distincts, chacun son bouton. Ne pas fusionner en un seul fichier
 
 **Le stock d'ouverture rejoint le classeur** — révision de l'arbitrage du 15 septembre, parce que l'usage change : la feuille devient la **feuille de comptage**. On compte, on remplit, on importe. Plus sûr que de taper trois cents mouvements sur un téléphone.
 
-**L'amorçage se fera en une fois, à un comptage mensuel de fin octobre** — décision du 18 septembre, préférée à un amorçage progressif par vagues, puis reportée au retour d'un déplacement professionnel. Le périmètre REUZEL est déjà soumis à deux rythmes de comptage préexistants, indépendants de l'app :
+**Amorcer un stock d'ouverture : ce qui reste vrai pour n'importe quel démarrage.** Le cadre qui a produit ces règles a disparu, mais elles ne lui devaient rien — elles valent le jour où un entrepôt réel entrera en service.
 
-- **hebdomadaire, le vendredi**, sur les références sorties dans la semaine ;
-- **mensuel**, sur tout le stock.
+**L'amorçage se fait en une fois, sur un comptage physique intégral**, pas par vagues successives : un stock d'ouverture complet et daté d'un seul jour ne demande aucune couture entre les vagues, et aucune règle pour arbitrer ce qui a bougé entre deux.
 
-Amorcer sur le comptage mensuel donne un stock d'ouverture complet, daté d'un seul jour, issu d'un comptage physique intégral. C'est le meilleur socle possible pour l'indicateur, et il rend inutile toute couture entre vagues.
+**Le stock d'ouverture se compte physiquement, il ne se recopie pas d'un fichier de suivi existant.** C'est l'exigence qui pèse le plus lourd, et elle se paie en heures de comptage. Un stock semé depuis l'existant embarque ses erreurs, et le premier inventaire mesurerait alors la dérive de l'app **plus** l'erreur initiale sans pouvoir les séparer. Le cas critique est celui des références à faible rotation : une référence qui ne bouge pas depuis des mois ne peut pas acquérir d'erreur de saisie récente, mais rien ne dit que sa valeur de départ a jamais été vérifiée.
 
-**L'inventaire mensuel devient une porte à sens unique.** Il fixe le stock d'ouverture ; tout ce qui est faux dans le référentiel à ce moment-là est figé dedans. Les codes mal saisis se suppriment tant qu'aucun mouvement ne les référence (§4) — après l'amorçage, ils en porteront. **Le nettoyage du Catalogue doit donc précéder le comptage mensuel**, et c'est ce qui date le §6.8.
+**L'amorçage est une porte à sens unique.** Il fige le référentiel tel qu'il est à cet instant : les codes mal saisis se suppriment tant qu'aucun mouvement ne les référence (§4), et après l'amorçage ils en porteront. **Le nettoyage du catalogue précède donc le comptage d'ouverture**, jamais l'inverse.
 
-**La mesure du pilote commence à l'amorçage, pas le 18 septembre.** C'est cette date qui borne l'analyse du point de situation, et elle se note au README le jour où elle survient. Si le comptage mensuel tombe trop près du 18 octobre, c'est la date du point de situation qui se décale, pas la qualité du socle.
-
-**Le rythme hebdomadaire devient l'instrument de mesure.** Une fois le stock amorcé et les mouvements enregistrés, chaque comptage du vendredi produit un écart réel sur les références qui ont bougé. L'indicateur du pilote cesse d'être un point unique en fin de période pour devenir une **série** — quelques mesures avant le point de situation, et la possibilité de voir une dérive s'installer au lieu de la découvrir. L'app se greffe ici sur une discipline de comptage tournant qui existait déjà ; elle ne l'impose pas.
-
-**Conséquence sur le calendrier : l'abandon d'inventaire (§6.5) a une échéance ferme.** Un comptage a lieu chaque vendredi, et rien ne permet aujourd'hui de fermer celui du 18 septembre. Sans l'abandon, le comptage du vendredi suivant est impossible.
-
-**Entre aujourd'hui et l'amorçage, l'app est un outil de comptage, pas un système de stock.** Les comptages hebdomadaires s'y font, la comparaison avec l'Excel reste manuelle, et aucun mouvement n'est enregistré. Le basculement doit être net : **à partir de l'amorçage, tous les mouvements sont saisis, sans exception**. Une sortie non enregistrée après cette date fabrique un écart que rien n'expliquera.
-
-**Le comptage physique reste l'autorité, même contre un Excel fiable.** Le 18 septembre, la comparaison du comptage avec l'Excel tenu par la collègue a donné un écart d'une boîte sur une seule référence. Ce résultat valide le **processus** de saisie des ventes, pas le **socle** : une référence qui ne bouge pas depuis des mois ne peut pas acquérir d'erreur de saisie récente, mais rien ne dit que sa valeur de départ a jamais été vérifiée. C'est précisément pour les références à faible rotation que l'amorçage doit venir d'un comptage et non d'une recopie.
-
-Exigence de méthode qui pèse plus que le gain de temps : **le stock d'ouverture se compte physiquement, il ne se recopie pas de l'ancien fichier de suivi.** Un stock semé depuis l'existant embarque ses erreurs, et l'inventaire de mi-octobre mesurerait la dérive de l'app **plus** l'erreur initiale sans pouvoir les séparer — l'indicateur unique du pilote perdrait son sens.
+**Et le basculement doit être net.** Avant l'amorçage, l'app peut servir d'outil de comptage sans détenir de stock. Après, **tous les mouvements sont saisis, sans exception** : une sortie non enregistrée fabrique un écart que rien n'expliquera, et qui sera imputé à l'app.
 
 `reference, libelle, pieces_par_carton`
 Crée la référence et son premier conditionnement. Référence connue : le libellé est mis à jour. Si `pieces_par_carton` diffère d'un conditionnement existant, un **nouveau** conditionnement est créé et l'ancien marqué `a_ecouler` — jamais de modification de l'existant. L'aperçu d'import signale explicitement ces créations. Aucun mouvement.
@@ -850,40 +833,35 @@ Le **client** est entré dans le périmètre depuis, mais au sens strict d'un ra
 
 ## Sauvegarde et sécurisation des données
 
-Ce n'est pas un sujet post-pilote : à partir du 18 septembre, la base porte le stock réel d'un client. Perdue en semaine 2, le pilote s'arrête là.
+Les données sont fictives depuis le 5 octobre (§2), donc leur perte ne coûte plus rien de réel. Ce qui suit reste pourtant en vigueur, pour deux raisons : un dispositif de sauvegarde qu'on démonte parce que les données ne valent rien ne sera pas là le jour où elles vaudront quelque chose ; et **un produit qui ne sait pas dire comment on sauvegarde ses données ne se vend pas**. Cette section est devenue une pièce du produit, pas une précaution d'exploitation.
 
-### Ce qui existe aujourd'hui, selon le plan Supabase
+### Ce qui existe
 
-- **Plan gratuit : aucune sauvegarde automatique.** La documentation Supabase recommande explicitement des exports réguliers par le CLI et des copies hors site. Si le projet est en Free, il n'existe donc **aucune** sauvegarde à ce jour.
-- **Pro (25 $/mois)** : 7 jours de sauvegardes quotidiennes automatiques. PITR — restauration à la seconde près, rétention 7, 14 ou 28 jours — reste une option payante en plus.
-- **Mise en pause** : un projet gratuit est mis en pause après 7 jours sans activité. Les données restent intactes et le projet se relance depuis le tableau de bord, avec une fenêtre d'un an au-delà de laquelle les sauvegardes ne sont plus conservées. Sans risque pendant le pilote, qui tourne tous les jours ; le risque naît d'une période creuse — congés, pilote suspendu.
+- **Plan gratuit Supabase : aucune sauvegarde automatique.** La documentation recommande explicitement des exports réguliers et des copies hors site.
+- **Pro (25 $/mois)** : sept jours de sauvegardes quotidiennes. La restauration à la seconde près (PITR) reste une option payante en plus.
+- **Mise en pause** : un projet gratuit est suspendu après environ sept jours sans activité. Les données restent intactes et le projet se relance depuis le tableau de bord. Sans gravité pour une base de démonstration ; à connaître avant de montrer l'app à quelqu'un sur une base endormie.
 
-### Risques réels, classés
+### Le dispositif en place
 
-1. **Propriété du compte.** Projet sous un compte personnel, avec une adresse et un moyen de paiement personnels : la société perd tout le jour du départ, ou à l'expiration de la carte. Coût de la correction : nul. Conséquence : totale. C'est le premier risque, et il n'est pas technique.
-2. **Absence de sauvegarde en plan gratuit** — voir ci-dessus.
-3. **Migration malheureuse.** Les triggers d'immuabilité protègent les lignes de `mouvements`, pas une table supprimée par une migration. Le risque culmine précisément pendant la migration à quatre volets du chantier de clôture.
-4. **Erreur de logique.** Une sauvegarde ne protège pas de ça : un stock faux sauvegardé reste faux. C'est l'inventaire qui couvre ce risque. Les deux dispositifs ne se remplacent pas.
+Un `pg_dump` hebdomadaire lancé par un minuteur systemd sur un Raspberry Pi allumé en permanence, vers `~/backups/supabase/`, avec rétention des huit derniers. Procédure complète, critère de réussite et essai de restauration dans `docs/sauvegarde.md`.
 
-Point favorable : le modèle étant en ajout seul, le scénario classique « quelqu'un a écrasé les données » est largement exclu par conception. La perte réaliste est structurelle ou liée au compte.
+Trois limites sont connues et inscrites dans ce document : une seule copie, sur la carte SD du Pi ; aucune alerte en cas d'échec ; et un dump non restreint au schéma `public`, qui emporte les schémas internes de Supabase et complique une restauration vers un projet neuf.
 
-### Plan, par ordre de rapport au coût
+### Les règles qui ne dépendent d'aucun cadre
 
-**Niveau 0 — gratuit, cette semaine, trente minutes.** Vérifier sous quel compte et quelle organisation vit le projet ; le transférer à une organisation Sanyo avec un moyen de paiement de la société. Vérifier le plan en cours.
+**Une sauvegarde qu'on n'a jamais restaurée n'est pas une sauvegarde, c'est un fichier.** La restauration s'essaie pour de vrai, et le critère de réussite est la concordance des comptes de lignes avec la base d'origine — pas l'absence d'erreurs pendant la restauration, qui en produit toujours.
 
-**Niveau 1 — gratuit, hebdomadaire.** Un `supabase db dump` par le CLI, fichier `.sql` daté, conservé **hors de GitHub** : Drive de la société, ou disque local plus une copie ailleurs. Deux copies au minimum, dont une sur un autre support que le PC.
+**Un script qui ne vérifie pas son propre résultat ne protège de rien.** Un `pg_dump` interrompu laisse un fichier qui existe, pèse quelque chose et se refuse à la restauration. Le script contrôle la taille et le nombre de tables porteuses de données, et refuse de déclarer la sauvegarde valide sur le seul fait qu'un fichier a été créé.
 
-> **Piège à éviter absolument : le dépôt est public.** Ni dump ni export de stock n'y entrent — et les artefacts GitHub Actions d'un dépôt public sont lisibles par quiconque peut lire le dépôt. Toute automatisation de sauvegarde qui y dépose un fichier revient à publier le stock des clients.
+**L'échec dangereux n'est pas le dump en erreur, c'est le dump qui n'a jamais tourné.** Un script qui ne s'exécute pas ne peut pas, par construction, signaler qu'il ne s'est pas exécuté. Seul un regard extérieur à la machine le détecte : la présence d'un fichier récent à l'emplacement hors site.
 
-**Prise avant chaque migration**, en plus de l'hebdomadaire. Une ligne dans la procédure du chantier de clôture.
+**Une copie hors de la machine qui produit la sauvegarde.** Un disque perdu emporte sinon la base et toutes ses sauvegardes du même coup.
 
-**Niveau 2 — 25 $/mois, à décider au 18 octobre.** Le plan Pro supprime d'un coup l'absence de sauvegarde et la mise en pause. L'arbitrage ne se fait pas contre un budget informatique mais contre la valeur du stock client tenu dans la base : c'est une assurance, pas une dépense d'outillage.
+> **Le dépôt est public.** Ni dump ni export de données n'y entrent, et les artefacts GitHub Actions d'un dépôt public sont lisibles par quiconque peut lire le dépôt. Toute automatisation qui y déposerait un fichier reviendrait à le publier. La vraie protection n'est pas le `.gitignore`, c'est que le dossier des sauvegardes vit ailleurs.
 
-### La règle qui prime sur tout le reste
+**Une sauvegarde ne protège pas d'une erreur de logique** : un stock faux sauvegardé reste faux. C'est l'inventaire qui couvre ce risque, et les deux dispositifs ne se remplacent pas.
 
-**Une sauvegarde qu'on n'a jamais restaurée n'est pas une sauvegarde.** Restaurer une fois dans un projet Supabase séparé, vérifier que `mouvements` et `comptage_lignes` sont là et cohérents, puis supprimer ce projet. Une fois avant le 18 octobre. Sans cette vérification, le dispositif entier repose sur une hypothèse.
-
-### Après le pilote — modes de saisie
+### Plus tard — modes de saisie
 
 Quatre demandes du 17 septembre : un mode commande, un mode transfert, un mode réception, et des inventaires en parallèle.
 
@@ -905,27 +883,27 @@ Deux conditions pour que le verrou ne devienne pas un piège : il est **visible 
 
 C'est aussi dans ce mode que vivrait un jour la règle de tri de la liste de prélèvement par classe de volume. Sans objet tant que les commandes sont mono-ligne.
 
-### Après le pilote — requêtes de mapping
+### Plus tard — requêtes de mapping
 
 **Mapping références → emplacements** (demande de la direction) : c'est exactement la feuille `Stock` de l'export `.xlsx` déjà au calendrier. Aucune fonction à écrire, la demande est satisfaite par l'export.
 
 **Mapping inversé emplacements → références**, avec quantité par référence et total par palette : une seconde feuille du même export. Et c'est le bon préalable à la carte thermique — la table répond à l'essentiel de la question pour une fraction du coût. À construire d'abord, puis à décider si la carte est encore souhaitée. Les scores d'occupation et de rentabilité s'ajoutent en colonnes de cette table avant d'être des couleurs sur un plan.
 
-### Après le pilote — périmètre d'inventaire dérivé des mouvements
+### Plus tard — périmètre d'inventaire dérivé des mouvements
 
 Le comptage hebdomadaire porte sur « les références sorties dans la semaine ». Aujourd'hui, cette liste se sélectionne à la main chaque vendredi. Une fois les mouvements enregistrés, elle se calcule : **périmètre = les références ayant eu un mouvement depuis telle date**, ou depuis le dernier inventaire clos.
 
 Extension naturelle du sélecteur de périmètre existant, qui supprime la tâche la plus répétitive du rituel hebdomadaire. À ne construire qu'une fois les mouvements réellement enregistrés — donc après l'amorçage, et pas avant d'avoir vu quelques vendredis se dérouler.
 
-### Après le pilote — inventaires en parallèle
+### Plus tard — inventaires en parallèle
 
-Réouverture assumée de la limite acceptée en §4, l'index `one_inventaire_en_cours`. La contrainte est trop grossière : elle interdit aussi des cas légitimes, REUZEL et YGI n'ayant rien en commun.
+Réouverture assumée de la limite acceptée en §4, l'index `one_inventaire_en_cours`. La contrainte est trop grossière : elle interdit aussi des cas légitimes, deux clients n'ayant aucun casier en commun.
 
 **Mais la règle n'est pas « un seul à la fois », c'est « pas deux qui se recouvrent ».** Deux inventaires actifs sur un même casier auraient deux stocks théoriques gelés à des instants différents et deux jeux de lignes de comptage pour le même endroit : les écarts se contrediraient sans qu'on puisse dire lequel a raison. Or « allée A » recouvre REUZEL et YGI, alors que REUZEL et YGI ne se recouvrent pas.
 
 Le remplacement de l'index n'est donc pas sa suppression : c'est un contrôle au lancement contre l'**union des périmètres actifs**, refusant tout chevauchement de casier ou de référence. Plus fin à écrire qu'un index partiel, et c'est la seule forme qui autorise le cas voulu sans ouvrir le cas dangereux.
 
-### Après le pilote — aide au rangement
+### Plus tard — aide au rangement
 
 Analyse du stock, des emplacements sous-exploités et des priorités de sortie, puis **proposition de transferts** pour faciliter la préparation et désencombrer les allées. C'est l'aboutissement de tout le reste : c'est là que la couche analytique paie, et c'est la seule fonction qui attaque directement le problème d'origine — la saturation de l'entrepôt.
 
@@ -939,9 +917,9 @@ Quatre conditions, dans cet ordre.
 
 **Sortie = une liste de travail, pas une carte.** Chaque proposition est un transfert : source, destination, quantité, raison en une ligne. Cette liste alimente directement le mode transfert avec sa destination verrouillée — les deux idées du 18 septembre sont les deux moitiés d'une même chaîne, l'une propose, l'autre exécute.
 
-### Après le pilote — reprise et maintenance
+### Plus tard — reprise et maintenance
 
-Question posée le 18 septembre 2026. **À trancher au point de situation, pas avant** : on ne contracte pas la maintenance d'un outil qui peut être abandonné le 18 octobre.
+Question posée le 18 septembre 2026, dans le cadre d'entreprise qui a disparu depuis. **Sans objet tant que le projet n'a pas d'utilisateur autre que son auteur** : on ne contracte pas la maintenance d'un outil que personne n'exploite. Les chiffres relevés alors restent utiles le jour où la question se reposera.
 
 **Ce que coûte une reprise externe** (marché japonais, septembre 2026)
 
@@ -970,9 +948,9 @@ Le jugement. Les arbitrages de septembre — `comptages.statut` surchargé, le c
 - **Propriété.** Développée sur le temps de travail, l'app relève du 職務著作 et appartient à Sanyo : c'est donc Sanyo qui budgète la maintenance, pas Julien. À écrire avant tout contrat.
 - **Succession.** Aucune automatisation ne règle l'absence de destinataire : une alerte suppose quelqu'un pour la lire et décider. C'est l'argument permanent pour que le registre du stock vive chez un éditeur, et la couche analytique seulement ici.
 
-### Après le pilote — carte thermique de l'entrepôt (version bureau)
+### Plus tard — carte thermique de l'entrepôt (version bureau)
 
-Consignée ici pour ne pas être perdue, et parce que deux prérequis se décident tôt. Hors périmètre du pilote : elle ne sert pas son indicateur.
+Consignée ici pour ne pas être perdue, et parce que deux prérequis se décident tôt. Hors périmètre : aucun utilisateur ne l'a jamais demandée (§12).
 
 Page bureau représentant les zones, baies et niveaux en grille, avec un code couleur par casier pour cibler visuellement les casiers prioritaires. C'est exactement la couche analytique en lecture seule évoquée depuis le début : si elle tombe, l'entrepôt tourne.
 
@@ -1115,78 +1093,52 @@ Les photos de référence restent facultatives ; si elles sont faites, elles pas
 
 ## 12. Ordre de livraison
 
-Fait : socle Vite/PWA, traduction typée, schéma Supabase et RLS, authentification par code, écrans Mouvement, Inventaire (saisie libre, écarts, détection de déplacement probable), Recherche, Réglages.
+**Refondu le 5 octobre**, sur la destination du §2 : un produit présentable. L'ordre antérieur était commandé par les comptages du vendredi et une date de décision ; les deux ont disparu. Le critère devient : **est-ce que ce chantier rend l'app compréhensible ou utilisable par quelqu'un qui ne l'a pas écrite ?**
 
-### Le 18 septembre — démarrage avec l'app en l'état
+**Acquis.** Socle Vite/PWA et déploiement automatique, traduction typée fr/ja/en, schéma Supabase et RLS, authentification par code e-mail, cache de lecture, recherche par code et par libellé, écrans Mouvement, Recherche, Catalogue et Réglages, module Inventaire complet à l'exception de la clôture — saisie libre en marchant, périmètres, rappel des références, écarts, déplacement d'une saisie, détection de déplacement probable, abandon, document imprimé en japonais. Imports CSV de clients, références et stock d'ouverture. Sauvegarde automatisée et prouvée par restauration.
 
-**Aucune fonctionnalité n'est bloquante pour le démarrage.** Le stock d'ouverture des zones A, B et C se saisit à la main, en mouvements de motif `stock_initial` depuis l'écran Mouvement : sur le périmètre REUZEL, c'est l'affaire d'une session, et cette saisie est de toute façon le premier comptage physique. Construire un import en masse en trois jours, sur la fonction qui touche le plus directement à l'intégrité du stock, serait le mauvais arbitrage.
+### Ce qui compte maintenant
 
-Deux choses seulement, et ce ne sont pas des chantiers :
+1. **Les trois chantiers en attente** (§6.5, §6.8). Spécifiés, arbitrés, non implémentés : une écriture ne pose qu'une question ; `suggestableReferences` suit le périmètre plutôt que le drapeau ; le contrôle `actif` remonte dans la fonction d'écriture partagée au lieu de manquer à l'écran des écarts. Les trois touchent le même module — un seul passage, sous `advisor()`. Ils améliorent ce qui marche déjà, donc ils passent en premier **parce qu'ils sont prêts**, pas parce qu'ils sont les plus importants.
 
-1. **Vérifier qu'un échec d'écriture est visible.** Une erreur réseau avalée en silence, sur un mouvement que l'utilisateur croit enregistré, est le seul défaut capable de fausser l'indicateur du pilote sans laisser de trace.
-2. **Écrire la consigne de repli** dans le README : si l'enregistrement échoue, noter sur papier et ressaisir au retour.
-3. **Modèle Excel et import des références** (§7) — codes en texte, une ligne par couple référence × conditionnement, colonnes de dimensions collectées mais non importées tant que la table `cartons` n'existe pas.
-4. **Messages d'erreur lisibles** (§3) — remplacer `(objet Objet)` par le message réel, sur tous les chemins d'écriture. Admis avant le 18 : c'est la différence entre un échec diagnosticable et un mystère le jour du démarrage.
-5. **Retirer l'`inputMode` de la saisie d'inventaire** — retour au clavier texte, une ligne.
-6. **Retirer les deux indicateurs factices de l'Accueil.** C'est une suppression, pas une fonctionnalité : « Tout est synchronisé » en texte fixe est précisément ce qu'on regardera sans réfléchir pendant le pilote. Ils reviendront branchés avec la file hors ligne.
-7. **Rendre le commentaire obligatoire sur le motif `annulation`** (§4), si c'est l'affaire de quelques minutes. Sinon, avec le chantier de clôture.
-8. **Générateur d'emplacements** — zone, plage de baies, niveaux, création en lot. Sert la saisie du référentiel avant le démarrage, et **remplace l'import CSV d'emplacements** (§7) : une substitution, pas une addition.
-9. **Liste des saisies pendant la marche** (§6.5), **remontée depuis la liste du 18 octobre**. Raison : usage réel imminent — la répétition à blanc et les premiers comptages ont lieu cette semaine, et la double saisie qu'elle supprime pollue directement l'écart. Le reste du chantier de clôture ne bouge pas. Le gain d'une passe d'`advisor()` partagée ne valait pas un mois de comptages sans visibilité sur ce qui a déjà été saisi.
-10. **Cache de lecture** (§3) — à faire après les deux précédents, il sert le pilote et non le démarrage.
-11. **Recherche par libellé** (§6.2). Ce n'est pas une addition au périmètre : la spec l'exigeait déjà, le code ne cherchait que sur le code. Mise en conformité, et elle sert dès le premier jour — les factures sans référence se lisent vendredi.
+2. **Base neuve et jeu de démonstration.** Un seul chantier, pour deux raisons qui se rejoignent : sortir les données réelles, et se donner une vitrine. La base actuelle porte encore un client et son référentiel ; elle est détruite, pas archivée.
 
-### Phase 1 — jusqu'au point de situation, visé au 18 octobre
+   La reconstruction suit la procédure de l'ancien point 8 ter, qui garde toute sa valeur : nouveau projet Supabase, application de **toutes** les migrations du dépôt dans l'ordre — un échec à cette étape est une bonne nouvelle, il nomme ce qui manquait quand ça ne coûte rien —, puis chargement du jeu de démonstration par un script committé, jamais à la main.
 
-Révisé le 18 septembre. L'app est un outil de comptage jusqu'à fin octobre : **tout ce qui concerne le stock cesse d'être urgent**, et seul ce qui sert le comptage hebdomadaire compte. C'est une liste nettement plus courte qu'avant, et c'est voulu.
+   Le jeu de démonstration se conçoit avant de s'écrire (§2). Il doit contenir au moins : deux clients aux codes distincts, une référence dont deux conditionnements coexistent, une référence inactive à stock nul, des emplacements sur plusieurs zones dont une inter-allée, et un inventaire clos portant quelques écarts réels — dont une paire compensée qui ressemble à un déplacement de palette. Chacun de ces cas existe parce qu'il démontre une règle du §4 ou du §6 ; un jeu de données qui ne démontre rien n'est qu'un remplissage.
 
-1. **Abandon d'inventaire** (§6.5). **Échéance ferme : avant le vendredi 25 septembre.** Un comptage a lieu chaque vendredi, celui du 18 est ouvert, et rien ne permet de le fermer — sans l'abandon, le comptage suivant est impossible. Premier point du projet à porter une vraie date.
-2. **Inventaire partiel** (§6.5) : suggestions filtrées au périmètre, extension du périmètre proposée pour une référence hors liste, rappel des références à compter. **Échéance : avant le vendredi 25 septembre** — le comptage hebdomadaire est un inventaire partiel. Commencer par vérifier si les saisies hors périmètre existantes sont ignorées par l'écran des écarts : c'est la seule perte de donnée possible du lot.
-3. **Écran des écarts** (§6.5) : chiffres sur leur propre ligne à position fixe, barre d'action collante, filtre de recherche. Absorbe les corrections d'ergonomie relevées le 17 septembre — même écran, une seule passe. Utilisé chaque vendredi : ce qui a coûté du temps une fois en coûtera chaque semaine.
-4. **Catalogue, noyau seulement** (§6.8) : liste, recherche, modification des attributs descriptifs, suppression si aucun mouvement ni ligne de comptage ne référence la ligne. Remonté en phase 1 contre l'arbitrage précédent : la gêne est immédiate — des références mal saisies encombrent les sélecteurs de chaque comptage hebdomadaire — et la suppression est **plus facile maintenant** qu'après l'amorçage, puisque aucune référence ne porte encore de mouvement. Les champs tarif/dimensions restent en phase 2 ; le drapeau `actif`, lui, est remonté en phase 1 par le point 4 bis.
-4 bis. **Drapeau `actif` sur les références** (§6.8). Remonté de la phase 2 le 24 septembre. La suppression du point 4 ne couvre pas le cas réel : une référence de test a été comptée, donc une ligne la référence, donc elle n'est pas supprimable — et abandonner l'inventaire qui la porte ne change rien, l'abandon n'efface pas. Sans archivage, ces références restent dans les sélecteurs de chaque comptage hebdomadaire, indéfiniment. Deux raisons de le faire maintenant plutôt qu'à l'amorçage : la gêne est hebdomadaire, et la règle « désactivation refusée tant que le stock n'est pas nul » est inerte tant qu'aucun stock n'existe — elle s'écrit donc sans avoir à être éprouvée dans le même mouvement. **Commit isolé** : ce point touche les sélecteurs de saisie, il ne se mêle à aucun autre.
+   Condition qui ne se négocie pas, et qui survit intacte au changement de cadre : **toute migration est un fichier committé.** C'est ce qui rend cette bascule possible, et ce qui rendra possible la suivante.
 
-4 ter. **Factoriser les deux implémentations du déplacement** (§6.5). Constaté le 24 septembre : la marche et l'écran des écarts ont chacun leur détection de collision, leur gestion d'état et leur bloc de confirmation ; seule l'écriture bas niveau `moveCasierLigne` est partagée. Les deux ont été alignées à la main le même jour — ce sont deux copies, pas une factorisation, et elles redivergeront au premier correctif. C'est la règle « une seule implémentation, deux appels » qui n'est pas tenue sur ce chemin, et elle a déjà produit deux défauts : l'écrasement silencieux à la destination côté Écarts, jamais corrigé jusqu'au 24, et la divergence de traitement de la quantité entre les deux écrans. **Commit isolé, refactorisation pure, comportement identique avant et après** — l'invariant vérifiable est le script de test du 24 septembre : trois branches, deux écrans, mêmes résultats. À ne pas mêler à la migration du chantier de clôture : code d'écran d'un côté, migration de base de l'autre, deux natures de risque.
+3. **Clôture d'inventaire** (§6.5). Le plus gros trou fonctionnel : aujourd'hui tout inventaire se termine par un abandon. Une app de stock qui ne sait pas clôturer un inventaire est un outil de comptage, et ce n'est plus l'ambition. C'est aussi la première question que posera quiconque regarde l'app.
 
-5. **Sauvegarde et propriété du compte Supabase** (§ Sauvegarde) — trente minutes, **sans code, côté Julien**. À faire avant le déplacement : c'est là que la mise en pause du plan gratuit se manifestera.
-6. **Synthèse imprimable** (§6.5), y compris pour un inventaire en cours avec sa mention de statut. Sert à justifier un comptage auprès des collègues, et à laisser des chiffres lisibles derrière soi pendant une absence.
-7. **Sortie du comptage en CSV.** Requête en lecture seule sur `comptage_lignes`, en `distinct on` pour ne retenir que la dernière valeur par casier × référence × conditionnement — sans quoi une correction serait comptée deux fois. Rend cheap la comparaison hebdomadaire avec l'Excel, qui est l'unique mesure de la phase 1.
+   Ordre interne inchangé, parce qu'il est dicté par les dépendances : découplage de `comptages.statut` d'abord, puis policy `DELETE` conditionnée (§3), puis couverture exigée, justification des écarts, écriture des `ajustement_inventaire`. Y rattacher l'affichage « vide » face à « non enregistré » dans la Recherche (§6.2), les mouvements postérieurs au gel, et la résolution des écarts compensés en transfert — une seule conversation.
 
-### Phase 2 — à partir de l'amorçage, fin octobre
+   Le garde-fou du `CLAUDE.md` reste entier : un casier jamais visité vaut zéro **à l'affichage**, jamais à la clôture. Écrire un ajustement sur la foi d'une absence de saisie détruirait du stock réel.
 
-8 bis. **Deux niveaux de retrait : inactive et archivée.** Question posée le 30 septembre, **à ne pas trancher avant que le catalogue l'impose**. Depuis la 2.78, une inactive reste dans tous les périmètres d'inventaire : à vingt-deux références c'est sans coût, à trois cents ce serait faire parcourir chaque mois des allées pour des produits abandonnés depuis des années.
+4. **Imports en masse** (§7). Longtemps repoussés comme « fonction de passage à l'échelle ». Ce n'est plus ça : **c'est le chemin de mise en route.** Les trois cents références d'un prospect ne se saisissent pas à la main, et personne ne commencera par là. Les imports de clients, références et stock d'ouverture existent déjà ; ce qui manque est leur place dans un parcours de démarrage lisible, et le générateur d'emplacements qui les complète.
 
-   La forme pressentie : **inactive** = retirée des surfaces de saisie courante, mais toujours comptée ; **archivée** = retirée aussi des périmètres. Dans les deux cas, une saisie qui lui donne du stock la remet en circulation — la règle de remontée ne change pas, seul le point de départ diffère.
+5. **Export `.xlsx`** (§9). Il servait à comparer avec un Excel tenu en parallèle, qui n'existe plus. Il reste parce qu'un produit de stock dont on ne peut rien sortir n'est pas sérieux, et parce que c'est le pont vers les outils que tout le monde utilise déjà.
 
-   Le déclencheur n'est pas une date mais un seuil de gêne : **le jour où l'inventaire complet fait perdre du temps sur des références que personne ne s'attend à trouver.** Avant ça, un second drapeau serait un état de plus à tenir pour un problème qui ne se pose pas. À réexaminer quand le périmètre s'étendra au-delà de REUZEL.
+6. **Fin du blocage sur stock négatif** (§6.4) : avertir plutôt que refuser, liste d'anomalies, confirmation proportionnée au risque, correction en un geste. Nécessaire dès que du stock existe en base, donc dès le jeu de démonstration.
 
-8. **Catalogue, compléments** (§6.8) : une **mise en page adaptée au grand écran**, obtenue par points de rupture CSS sur le même écran — jamais un second écran « version ordinateur ». Le Catalogue est la seule surface du module réellement utilisée assis, et un téléphone étiré sur vingt-sept pouces gâche l'essentiel de la largeur. Mais deux implémentations d'un même écran divergent, et on vient d'en payer le prix sur le déplacement : ce sera la même liste, la même logique, une grille plus large. Puis  les champs `code_tarifaire`, `famille_melange` et dimensions quand leurs tables existeront. Le drapeau `actif` est passé en phase 1 (point 4 bis) ; ce qui reste ici est la vérification de sa règle de stock nul, qui n'a rien à éprouver tant qu'aucun stock n'existe.
-8 bis. **Bascule sur une base neuve, avant l'amorçage.** Depuis le premier jour, le développement écrit dans la base qui sert aussi de production — c'est ce qui a produit les inventaires de test et les références fantômes nettoyés le 26 septembre. Tant que le stock est à zéro, cette dette ne coûte rien ; à l'amorçage, elle deviendrait indéfendable. Plutôt que d'ouvrir une seconde base aujourd'hui pour développer proprement, on tranche à l'autre bout : **la production sera une base neuve, et l'actuelle deviendra la base de développement.** Rien à faire d'ici là, aucune règle à tenir, et la saleté accumulée reste du bon côté de la frontière.
+7. **File d'écriture hors ligne** et bandeau « n en attente depuis ». Descendue après la mesure de couverture du 17 septembre — la 4G passait partout dans ce bâtiment-là. Elle remonte le jour où un entrepôt sans couverture entre dans le champ, ce qui est probable et pas démontré.
 
-   Bénéfice qui n'est pas qu'un nettoyage : reconstruire le schéma depuis les seules migrations du dépôt **prouve** que le dépôt les contient toutes. C'est le doute soulevé le 29 septembre à propos des policies `DELETE`, transformé en vérification.
+8. **Catalogue, grand écran** (§6.8) : une mise en page adaptée, obtenue par points de rupture CSS sur le même écran — jamais un second écran « version ordinateur ». Deux implémentations d'un même écran divergent, et on en a payé le prix sur le déplacement.
 
-   Dans l'ordre, et **avant** le comptage mensuel, jamais le jour même :
-   1. Créer le nouveau projet Supabase.
-   2. Y appliquer toutes les migrations du dépôt, dans l'ordre. Un échec ici est une bonne nouvelle : il nomme ce qui manquait, à un moment où ça ne coûte rien.
-   3. Y porter le référentiel — clients, `references`, conditionnements, emplacements, `autorises`. Quelques centaines de lignes, extraites de l'ancienne base.
-   4. Changer la clé publishable dans le build, redéployer, se reconnecter une fois pour recréer le compte.
-   5. Noter la date au README : c'est elle qui borne l'analyse du point de situation (§ Mesure).
+9. **Tests unitaires des deux fonctions pures à bugs subtils** : `matchReferences` et la résolution des codes d'emplacement abrégés. Trois appelants chacune, quatre bugs déjà trouvés entre elles, et ce sont les seules parties du code testables sans base ni écran. Un fichier de test qui **importe** la fonction, pas une copie exécutée à part : une copie prouve qu'un extrait fonctionne, pas que le code livré fonctionne, et elle cesse d'être fidèle au premier changement.
 
-   Condition qui ne se négocie pas : **toute migration est un fichier committé**. Un changement appliqué à la main et jamais écrit n'existera pas dans la base neuve, et son absence ne se verra que longtemps après.
+### En attente, avec leur déclencheur
 
-9. **Fin du blocage sur stock négatif** (§6.4) : avertissement et confirmation à la place du refus, liste d'anomalies, confirmation proportionnée au risque, correction en un geste. Sans objet tant qu'aucun stock n'existe ; nécessaire dès le premier jour où il en existe.
-10. **Export `.xlsx`** : l'instrument de comparaison avec l'Excel tenu en parallèle.
-11. **Clôture d'inventaire**, dans cet ordre interne : découplage de `comptages.statut` (§6.5) d'abord, puis policy `DELETE` conditionnée (§3), puis couverture, justification des écarts, écriture des `ajustement_inventaire`. Y rattacher l'affichage « vide » face à « non enregistré » dans la Recherche (§6.2), les **mouvements postérieurs au gel**, et la **résolution des écarts compensés** en transfert (§6.5) — c'est une seule conversation. Sans objet en phase 1, où chaque comptage se termine par un abandon.
-12. **File d'écriture** et bandeau « n en attente depuis ». Descendue après le test de couverture du 17 septembre : la 4G passe partout dans le bâtiment (§3). Prérequis conservé : le point 7.
-13. **Import des dimensions de cartons**, quand la table `cartons` existera. Jusque-là, les colonnes du modèle Excel sont remplies et conservées dans le fichier, qui fait office de stockage intermédiaire et reste réimportable.
-14. **Tests unitaires des deux fonctions pures à bugs subtils** : `matchReferences` et la résolution des codes d'emplacement abrégés. Trois appelants chacune, quatre bugs déjà trouvés entre elles, et ce sont les seules parties du code testables sans base ni écran. Un fichier de test qui **importe** la fonction, pas une copie exécutée à part : une copie prouve qu'un extrait fonctionne, pas que le code livré fonctionne, et elle cesse d'être fidèle au premier changement.
+Ces chantiers ne sont pas repoussés par manque de temps : il leur manque une condition qui n'est pas remplie. Les inscrire avec leur déclencheur évite qu'ils reviennent chaque mois sous forme de bonne idée.
 
-### Repoussé
+- **Séparation multi-société.** Déclencheur : un second client réel. Jamais avant (§2).
+- **Deux niveaux de retrait, inactive et archivée** (§6.8). Déclencheur : le jour où un inventaire complet fait perdre du temps sur des références que personne ne s'attend à trouver. Une inactive reste aujourd'hui dans tous les périmètres ; à vingt références c'est sans coût, à trois cents ce serait du temps perdu chaque mois. La forme pressentie : **inactive** = retirée des surfaces de saisie courante mais toujours comptée ; **archivée** = retirée aussi des périmètres. Dans les deux cas, une saisie qui lui donne du stock la remet en circulation.
+- **Champs `code_tarifaire`, `famille_melange` et dimensions de cartons** (§6.8, §7). Déclencheur : l'existence des tables correspondantes. Les colonnes du modèle Excel sont déjà remplies et conservées dans le fichier, qui fait office de stockage intermédiaire et reste réimportable.
+- **Carte thermique, aide au rangement, modes de saisie par préréglage, mapping inversé, inventaires en parallèle.** Déclencheur commun : un usage réel qui les réclame. Aucun n'a jamais été demandé par un utilisateur ; tous sont nés d'une conversation sur ce qui serait possible.
 
-**Imports en masse.** Avec le stock d'ouverture saisi à la main sur le périmètre du pilote, c'est une fonction de passage à l'échelle et non de démarrage. Elle revient si le pilote s'étend au-delà de REUZEL et des zones A, B et C.
+### Hors périmètre, définitivement
 
-Feuille A4 de QR, scan, export JSON complet, photos.
-
-Rien hors de ces listes n'entre avant le 18 octobre, y compris si ça paraît utile.
+Feuille A4 de codes QR et scan, export JSON complet, photos de produits, préparation de commande, réapprovisionnement automatique, seuils et alertes, optimisation de route de picking, étiquettes transporteur, multi-utilisateur simultané, RFID, facturation.
 
 ## 13. Déploiement — GitHub Pages
 
@@ -1216,18 +1168,18 @@ L'app s'appelle **どこどこ**. Dépôt public `dokodoko` — le nom du dépô
 
 ## 14. Dettes assumées
 
-Écarts connus entre cette spec et le code, acceptés en l'état pour la durée du pilote. Ce sont des décisions, pas des oublis : elles n'entrent dans une liste de livraison que si quelqu'un les y met explicitement.
+Écarts connus entre cette spec et le code, acceptés en l'état. Ce sont des décisions, pas des oublis : elles n'entrent dans une liste de livraison que si quelqu'un les y met explicitement.
 
-- **`annule_mouvement_id` jamais posé.** `annulation` reste un motif choisi à la main, sans écran d'historique depuis lequel annuler un mouvement précis. Conséquence : les paires annulation/annulé ne sont pas reconstituables automatiquement, et les statistiques de fin de pilote comptent les annulations comme des mouvements ordinaires. Atténué par le commentaire obligatoire (§4). Se referme le jour où un écran d'historique des mouvements existe — qui n'est pas au programme.
+- **`annule_mouvement_id` jamais posé.** `annulation` reste un motif choisi à la main, sans écran d'historique depuis lequel annuler un mouvement précis. Conséquence : les paires annulation/annulé ne sont pas reconstituables automatiquement, et les statistiques d'activité comptent les annulations comme des mouvements ordinaires. Atténué par le commentaire obligatoire (§4). Se referme le jour où un écran d'historique des mouvements existe — qui n'est pas au programme.
 - **Helpers de format relatif non utilisés.** À supprimer, pas à câbler (§6.7).
 - **Suivi de l'historique casier par casier entre inventaires** : hors périmètre (§6.5).
 
-- **`comptages.inventaire_id` nullable.** Un comptage orphelin est invisible de tous les inventaires, donc ses lignes ne comptent dans aucun écart. Coût : un trou silencieux dans le calcul de l'indicateur du pilote. Se referme à la migration du chantier de clôture (§6.5).
+- **`comptages.inventaire_id` nullable.** Un comptage orphelin est invisible de tous les inventaires, donc ses lignes ne comptent dans aucun écart. Coût : un trou silencieux dans le calcul des écarts. Se referme à la migration du chantier de clôture (§6.5).
 - **Pas de contrainte d'unicité sur `(inventaire_id, emplacement_code)`.** Coût : deux comptages possibles pour un même casier, lignes réparties entre les deux, écart faux. Vérifié le 17 septembre : aucun doublon en base à ce jour. Conséquence découverte le 19 septembre, qui en relève la portée — la déduplication de la feuille 棚卸確認表 s'appuie sur « un comptage = un casier » pour que sa clé effective soit bien (casier, référence, conditionnement). Ce postulat est aujourd'hui tenu par la discipline, pas par une contrainte : deux comptages sur un même casier produiraient des lignes en double sur un document destiné à être signé. Correction à la migration du chantier de clôture.
 - **Ordre des lignes de comptage dépendant de l'horloge du téléphone** (§3). Coût : sur un appareil à la mauvaise date, une correction peut être datée avant l'original et le *latest-wins* retenir la mauvaise valeur. Atténué par l'avertissement de dérive au démarrage. Se referme avec le compteur monotone par appareil, à la migration du chantier de clôture.
 - **Création de casier hors file** (§3). Coût : un inventaire neuf est impossible hors réseau, puisque tous ses casiers sont neufs. Acceptable uniquement si la couverture en allée est vérifiée bonne. Correctif sans DDL disponible si elle ne l'est pas : identifiant de casier déterministe.
 - **« Supprimer » est un vrai `DELETE` dans un journal en dernière-valeur-gagne.** C'est un générateur de bugs : toute suppression doit raisonner sur l'ensemble des lignes d'un couple casier × référence × conditionnement, pas sur la dernière. Coût : chaque nouvel appelant peut réintroduire le défaut. La réponse structurelle est une **ligne d'absence** — un marqueur, comme l'annulation dans `mouvements` — plutôt qu'une suppression de lignes ; elle rendrait aussi sans objet la question de la policy `DELETE` (§3). Candidate pour la migration du chantier de clôture, qui restructure déjà cette table. Pas avant.
-- **« Ajouter » calcule à partir de l'état local, pas du serveur.** Juste tant qu'un seul appareil écrit — l'état local intègre alors la file hors ligne, ce que le serveur ne fait pas — et faux le jour où un deuxième compteur travaille en parallèle : chacun ajouterait à sa propre vue et la dernière écriture écraserait l'autre. Coût aujourd'hui : nul, le pilote est mono-appareil. Ce qui le referme : l'addition faite côté serveur, c'est-à-dire la même fonction Postgres que la ligne suivante — le jour où elle existe, « ajouter » devient un incrément atomique et la question ne se pose plus. À traiter le jour où un deuxième appareil entre dans le périmètre, pas avant, et à traiter **ce jour-là sans faute** : c'est une perte de comptage silencieuse, pas une gêne.
+- **« Ajouter » calcule à partir de l'état local, pas du serveur.** Juste tant qu'un seul appareil écrit — l'état local intègre alors la file hors ligne, ce que le serveur ne fait pas — et faux le jour où un deuxième compteur travaille en parallèle : chacun ajouterait à sa propre vue et la dernière écriture écraserait l'autre. Coût aujourd'hui : nul, un seul appareil écrit. Ce qui le referme : l'addition faite côté serveur, c'est-à-dire la même fonction Postgres que la ligne suivante — le jour où elle existe, « ajouter » devient un incrément atomique et la question ne se pose plus. À traiter le jour où un deuxième appareil entre dans le périmètre, pas avant, et à traiter **ce jour-là sans faute** : c'est une perte de comptage silencieuse, pas une gêne.
 - **Message d'erreur d'enregistrement affiché derrière le fond assombri.** Côté Écarts, si une écriture échoue pendant une confirmation, le message apparaît hors de la fenêtre modale, donc masqué par l'assombrissement. Coût : l'opérateur voit l'échec sans pouvoir le lire, et conclura que rien ne s'est passé. Signalé le 24 septembre, non traité pour ne pas élargir un correctif de veille de comptage. À reprendre avec la factorisation du point 4 ter, qui touche déjà ce bloc.
 - **Le déplacement d'une saisie n'est pas atomique.** Il écrit au casier cible puis retire l'originale, en deux requêtes : entre les deux, une coupure laisse la saisie en double. Le code nomme cet état dans son message d'erreur et déconseille de relancer, ce qui évite le doublement en cascade mais laisse le doublon. Coût : rare, visible à la comparaison au physique, réparable à la main. La réponse structurelle est une fonction Postgres appelée en `rpc()`, qui fait les deux écritures dans une transaction et supprime la classe d'erreur entière ; elle demande un `create function` passé à la main dans le SQL Editor, comme les trois policies `DELETE`. À grouper avec la migration du chantier de clôture, qui impose déjà un passage manuel — pas un aller-retour pour elle seule.
 - **Le rafraîchissement du cache n'est pas attendu par les écrans.** Un écran ouvert juste avant la fin du rafraîchissement rend sur des données périmées quelques instants. Coût : faible, mais trompeur — un ordre de tournée périmé sera imputé à la logique de tri, qui sera innocente. À traiter après le 18, en distinguant bien ce cas du tri lui-même.
@@ -1243,7 +1195,7 @@ Toute dette ajoutée ici doit dire ce qu'elle coûte, pas seulement ce qui manqu
 ```
 docs/
   spec.md                      ← invariants + index, toujours chargé
-  spec/01-cadre.md             ← pilote, périmètre, indicateur
+  spec/01-cadre.md             ← destination, périmètre, interdictions
   spec/02-architecture.md      ← hébergement, sécurité, file hors ligne
   spec/03-modele.md            ← schéma, unités, conditionnements, motifs
   spec/04-ecrans.md            ← accueil, recherche, mouvement, inventaire, réglages, langue
