@@ -1,12 +1,14 @@
-# どこどこ — Spec v2 : suivi de stock en entrepôt
+# どこどこ — Spec : suivi de stock en entrepôt
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 3.0 — 5 octobre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 3.1 — 5 octobre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
 > Une fonctionnalité absente d'ici ne s'implémente pas : elle se propose, elle s'inscrit ici, puis elle s'implémente. Un écart assumé se répercute dans ce fichier **au même commit**, avec sa raison en une phrase. En cas de contradiction entre ce document et une instruction donnée en session, le signaler et demander l'arbitrage plutôt que de trancher seul.
 
 Remplace la spec v1 (cartographie seule). Ce qui en est repris est signalé.
+
+**3.1 — nettoyage des traces du pilote.** La 3.0 a changé le cadre sans relire tout le document : cinq passages gardaient le vocabulaire du monde disparu — titre, phases datées, comptage du vendredi, section sans numéro. Relevés par Claude Code, corrigés ici. Le vocabulaire des phases est remplacé partout par la seule distinction qui survit au cadre : **une base détient du stock, ou elle n'en détient pas.** Elle ne dépend d'aucune date et vaudra pour n'importe quel client.
 
 ## 1. Ce que le projet est devenu
 
@@ -432,7 +434,9 @@ Ces flèches sont le retour, à leur bonne place, de la navigation prévue par l
 - Vingt dernières lignes affichées, le reste derrière un lien. Sur un écran de téléphone, une liste sans plafond devient un mur.
 - **« Modifier » remonte au formulaire de saisie, prérempli.** C'est là qu'on saisit, c'est donc là qu'on corrige : ouvrir un second champ de saisie sous la ligne créerait une deuxième surface d'édition sur le même écran, et l'utilisateur ne saurait plus laquelle fait foi. Le formulaire passe en **mode modification**, visiblement — il dit quelle ligne il modifie et offre une sortie sans écrire.
 - **En mode modification, la question de collision ne disparaît pas : elle change de cible.** Une collision **avec soi-même** — le triplet ne change pas — n'est pas une collision, c'est l'objet de l'opération ; la poser transformerait chaque correction en un choix piège dont une branche crée le doublon qu'on venait corriger. Mais une modification qui atterrit sur un triplet **déjà occupé par une autre ligne** est précisément le cas pour lequel la question a été écrite : deux comptages distincts se retrouvent au même endroit et rien ne dit lequel fait foi. Écraser sans demander perd un comptage réel, sans trace et sans bruit — le défaut le plus coûteux du module, puisqu'il ne se découvre qu'à la comparaison finale, quand il est trop tard pour retourner au casier. La question est donc posée **à la destination, avant écriture** : « déjà saisi à A-03-1, 6 cartons — remplacer ou ajouter ? ». Les deux branches sont explicites ; aucune ne perd de donnée que l'utilisateur n'ait choisi de perdre.
-- **Un déplacement qui entre en collision ne pose qu'une seule question.** Le récapitulatif de déplacement et la question de collision portent sur la même décision et se présentent ensemble, jamais l'un après l'autre : « Déplacer REU003 de A-02-1 vers A-03-1 ? Déjà saisi à A-03-1 : 6 cartons » avec trois issues — Ajouter (10), Remplacer (4), Annuler. Les totaux sont calculés et affichés ; on ne fait pas d'arithmétique debout dans une allée. Deux dialogues d'affilée feraient confirmer un déplacement avant d'en connaître la conséquence, et chaîneraient deux gestes là où il n'y a qu'un choix à faire.
+- **Un déplacement qui entre en collision ne pose qu'une seule question.** Le récapitulatif de déplacement et la question de collision portent sur la même décision et se présentent ensemble, jamais l'un après l'autre : « Déplacer REU003 de A-02-1 vers A-03-1 ? Déjà saisi à A-03-1 : 6 cartons » avec trois issues — **Remplacer (4), Ajouter (10)**, Annuler. Les totaux sont calculés et affichés ; on ne fait pas d'arithmétique debout dans une allée.
+
+  **L'ordre des deux boutons est fixé : Remplacer avant Ajouter, partout.** Arbitrage de Claude Code en session le 5 octobre, ratifié ici. C'est l'ordre historique de la fenêtre de doublon de la marche ; le conserver dans la fenêtre fusionnée préserve le geste réflexe sur le cas le plus fréquent, qui est le recomptage d'un casier déjà visité — là, « Remplacer » est presque toujours la réponse. Ce qui compte n'est pas lequel des deux vient en premier, c'est qu'il n'y en ait **qu'un seul ordre dans toute l'app** : un bouton qui change de place selon l'écran transforme un geste appris en pari, et le prix d'une erreur ici est un comptage faux qui ne se signale pas. L'ordre ne se renégocie donc plus écran par écran ; il se change, s'il doit l'être, partout en même temps. Deux dialogues d'affilée feraient confirmer un déplacement avant d'en connaître la conséquence, et chaîneraient deux gestes là où il n'y a qu'un choix à faire.
 - **Une écriture ne pose qu'une question.** Quel que soit le nombre de conditions qu'une saisie déclenche — réactivation d'une inactive, collision avec une ligne existante, extension de périmètre — l'opérateur répond **une fois**, dans une fenêtre unique qui les nomme toutes. Règle dégagée le 30 septembre, après l'avoir rencontrée deux fois : d'abord sur le déplacement en collision (§6.5), puis sur une réactivation suivie d'une question de doublon. La troisième occurrence n'aura pas lieu.
 
 Deux fenêtres à la suite ont trois défauts, dans cet ordre de gravité : elles font confirmer la première décision avant d'en connaître la conséquence ; elles découpent en deux gestes ce qui est un seul choix ; et elles installent le réflexe de valider sans lire, qui finira par emporter une fenêtre qui, elle, comptait.
@@ -463,7 +467,7 @@ Les deux autres composantes suivent la même règle au même casier. Corriger la
 
 Confirmation simple avec récapitulatif — « Déplacer REU003 de A-02-1 vers A-03-1 ? » — et non double appui : rien n'est détruit, le contenu est relocalisé. Le casier cible se valide comme à la saisie ; il n'a pas à appartenir au périmètre, qui ne porte que sur les références.
 
-**Le correctif ne vaut que pour l'avenir.** Une correction de référence faite avant le 23 septembre a laissé une ligne fantôme en base, et rien ne la distingue en SQL d'une référence légitimement comptée à ce casier : deux références au même endroit sont le cas normal. Il n'y a donc pas de requête de détection à écrire. Le seul contrôle est la comparaison au physique, qui est précisément ce que fait le comptage du vendredi.
+**Le correctif ne vaut que pour l'avenir.** Une correction de référence faite avant le 23 septembre a laissé une ligne fantôme en base, et rien ne la distingue en SQL d'une référence légitimement comptée à ce casier : deux références au même endroit sont le cas normal. Il n'y a donc pas de requête de détection à écrire. Le seul contrôle est la comparaison au physique, qui est précisément ce que fait un inventaire.
 
 #### Deux confirmations au lancement d'un inventaire
 
@@ -495,11 +499,11 @@ Dans les deux cas, le retour au choix laisse l'écran en l'état, sans rien effa
 
 #### Inventaire partiel — le périmètre doit se voir pendant le comptage
 
-Défaut constaté le 19 septembre sur un inventaire à périmètre `references` : toutes les références apparaissent dans les suggestions, rien ne rappelle celles à compter, et une référence hors périmètre a pu être saisie. C'est le cas d'usage de chaque vendredi — le comptage hebdomadaire porte sur les références sorties dans la semaine.
+Défaut constaté le 19 septembre sur un inventaire à périmètre `references` : toutes les références apparaissent dans les suggestions, rien ne rappelle celles à compter, et une référence hors périmètre a pu être saisie. C'est le cas d'usage de tout comptage partiel : un inventaire ciblé sur quelques références, mené dans une allée qui en contient bien d'autres.
 
 **La question de réactivation ne se déclenche que si la saisie donne du stock.** **Et elle valide la saisie en même temps que la réactivation.** Défaut constaté le 30 septembre : après avoir confirmé, l'opérateur devait ré-enregistrer sa ligne. Une confirmation qui ne conclut pas l'action qu'elle confirme n'est pas une confirmation, c'est un obstacle — et chaque geste ajouté dans une allée est un geste qu'on finit par sauter. **Et elle appartient à l'écriture, pas à l'écran.** Défaut relevé le 30 septembre : l'écran des écarts écrit une quantité sans aucun contrôle sur `actif`, si bien qu'une ligne posée à zéro pendant la marche, puis portée à cinq cartons depuis les écarts, donne du stock à une inactive **sans qu'aucune question ne se pose** — et un inventaire par client la laissera ensuite de côté. Même classe de défaut que les deux implémentations du déplacement corrigées le 29 : une règle tenue sur un écran et pas sur l'autre.
 
-La correction n'est donc pas d'ajouter un contrôle dans le second écran, ce qui ouvrirait la porte au troisième : **la détection appartient à la fonction d'écriture partagée**, la fenêtre reste le composant commun déjà en place. Sans objet en phase 1, où aucun inventaire n'écrit de stock et où tous se terminent par un abandon ; **à traiter avant l'amorçage**, où ça deviendrait une perte silencieuse. Une saisie à zéro — « vérifié, vide » — confirme l'invariant au lieu de le contredire : elle ne doit donc rien réactiver. Sans cette réserve, vérifier qu'une référence est vide la remettrait en circulation — et l'inventaire ne pourrait plus jamais confirmer une absence. Constaté le 30 septembre.
+La correction n'est donc pas d'ajouter un contrôle dans le second écran, ce qui ouvrirait la porte au troisième : **la détection appartient à la fonction d'écriture partagée**, la fenêtre reste le composant commun déjà en place. Fait le 5 octobre : `writeSaisie` est le seul point d'écriture des deux écrans et refuse de donner du stock à une inactive sans réactivation confirmée. Tant qu'une base ne détient pas de stock, le défaut ne coûtait rien — tous les inventaires s'y terminaient par un abandon. Il fallait néanmoins le fermer avant qu'elle en détienne, où il devenait une perte silencieuse. Une saisie à zéro — « vérifié, vide » — confirme l'invariant au lieu de le contredire : elle ne doit donc rien réactiver. Sans cette réserve, vérifier qu'une référence est vide la remettrait en circulation — et l'inventaire ne pourrait plus jamais confirmer une absence. Constaté le 30 septembre.
 
 **Une référence inactive tapée en entier est acceptée, avec une question.** Le champ libre de la marche ne la refuse pas : si l'opérateur a des cartons devant lui, c'est un fait physique, et le module n'a jamais le droit de refuser un fait physique (§4). Une référence marquée inactive porte en principe un stock nul — en trouver signifie donc soit que la désactivation était fautive, soit qu'un mouvement a échappé au système. Les deux sont des informations, pas des erreurs, et les taire les détruirait. La saisie déclenche donc la **même forme de question que la référence hors périmètre** : nommer l'état, demander confirmation, et proposer la réactivation dans le même geste. Pas un second mécanisme : le même.
 
@@ -543,7 +547,7 @@ Règle : **toute tentative de saisie qui trouve le périmètre non chargé tente
 
 Leçon de méthode, valable au-delà de ce cas : tester qu'une garde se ferme ne suffit pas ; il faut tester qu'elle se rouvre. La première moitié du test aurait laissé passer ce défaut.
 
-**Étendre le périmètre engage à compter la référence partout — à dire en phase 2.** En phase 1 le théorique est nul et l'extension n'a aucun effet de bord. En phase 2, ajouter une référence au périmètre rend attendus **tous** ses emplacements théoriques : ceux qui ne seront pas visités apparaîtront en écart. C'est le comportement juste, mais une extension faite au passage, pour une référence aperçue par hasard dans un casier, produirait des écarts déroutants. La question devra alors le dire : « Ses autres emplacements deviendront attendus. »
+**Étendre le périmètre engage à compter la référence partout — à dire dès que la base détient du stock.** Sur une base sans stock le théorique est nul et l'extension n'a aucun effet de bord. Dès qu'il y a du stock, ajouter une référence au périmètre rend attendus **tous** ses emplacements théoriques : ceux qui ne seront pas visités apparaîtront en écart. C'est le comportement juste, mais une extension faite au passage, pour une référence aperçue par hasard dans un casier, produirait des écarts déroutants. La question devra alors le dire : « Ses autres emplacements deviendront attendus. »
 
 #### Les références jamais comptées, à la lecture des écarts
 
@@ -633,17 +637,17 @@ Le périmètre se dérive de `inventaires.scope_kind` et alimente le champ 対�
 
 Ainsi disparaît aussi la redondance de « 対象：全体棚卸 », où le mot 棚卸 apparaissait deux fois.
 
-**Deux dates, et elles ne disent pas la même chose.** **棚卸実施日** — la date de la **première saisie**, une seule date, jamais un intervalle. **基準日時** — le `frozen_ts` du lancement, contre lequel le théorique est calculé : c'est elle qui rend l'écart interprétable. Afficher l'une sans l'autre laisse un document ambigu dès la phase 2.
+**Deux dates, et elles ne disent pas la même chose.** **棚卸実施日** — la date de la **première saisie**, une seule date, jamais un intervalle. **基準日時** — le `frozen_ts` du lancement, contre lequel le théorique est calculé : c'est elle qui rend l'écart interprétable. Afficher l'une sans l'autre laisse un document ambigu dès que le théorique n'est plus nul.
 
 L'intervalle première/dernière était une addition de ma part, et c'est elle qui créait le défaut signalé le 19 septembre : une correction passée depuis l'écran des écarts quatre jours plus tard étirait la plage, et la feuille annonçait un comptage étalé sur quatre jours là où il y avait eu un après-midi plus une retouche. Une correction n'est pas du comptage. Le retour à une date unique supprime le défaut **sans aucune requête supplémentaire** — c'est le minimum des horodatages déjà en main, et les lignes non corrigées gardent celui du comptage.
 
 **Les glyphes japonais s'impriment correctement** — vérifié sur le PDF du 19 septembre. Les blancs observés venaient du lecteur qui l'a ouvert, pas du document. Point clos, à ne pas rouvrir.
 
-**Un seul format de document, celui de la phase 2, construit dès maintenant.** Les colonnes 理論在庫 et 差異 restent même quand le théorique est nul : les lecteurs de la feuille savent que l'app est en développement et lisent le total compté. Construire une variante de phase 1 reviendrait à la jeter au moment de l'amorçage, et à refaire la mise en page au pire moment — quand le stock réel arrive. Le document est donc prêt pour le jour J.
+**Un seul format de document, celui d'une base qui détient du stock, construit dès maintenant.** Les colonnes 理論在庫 et 差異 restent même quand le théorique est nul : le lecteur de la feuille sait que l'app n'a pas encore de stock et lit le total compté. Construire une variante pour ce cas-là reviendrait à la jeter au premier stock d'ouverture, et à refaire la mise en page au pire moment — quand le stock réel arrive.
 
-**Une addition d'une ligne qui lève l'ambiguïté sans variante.** La feuille totalise **合計数量** — la quantité comptée — *et* **差異合計** — le total des écarts, côte à côte. Aujourd'hui la première vaut 58 151 et la seconde autant, ce qui se lit correctement au lieu d'annoncer une disparition massive. En phase 2 les deux divergent et disent chacune quelque chose. Le total compté figure de toute façon sur un 棚卸 japonais : ce n'est pas une béquille de phase 1.
+**Une addition d'une ligne qui lève l'ambiguïté sans variante.** La feuille totalise **合計数量** — la quantité comptée — *et* **差異合計** — le total des écarts, côte à côte. Aujourd'hui la première vaut 58 151 et la seconde autant, ce qui se lit correctement au lieu d'annoncer une disparition massive. Avec du stock théorique les deux divergent et disent chacune quelque chose. Le total compté figure de toute façon sur un 棚卸 japonais : ce n'est pas une béquille provisoire.
 
-La mention **進行中 ― 未確定** reste tant que la clôture n'existe pas : elle décrit le statut de l'inventaire, pas le format du document, et elle servira aussi en phase 2 pour un inventaire imprimé avant sa clôture.
+La mention **進行中 ― 未確定** reste tant que la clôture n'existe pas : elle décrit le statut de l'inventaire, pas le format du document, et elle servira encore, une fois la clôture écrite, pour un inventaire imprimé avant d'être clos.
 
 **Mise en page.** Fond blanc et texte noir imposés en `@media print` — le fond gris de l'écran ne doit pas partir à l'impression. Corps de table à 9 ou 10 pt. `break-inside: avoid` sur chaque ligne, une ligne coupée entre deux pages étant illisible. `thead` en `display: table-header-group` pour que les en-têtes de colonnes se répètent sur chaque page : sur l'essai, la deuxième page n'est qu'une suite de nombres sans titre. Code article et désignation en **deux colonnes distinctes**, la première étroite pour que les codes s'alignent.
 
@@ -674,7 +678,7 @@ Second document, après un saut de page : **le relevé complet du comptage**, un
 
 **Une réserve à connaître, puisqu'elle porte sur ce que le document prouve.** Les quantités y étant imprimées, celui qui contrôle voit la réponse avant de compter — c'est un dispositif de **vérification**, rapide et utile pour un contrôle par sondage ou pour une signature, mais pas un recomptage indépendant. Un vrai recomptage demanderait la même feuille avec les quantités laissées vides. C'est la même distinction qu'entre compter à l'aveugle et compter vers une cible (§6.5). La variante à colonnes vides est le même document moins trois colonnes : à offrir en option le jour où le besoin d'un second comptage réellement indépendant se présente.
 
-**Le repli « ouvrir dans Safari » n'est pas gratuit.** Une PWA installée sur l'écran d'accueil et Safari ont des stockages séparés : la session Supabase ne suit pas, et imprimer depuis Safari impose de se reconnecter par code e-mail à chaque fois. Si `window.print()` ne fonctionne pas en mode autonome, ce n'est donc pas une solution de repli acceptable au quotidien. La bonne réponse serait alors de ne rien bricoler en phase 1 — la sortie CSV couvre le besoin de chiffres — et de traiter l'impression avec l'export `.xlsx` de phase 2, plutôt que d'ajouter une dépendance de génération PDF pour combler un mois.
+**Le repli « ouvrir dans Safari » n'est pas gratuit.** Une PWA installée sur l'écran d'accueil et Safari ont des stockages séparés : la session Supabase ne suit pas, et imprimer depuis Safari impose de se reconnecter par code e-mail à chaque fois. Si `window.print()` ne fonctionne pas en mode autonome, ce n'est donc pas une solution de repli acceptable au quotidien. La bonne réponse serait alors de ne rien bricoler — la sortie CSV couvre le besoin de chiffres — et de traiter l'impression avec l'export `.xlsx` du §9, plutôt que d'ajouter une dépendance de génération PDF pour contourner le problème.
 
 **Un inventaire en cours est imprimable aussi**, révision du 18 septembre : le besoin de justifier un comptage auprès de collègues n'attend pas la clôture, qui n'existe pas encore. La feuille porte alors une mention **« en cours, non clôturé »** en tête, non dissimulable — un document d'inventaire sans son statut se met à circuler comme s'il était définitif.
 
@@ -721,6 +725,7 @@ Manque révélé le 18 septembre : les Réglages sont un entonnoir en écriture 
 
 - Une référence inactive disparaît des sélecteurs de saisie — mouvement, comptage — mais reste visible dans la Recherche (signalée comme telle), dans l'historique et dans les exports. Rien n'est jamais supprimé.
 - **Pendant un inventaire, c'est le périmètre qui gouverne, pas le drapeau.** Une référence du périmètre est suggérée, quel que soit son état ; une référence hors périmètre suit les règles du §6.5. Le drapeau reprend la main partout où il n'y a pas de périmètre — l'écran Mouvement, au premier chef. Formulation corrigée le 30 septembre : dire que le filtre ne s'applique « nulle part ailleurs » était trop absolu, et produisait une incohérence visible — le rappel demandait de compter une référence que le champ de saisie refusait de suggérer, obligeant à taper le code entier. Deux surfaces d'un même écran doivent répondre à la même question ; ici, cette question est « est-ce dans le périmètre ? ».
+- **Les suggestions, c'est le périmètre et rien d'autre — quel que soit le genre de périmètre.** Point laissé en blanc par la 3.0 et relevé par Claude Code le 5 octobre : sur un inventaire par client, le champ suggérait le périmètre *plus* les références actives hors périmètre, par héritage de l'état antérieur. Tranché contre cet existant, par cohérence avec la règle du dessus — si « c'est le périmètre qui gouverne » souffre une exception selon le genre de périmètre, ce n'est plus une règle, c'est un usage, et le lecteur suivant ne saura pas lequel des deux croire. Une liste de suggestions qui déborde du périmètre cesse par ailleurs de dire à l'opérateur ce qui appartient à cet inventaire : c'est en plus petit le défaut du 19 septembre. Rien n'est perdu, parce que le code tapé en entier reste accepté avec sa question d'extension (§6.5) — c'est précisément ce que cette porte est là pour couvrir. Sur un périmètre `tout` la règle est sans effet : tout y est déjà.
 - Réactivable à tout moment.
 - **L'état inactif se voit au moment où l'on compose le périmètre.** Dans le choix référence par référence, une inactive porte la même mention « · Inactif » que partout ailleurs. C'est le plus tôt qu'un avertissement puisse arriver — avant le comptage, pas pendant — et ça prépare la fenêtre informative du lancement, qui redira la même chose au moment de partir en tournée.
 - **Le Catalogue affiche les références inactives par défaut, grisées**, avec une case à cocher pour les masquer. L'inverse recréerait en miniature le défaut qui a justifié cet écran : les Réglages étaient un entonnoir en écriture seule où l'on ne retrouvait jamais rien. Le drapeau `actif` nettoie les **sélecteurs de saisie**, pas la surface de lecture. Le grisé est ici légitime là où il ne l'était pas dans le rappel des références à compter : il encode un **état stocké**, `actif = false`, et non une complétude inférée. Griser sur un fait est juste ; griser sur une déduction — « déjà comptée, donc finie » — ment.
@@ -761,7 +766,7 @@ Un seul classeur, produit par la même session que l'analyseur qui le lit — si
 - **Lisez-moi** : légende des couleurs, et le rappel que le fichier reste la source et doit être conservé.
 - **Clients** : `client_code`, `nom`.
 - **Références** : une ligne par couple référence × conditionnement — deux lignes pour une référence qui en a deux. C'est le contresens le plus probable, à écrire dans le fichier.
-- **Stock d'ouverture** : sert de feuille de comptage du vendredi matin.
+- **Stock d'ouverture** : sert de feuille de comptage sur le terrain.
 - **Tarifs** : `code_tarifaire`, `libelle`, `valeur`, `devise`, `unite` (pièce ou carton), `nature` (prix de vente du client, ou prestation facturée par l'entrepôt), `valide_a_partir_de`. **Aucune valeur sans son unité ni sa nature** : un montant seul est inexploitable, et c'est exactement ce qui rendrait la carte thermique impossible à interpréter.
 - Pas de feuille Emplacements : le générateur les crée.
 
@@ -827,27 +832,23 @@ Quatre feuilles :
 
 Supabase assure la durabilité, donc l'export n'est plus la seule barrière contre la perte. Il reste nécessaire pour deux raisons : travailler les données sur le PC, et disposer d'une copie hors de Supabase.
 
-## 10. Hors périmètre v2
-
-Le **client** est entré dans le périmètre depuis, mais au sens strict d'un rattachement sur la référence, servant à filtrer un périmètre d'inventaire et une recherche. Pas de séparation multi-locataire, pas de facturation, pas de policies RLS par client.
-
-## Sauvegarde et sécurisation des données
+### Sauvegarde et sécurisation des données
 
 Les données sont fictives depuis le 5 octobre (§2), donc leur perte ne coûte plus rien de réel. Ce qui suit reste pourtant en vigueur, pour deux raisons : un dispositif de sauvegarde qu'on démonte parce que les données ne valent rien ne sera pas là le jour où elles vaudront quelque chose ; et **un produit qui ne sait pas dire comment on sauvegarde ses données ne se vend pas**. Cette section est devenue une pièce du produit, pas une précaution d'exploitation.
 
-### Ce qui existe
+#### Ce qui existe
 
 - **Plan gratuit Supabase : aucune sauvegarde automatique.** La documentation recommande explicitement des exports réguliers et des copies hors site.
 - **Pro (25 $/mois)** : sept jours de sauvegardes quotidiennes. La restauration à la seconde près (PITR) reste une option payante en plus.
 - **Mise en pause** : un projet gratuit est suspendu après environ sept jours sans activité. Les données restent intactes et le projet se relance depuis le tableau de bord. Sans gravité pour une base de démonstration ; à connaître avant de montrer l'app à quelqu'un sur une base endormie.
 
-### Le dispositif en place
+#### Le dispositif en place
 
 Un `pg_dump` hebdomadaire lancé par un minuteur systemd sur un Raspberry Pi allumé en permanence, vers `~/backups/supabase/`, avec rétention des huit derniers. Procédure complète, critère de réussite et essai de restauration dans `docs/sauvegarde.md`.
 
 Trois limites sont connues et inscrites dans ce document : une seule copie, sur la carte SD du Pi ; aucune alerte en cas d'échec ; et un dump non restreint au schéma `public`, qui emporte les schémas internes de Supabase et complique une restauration vers un projet neuf.
 
-### Les règles qui ne dépendent d'aucun cadre
+#### Les règles qui ne dépendent d'aucun cadre
 
 **Une sauvegarde qu'on n'a jamais restaurée n'est pas une sauvegarde, c'est un fichier.** La restauration s'essaie pour de vrai, et le critère de réussite est la concordance des comptes de lignes avec la base d'origine — pas l'absence d'erreurs pendant la restauration, qui en produit toujours.
 
@@ -860,6 +861,10 @@ Trois limites sont connues et inscrites dans ce document : une seule copie, sur 
 > **Le dépôt est public.** Ni dump ni export de données n'y entrent, et les artefacts GitHub Actions d'un dépôt public sont lisibles par quiconque peut lire le dépôt. Toute automatisation qui y déposerait un fichier reviendrait à le publier. La vraie protection n'est pas le `.gitignore`, c'est que le dossier des sauvegardes vit ailleurs.
 
 **Une sauvegarde ne protège pas d'une erreur de logique** : un stock faux sauvegardé reste faux. C'est l'inventaire qui couvre ce risque, et les deux dispositifs ne se remplacent pas.
+
+## 10. Hors périmètre
+
+Le **client** est entré dans le périmètre depuis, mais au sens strict d'un rattachement sur la référence, servant à filtrer un périmètre d'inventaire et une recherche. Pas de séparation multi-locataire, pas de facturation, pas de policies RLS par client.
 
 ### Plus tard — modes de saisie
 
@@ -891,9 +896,9 @@ C'est aussi dans ce mode que vivrait un jour la règle de tri de la liste de pr�
 
 ### Plus tard — périmètre d'inventaire dérivé des mouvements
 
-Le comptage hebdomadaire porte sur « les références sorties dans la semaine ». Aujourd'hui, cette liste se sélectionne à la main chaque vendredi. Une fois les mouvements enregistrés, elle se calcule : **périmètre = les références ayant eu un mouvement depuis telle date**, ou depuis le dernier inventaire clos.
+Un comptage récurrent porte en pratique sur « les références qui ont bougé depuis le dernier ». Aujourd'hui cette liste se sélectionne à la main, référence par référence. Une fois les mouvements enregistrés, elle se calcule : **périmètre = les références ayant eu un mouvement depuis telle date**, ou depuis le dernier inventaire clos.
 
-Extension naturelle du sélecteur de périmètre existant, qui supprime la tâche la plus répétitive du rituel hebdomadaire. À ne construire qu'une fois les mouvements réellement enregistrés — donc après l'amorçage, et pas avant d'avoir vu quelques vendredis se dérouler.
+Extension naturelle du sélecteur de périmètre existant, qui supprime la tâche la plus répétitive d'un comptage récurrent. À ne construire qu'une fois les mouvements réellement enregistrés — donc sur une base qui détient du stock, et pas avant d'avoir vu le rythme réel des comptages.
 
 ### Plus tard — inventaires en parallèle
 
@@ -1199,9 +1204,9 @@ docs/
   spec/02-architecture.md      ← hébergement, sécurité, file hors ligne
   spec/03-modele.md            ← schéma, unités, conditionnements, motifs
   spec/04-ecrans.md            ← accueil, recherche, mouvement, inventaire, réglages, langue
-  spec/05-imports-exports.md
+  spec/05-imports-exports.md   ← imports, exports, sauvegarde
   spec/06-emplacements.md      ← codes, tri, saisie abrégée, feuille A4
-  spec/07-livraison.md         ← calendrier, hors périmètre, dettes assumées
+  spec/07-livraison.md         ← ordre de livraison, hors périmètre, dettes assumées
 ```
 
 `docs/spec.md` ne garde que ce qui s'applique à **toutes** les sessions : la règle d'autorité, les invariants de modèle, la liste de priorités en cours, et la carte indiquant quel module couvre quoi. Une page, pas plus.
