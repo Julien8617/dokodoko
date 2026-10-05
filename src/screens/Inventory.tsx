@@ -1063,7 +1063,7 @@ function Walk({
     ? matchReferences(scopeChecklistQuery, checklistReferences ?? [])
     : (checklistReferences ?? [])
 
-  // matchReferences (db.ts) : code ("65"/"265"/"VRN26" trouvent "VRN265",
+  // matchReferences (db.ts) : code ("6"/"06"/"KLS00" trouvent tous "KLS006",
   // pas seulement au clavier chiffres) ET libellé par jetons normalisés
   // (§6.2, spec 2.20) — même recherche que Recherche et Mouvement.
   const referenceSuggestions = matchReferences(refCode, suggestableReferences)

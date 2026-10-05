@@ -7,7 +7,7 @@ build.
 
 ## 0.9.53 — 2026-10-06
 
-- Dernier code réel retiré des fichiers vivants du dépôt (jeu de démonstration, spec §9) : l'exemple du champ référence affiche maintenant VRN001 plutôt que l'ancien code du pilote
+- Dernier code réel retiré des fichiers vivants du dépôt (docs/jeu-de-demonstration.md §9) : l'exemple du champ référence affiche maintenant VRN001
 
 ## 0.9.52 — 2026-10-05
 
@@ -230,7 +230,7 @@ build.
 ## 0.9.10 — 2026-09-16
 
 - Recherche par nom d’article, enfin conforme à la spec : taper « 70 matelas » retrouve « Matelas bébé 70×140 » quel que soit l’ordre des mots, les accents ou la casse — utile quand la facture ne porte pas la référence
-- Cette recherche est désormais la même partout (Recherche, Mouvement, sélection de références pour un inventaire) — un code tapé reste prioritaire sur un nom qui le contiendrait par coïncidence (« 65 » retrouve toujours VRN065 en premier)
+- Cette recherche est désormais la même partout (Recherche, Mouvement, sélection de références pour un inventaire) — un code tapé reste prioritaire sur un nom qui le contiendrait par coïncidence (« 10 » retrouve toujours VRN010 en premier, pas noyé sous « Huile capillaire 100 ml »)
 
 ## 0.9.9 — 2026-09-16
 
@@ -291,7 +291,7 @@ build.
 
 ## 0.6.0 — 2026-09-14
 
-- Inventaire : liste déroulante d’aide à la frappe sur le champ référence — recherche par sous-chaîne (« 65 », « 265 » ou « VRN26 » trouvent tous « VRN265 »), pas besoin de taper le code en entier
+- Inventaire : liste déroulante d’aide à la frappe sur le champ référence — recherche par sous-chaîne (« 6 », « 06 » ou « KLS00 » trouvent tous « KLS006 »), pas besoin de taper le code en entier
 - Astuce : comme la recherche marche avec les chiffres seuls, un seul passage au clavier numérique suffit pour trouver une référence, sans revenir au clavier lettres
 
 ## 0.5.2 — 2026-09-14

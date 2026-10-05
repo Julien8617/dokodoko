@@ -180,14 +180,15 @@ function normalizeSearchText(s: string): string {
 // qu'une version naïve raterait :
 //
 // 1. Correspondance par jetons de la requête, pas par sous-chaîne entière
-//    sur le libellé complet : "matelas bleu" doit retrouver
-//    "Matelas XL bleu" — chaque mot cherché indépendamment, dans
+//    sur le libellé complet : "70 matelas" doit retrouver
+//    "Matelas bébé 70×140" — chaque mot cherché indépendamment, dans
 //    n'importe quel ordre, tous présents (recopié depuis une facture, qui
 //    ne respecte ni l'ordre ni la casse du libellé en base).
 // 2. Normalisation avant comparaison (voir normalizeSearchText).
 // 3. Ordre des résultats : préfixe exact du code, puis code en
-//    sous-chaîne, puis libellé — sans quoi taper "65" noierait VRN065
-//    sous tout article dont le nom contient "65".
+//    sous-chaîne, puis libellé — sans quoi taper "10" noierait VRN010
+//    sous "Huile capillaire 100 ml" (VRN004), dont le libellé contient
+//    aussi "10".
 // 4. L'affichage (code + libellé) reste la responsabilité de l'appelant,
 //    cette fonction ne renvoie que les `Reference` triées.
 export function matchReferences(raw: string, refs: Reference[]): Reference[] {
