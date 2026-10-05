@@ -252,7 +252,7 @@ from (values
   ('vrn006-reception1',        'VRN006', 'C-03-1', 60,  2,  1, 'reception',         35, 0, null,       null),
   ('vrn006-sortie-defaillant', 'VRN006', 'C-03-1', 60,  1, -1, 'produit_defaillant',20, 0, null,       null),
   -- KLS001 (fait 3) : toute la ligne vient de cette unique réception.
-  ('kls001-reception-erreur',  'KLS001', 'C-02-1', 12, 21,  1, 'reception',         21, 0, null,       null),
+  ('kls001-reception-erreur',  'KLS001', 'C-02-1', 12, 12,  1, 'reception',         21, 0, null,       null),
   -- Annulation (§7) : commentaire obligatoire, PAS de annule_mouvement_id
   -- (voir en-tête).
   ('mrv001-sortie-erreur',     'MRV001', 'A-02-1',  1,  5, -1, 'commande_client',   15, 0,  null, null),
@@ -361,7 +361,7 @@ insert into _stock_attendu (ref_code, emplacement_code, pieces_par_carton, carto
   ('MRV006', 'A-04-1',  10,  6),
   ('MRV006', 'A-04-2',  10,  4),
   ('MRV007', 'A-05-1',   6,  8),
-  ('KLS001', 'C-02-1',  12, 21),
+  ('KLS001', 'C-02-1',  12, 12),
   ('KLS002', 'B-05-1',   6, 12),
   ('KLS003', 'B-05-1',   6,  7),
   ('KLS004', 'B-06-1',  24,  8),
@@ -404,9 +404,11 @@ if (select coalesce(sum(quantite_pieces), 0) from mouvements where ref_code = 'V
   raise exception 'Fait 2 (VRN003) : stock en B-03-1 différent de 960 pièces';
 end if;
 
--- Fait 3 — KLS001 : 21 cartons à 12 pièces = 252 pièces en C-02-1.
-if (select coalesce(sum(quantite_pieces), 0) from mouvements where ref_code = 'KLS001' and emplacement_code = 'C-02-1') <> 252 then
-  raise exception 'Fait 3 (KLS001) : stock en C-02-1 différent de 252 pièces';
+-- Fait 3 — KLS001 : la base sous-compte (12 cartons = 144 pièces en
+-- C-02-1), le physique en porte 21 (sur la feuille) — sens inversé le
+-- 6 octobre, voir en-tête.
+if (select coalesce(sum(quantite_pieces), 0) from mouvements where ref_code = 'KLS001' and emplacement_code = 'C-02-1') <> 144 then
+  raise exception 'Fait 3 (KLS001) : stock en C-02-1 différent de 144 pièces';
 end if;
 
 -- Fait 4 — VRN009 : inactive, au moins un mouvement en C-04-2, stock nul là.
@@ -420,14 +422,19 @@ if (select coalesce(sum(quantite_pieces), 0) from mouvements where ref_code = 'V
   raise exception 'Fait 4 (VRN009) : stock en C-04-2 différent de 0';
 end if;
 
--- Fait 5 — KLS006 : 15 cartons à 20 pièces = 300 pièces en B-07-1,
--- rattachée à KALISTE (le périmètre que l'inventaire par références
--- contourne).
-if (select coalesce(sum(quantite_pieces), 0) from mouvements where ref_code = 'KLS006' and emplacement_code = 'B-07-1') <> 300 then
-  raise exception 'Fait 5 (KLS006) : stock en B-07-1 différent de 300 pièces';
+-- Fait 5 — déménagé le 6 octobre de KLS006/B-07-1 vers VRN006/C-03-1 (voir
+-- en-tête) : l'opérateur est déjà en C-03-1 pour VRN005 (scopée), et croise
+-- VRN006 (pas scopée) au même endroit. Pas un écart : base == feuille,
+-- c'est la question d'extension de périmètre qui fait la démonstration.
+-- Valeur réelle du script : 6 cartons (360 pièces), pas les « 15 cartons »
+-- du §6 du jeu de démonstration — écart entre le document et ce script
+-- signalé à l'agent d'architecture, non tranché ici (aucune donnée n'a été
+-- changée pour faire coïncider les deux).
+if (select coalesce(sum(quantite_pieces), 0) from mouvements where ref_code = 'VRN006' and emplacement_code = 'C-03-1') <> 360 then
+  raise exception 'Fait 5 (VRN006) : stock en C-03-1 différent de 360 pièces';
 end if;
-if (select client_code from "references" where code = 'KLS006') is distinct from 'KALISTE' then
-  raise exception 'Fait 5 (KLS006) : la référence doit appartenir à KALISTE';
+if (select client_code from "references" where code = 'VRN006') is distinct from 'VERNALIS' then
+  raise exception 'Fait 5 (VRN006) : la référence doit appartenir à VERNALIS';
 end if;
 
 raise notice 'Semis du jeu de démonstration : tous les contrôles ont passé.';

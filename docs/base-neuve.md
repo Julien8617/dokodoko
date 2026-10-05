@@ -69,7 +69,7 @@ et le dépôt est public.
 
 ## 5. Lancer le script de semis
 
-Dans l'éditeur SQL, le script committé, tel quel.
+Dans l'éditeur SQL : **`supabase/demo/semis.sql`**, tel quel.
 
 Il s'exécute **en une seule transaction** et contrôle son propre résultat à la
 fin. S'il échoue, il ne laisse rien derrière lui : la base revient à l'état de
@@ -80,6 +80,21 @@ raté, parce qu'il faudrait deviner où il s'est arrêté.
 invisible au dépôt, donc perdue au prochain remontage — et elle casse les
 contrôles sans rien dire. Si le jeu est faux, on corrige le script et on
 recommence.
+
+### Essai à blanc, facultatif et à borner
+
+**Ce script n'a jamais tourné**, et sa première exécution sera celle-ci. Le
+risque est contenu — une transaction unique, des contrôles en fin, et un échec
+qui ne laisse rien derrière lui — mais il existe une répétition gratuite : le
+PostgreSQL installé en local pour l'essai de restauration de septembre. Base
+vide neuve, les migrations dans l'ordre, puis le semis, et on regarde si les
+contrôles passent.
+
+**À borner à une demi-heure.** Les policies qui s'appuient sur les fonctions
+d'authentification de Supabase peuvent refuser de s'appliquer en local, et se
+battre contre ça ne rapporte rien : l'information cherchée est « les quantités
+tombent-elles juste », pas « Supabase est-il reproductible ». Si ça accroche,
+on arrête et on passe à l'étape 5 pour de vrai.
 
 ## 6. Vérifier les comptes
 
@@ -111,6 +126,11 @@ Dans cet ordre, parce que chaque étape dépend de la précédente :
    (`docs/jeu-de-demonstration.md` §6) : par références, par client, puis
    `Tout`. C'est la vérification la plus complète disponible, et c'est aussi
    la première répétition de la démonstration.
+
+   **Il faut les feuilles de comptage pour cette étape** — une par périmètre,
+   générées depuis la base semée (`jeu-de-demonstration.md` §10). Sans elles,
+   il n'y a rien à compter, et une feuille incomplète fabriquerait des écarts
+   fantômes sur tout ce qu'elle n'énumère pas.
 
 ## 9. Remettre la sauvegarde en service
 
