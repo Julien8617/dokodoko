@@ -1,12 +1,16 @@
 # どこどこ — Spec : suivi de stock en entrepôt
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 3.6 — 5 octobre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 3.8 — 6 octobre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
 > Une fonctionnalité absente d'ici ne s'implémente pas : elle se propose, elle s'inscrit ici, puis elle s'implémente. Un écart assumé se répercute dans ce fichier **au même commit**, avec sa raison en une phrase. En cas de contradiction entre ce document et une instruction donnée en session, le signaler et demander l'arbitrage plutôt que de trancher seul.
 
 Remplace la spec v1 (cartographie seule). Ce qui en est repris est signalé.
+
+**3.8 — la feuille de comptage imprimable entre en attente avec son déclencheur** (§12). La fin de la phase d'écriture ne laisse plus qu'un chantier sans date.
+
+**3.7 — deux défauts d'ergonomie de l'écran des écarts**, remontés le 6 octobre. Ils donnent une règle transversale sur la largeur des champs (§6) et ferment une classe de défaut vieille de trois signalements (§6.5). Au passage, une phrase du §6.5 était fausse et c'est le rapport de défaut qui l'a prouvée.
 
 **3.6 — tests du 5 octobre concluants, gel levé.** Le point 1 du §12 est clos. La procédure de montage d'une base neuve sort du §12 pour devenir `docs/base-neuve.md`, parce qu'elle servira à nouveau le jour où un client arrive.
 
@@ -351,6 +355,21 @@ Un **transfert** écrit deux lignes partageant un `transfert_id` : une sortie de
 
 ## 6. Écrans
 
+**Aucun champ, aucune colonne ne se dimensionne sur la longueur observée
+aujourd'hui.** Largeur minimale et contenu qui pousse, jamais largeur fixe.
+Cette règle existait depuis le 19 septembre, mais écrite pour les colonnes du
+document imprimé (§6.5) : son énoncé était juste et sa portée trop étroite.
+Défaut constaté le 6 octobre sur l'écran des écarts — les champs de cartons et
+de pièces sont trop étroits pour laisser voir leur propre valeur, et il faut
+**tourner le téléphone en paysage** pour la lire.
+
+Ce qui rend ce défaut structurel et pas cosmétique : l'app se tient d'une
+main, debout dans une allée, l'autre main sur un carton. **Le passage en
+paysage n'est pas une solution de repli, c'est une impossibilité.** Un champ
+qui tronque sa valeur en silence fait saisir à l'aveugle — et une quantité
+saisie à l'aveugle est précisément ce que tout le module d'inventaire existe
+pour empêcher.
+
 ### 6.1 Accueil
 
 Cinq destinations, pleine largeur, empilées : **Rechercher**, **Mouvement**, **Inventaire**, **Catalogue**, **Réglages**.
@@ -469,7 +488,9 @@ Deux fenêtres à la suite ont trois défauts, dans cet ordre de gravité : elle
 
 **Toute confirmation qui écrit est une fenêtre modale** : centrée, sur fond assombri, fermée seulement par un de ses boutons — jamais par un toucher hors de la fenêtre. C'est le composant déjà utilisé pour le rappel des références, pas une copie de plus. Défaut constaté le 24 septembre : les boutons Ajouter / Remplacer s'affichaient hors écran et demandaient de faire défiler pour les atteindre. Un choix qu'on va chercher en faisant défiler est un choix qu'on fait mal, et une fermeture au toucher hors fenêtre transforme un geste imprécis en décision écrite. La distinction est là : ce qui **écrit** exige un choix explicite ; ce qui ne fait que **montrer** — le rappel des références — peut se fermer au toucher hors fenêtre, puisque rien ne s'y décide.
 - **Un déplacement emporte toute la ligne.** Scinder une quantité entre deux casiers ne passe pas par le déplacement : on déplace, puis on saisit le reste à l'origine comme un comptage ordinaire. Deux quantités, chacune vraie à son casier. Ajouter un champ « quantité à déplacer » à la fenêtre chargerait, pour un cas rare, l'écran le plus tendu du module.
-- **La quantité reste néanmoins corrigeable dans le même geste, à une condition.** Dans la marche, la modification passe par le formulaire de saisie, dont les champs de quantité sont éditables : une ligne peut être fausse sur ses deux champs à la fois — « 4 cartons en A-02-1 » quand il y avait 2 cartons en A-03-1 — et exiger deux gestes pour une seule erreur serait absurde. La condition est que **la confirmation nomme les deux changements, avec leurs valeurs** : « Déplacer REU003 de A-02-1 vers A-03-1 ? Quantité : 4 → 2 cartons ». Défaut constaté le 24 septembre : la marche acceptait les deux changements et n'en montrait qu'un. Un opérateur qui croyait scinder perdait le reliquat sans le voir, sans question et sans trace. Ce n'était pas la double correction qui était fautive, c'était son silence — et la règle des deux écrans diverge ici pour une bonne raison : l'écran des écarts n'a pas de champ de quantité, la marche en a, et c'est la confirmation qui rattrape l'écart.
+- **La quantité reste néanmoins corrigeable dans le même geste, à une condition.** Dans la marche, la modification passe par le formulaire de saisie, dont les champs de quantité sont éditables : une ligne peut être fausse sur ses deux champs à la fois — « 4 cartons en A-02-1 » quand il y avait 2 cartons en A-03-1 — et exiger deux gestes pour une seule erreur serait absurde. La condition est que **la confirmation nomme les deux changements, avec leurs valeurs** : « Déplacer REU003 de A-02-1 vers A-03-1 ? Quantité : 4 → 2 cartons ». Défaut constaté le 24 septembre : la marche acceptait les deux changements et n'en montrait qu'un. Un opérateur qui croyait scinder perdait le reliquat sans le voir, sans question et sans trace. Ce n'était pas la double correction qui était fautive, c'était son silence — et la règle des deux écrans diverge ici pour une bonne raison : la **fenêtre de déplacement** ouverte depuis les écarts n'a pas de champ de quantité, le **formulaire de la marche** en a, et c'est la confirmation qui rattrape l'écart.
+
+  **Formulation corrigée le 6 octobre.** La version antérieure disait « l'écran des écarts n'a pas de champ de quantité », ce qui est faux : cet écran corrige bien les quantités d'une ligne — c'est même le chemin du point 9 du script de test. Seule sa fenêtre de déplacement n'en a pas. Une phrase trop large sur une divergence entre deux écrans, dans la section qui traite précisément de cette divergence : c'est un rapport de défaut d'ergonomie qui l'a mise au jour, pas une relecture.
 - **La quantité affichée et la quantité utilisée sont le même nombre**, celui de l'état local. Ne pas relire le serveur avant de calculer : sur un seul appareil, l'état local est la vue **la plus complète**, puisqu'il intègre les écritures encore en file hors ligne que le serveur ignore. Une relecture donnerait la mauvaise valeur précisément quand une saisie est en attente, et poserait une dépendance réseau au milieu d'une confirmation, en allée, où la coupure est le cas courant — un risque d'arithmétique rare échangé contre un risque de blocage fréquent. Cette règle tient tant qu'un seul appareil écrit ; voir §14.
 - **Le casier du formulaire est la destination.** Le changer en mode modification — aux flèches comme à la main — ne corrige pas un champ, il déplace la ligne : la validation montre alors le récapitulatif de déplacement (§ ci-dessous) au lieu de la confirmation ordinaire.
 
@@ -488,6 +509,12 @@ Le cas du casier est le plus visible, et le plus piégeux. Un `comptage` porte u
 Les deux autres composantes suivent la même règle au même casier. Corriger la référence seule était jusqu'au 23 septembre un `update` qui laissait l'ancienne ligne en place : elle restait rattachée à son comptage, donc comptée, et la correction s'ajoutait au lieu de remplacer. Défaut antérieur à la fonction de déplacement, découvert en l'écrivant. C'est la raison pour laquelle la règle s'énonce sur le triplet et non sur l'emplacement : formulée sur le seul casier, elle laissait deux portes ouvertes.
 
 **Un seul chemin pour les trois.** La marche et l'écran des écarts appellent la même fonction, qui décide elle-même, en comparant le triplet avant et après, s'il s'agit d'une correction de valeur ou d'un déplacement. Un appelant qui choisirait à la place de la fonction réintroduira le défaut.
+
+**Et un seul composant de champ casier, partout où un casier se saisit.** Règle ajoutée le 6 octobre pour fermer une classe de défaut, après trois signalements qui étaient tous le même : le 29 septembre, le champ casier des écarts n'avait pas la liste déroulante des casiers qu'a la marche ; le 6 octobre, il n'a pas non plus les flèches de passage au casier suivant. Patcher la troisième occurrence garantit une quatrième.
+
+**Ce n'est pas une contradiction avec « une seule surface d'édition par écran ».** Cette règle-là autorise les deux surfaces à différer, et elle a raison : la marche saisit, les écarts corrigent, et leurs mises en page n'ont pas à coïncider. Ce qui ne doit pas différer, c'est le **champ** — sa saisie abrégée, ses suggestions, sa liste déroulante, ses flèches, sa validation. Le niveau auquel on unifie décide de tout : unifier l'écran est faux et coûteux, unifier la fonction d'écriture était juste (ci-dessus), unifier le champ est la pièce qui manquait entre les deux.
+
+Corollaire pratique : une affordance ajoutée au champ casier apparaît du même coup sur les deux écrans, et la question « faut-il la mettre aussi dans les écarts ? » cesse de se poser.
 
 Confirmation simple avec récapitulatif — « Déplacer REU003 de A-02-1 vers A-03-1 ? » — et non double appui : rien n'est détruit, le contenu est relocalisé. Le casier cible se valide comme à la saisie ; il n'a pas à appartenir au périmètre, qui ne porte que sur les références.
 
@@ -1156,25 +1183,33 @@ Les photos de référence restent facultatives ; si elles sont faites, elles pas
 
    Condition qui ne se négocie pas, et qui survit intacte au changement de cadre : **toute migration est un fichier committé.** C'est ce qui rend cette bascule possible, et ce qui rendra possible la suivante.
 
-3. **Clôture d'inventaire** (§6.5). Le plus gros trou fonctionnel : aujourd'hui tout inventaire se termine par un abandon. Une app de stock qui ne sait pas clôturer un inventaire est un outil de comptage, et ce n'est plus l'ambition. C'est aussi la première question que posera quiconque regarde l'app.
+3. **Un passage d'ergonomie sur l'écran des écarts** (§6 et §6.5), ajouté le 6 octobre. Deux défauts constatés, et aucun n'est cosmétique : les champs de cartons et de pièces tronquent leur propre valeur — il faut tourner le téléphone pour lire ce qu'on saisit —, et le champ casier n'a toujours pas les flèches de la marche. Le second est le troisième signalement de la même asymétrie, d'où la règle du **composant de champ casier partagé** plutôt qu'un troisième correctif.
+
+   Passe avant la clôture pour deux raisons : c'est quelques heures contre plusieurs jours, et ça touche le même module que les deux points ci-dessous — **un seul passage sous `advisor()` pour les trois**, au lieu de trois visites dans le module que `CLAUDE.md` signale pour ses bugs subtils.
+
+4. **La question d'extension pour les périmètres client** (§6.5), avec le **repli réseau des suggestions** dans le même lot. Groupés avec le point 3 ci-dessus.
+
+5. **Clôture d'inventaire** (§6.5). Le plus gros trou fonctionnel : aujourd'hui tout inventaire se termine par un abandon. Une app de stock qui ne sait pas clôturer un inventaire est un outil de comptage, et ce n'est plus l'ambition. C'est aussi la première question que posera quiconque regarde l'app.
 
    Ordre interne inchangé, parce qu'il est dicté par les dépendances : découplage de `comptages.statut` d'abord, puis policy `DELETE` conditionnée (§3), puis couverture exigée, justification des écarts, écriture des `ajustement_inventaire`. Y rattacher l'affichage « vide » face à « non enregistré » dans la Recherche (§6.2), les mouvements postérieurs au gel, et la résolution des écarts compensés en transfert — une seule conversation.
 
    Le garde-fou du `CLAUDE.md` reste entier : un casier jamais visité vaut zéro **à l'affichage**, jamais à la clôture. Écrire un ajustement sur la foi d'une absence de saisie détruirait du stock réel.
 
-4. **Imports en masse** (§7). Longtemps repoussés comme « fonction de passage à l'échelle ». Ce n'est plus ça : **c'est le chemin de mise en route.** Les trois cents références d'un prospect ne se saisissent pas à la main, et personne ne commencera par là. Les imports de clients, références et stock d'ouverture existent déjà ; ce qui manque est leur place dans un parcours de démarrage lisible, et le générateur d'emplacements qui les complète.
+6. **Imports en masse** (§7). Longtemps repoussés comme « fonction de passage à l'échelle ». Ce n'est plus ça : **c'est le chemin de mise en route.** Les trois cents références d'un prospect ne se saisissent pas à la main, et personne ne commencera par là. Les imports de clients, références et stock d'ouverture existent déjà ; ce qui manque est leur place dans un parcours de démarrage lisible, et le générateur d'emplacements qui les complète.
 
-5. **Export `.xlsx`** (§9). Il servait à comparer avec un Excel tenu en parallèle, qui n'existe plus. Il reste parce qu'un produit de stock dont on ne peut rien sortir n'est pas sérieux, et parce que c'est le pont vers les outils que tout le monde utilise déjà.
+7. **Export `.xlsx`** (§9). Il servait à comparer avec un Excel tenu en parallèle, qui n'existe plus. Il reste parce qu'un produit de stock dont on ne peut rien sortir n'est pas sérieux, et parce que c'est le pont vers les outils que tout le monde utilise déjà.
 
-6. **Fin du blocage sur stock négatif** (§6.4) : avertir plutôt que refuser, liste d'anomalies, confirmation proportionnée au risque, correction en un geste. Nécessaire dès que du stock existe en base, donc dès le jeu de démonstration.
+8. **Fin du blocage sur stock négatif** (§6.4) : avertir plutôt que refuser, liste d'anomalies, confirmation proportionnée au risque, correction en un geste. Nécessaire dès que du stock existe en base, donc dès le jeu de démonstration.
 
-7. **File d'écriture hors ligne** et bandeau « n en attente depuis ». Descendue après la mesure de couverture du 17 septembre — la 4G passait partout dans ce bâtiment-là. Elle remonte le jour où un entrepôt sans couverture entre dans le champ, ce qui est probable et pas démontré.
+9. **File d'écriture hors ligne** et bandeau « n en attente depuis ». Descendue après la mesure de couverture du 17 septembre — la 4G passait partout dans ce bâtiment-là. Elle remonte le jour où un entrepôt sans couverture entre dans le champ, ce qui est probable et pas démontré.
 
-8. **Catalogue, grand écran** (§6.8) : une mise en page adaptée, obtenue par points de rupture CSS sur le même écran — jamais un second écran « version ordinateur ». Deux implémentations d'un même écran divergent, et on en a payé le prix sur le déplacement.
+10. **Catalogue, grand écran** (§6.8) : une mise en page adaptée, obtenue par points de rupture CSS sur le même écran — jamais un second écran « version ordinateur ». Deux implémentations d'un même écran divergent, et on en a payé le prix sur le déplacement.
 
-9. **Tests unitaires des deux fonctions pures à bugs subtils** : `matchReferences` et la résolution des codes d'emplacement abrégés. Trois appelants chacune, quatre bugs déjà trouvés entre elles, et ce sont les seules parties du code testables sans base ni écran. Un fichier de test qui **importe** la fonction, pas une copie exécutée à part : une copie prouve qu'un extrait fonctionne, pas que le code livré fonctionne, et elle cesse d'être fidèle au premier changement.
+11. **Tests unitaires des deux fonctions pures à bugs subtils** : `matchReferences` et la résolution des codes d'emplacement abrégés. Trois appelants chacune, quatre bugs déjà trouvés entre elles, et ce sont les seules parties du code testables sans base ni écran. Un fichier de test qui **importe** la fonction, pas une copie exécutée à part : une copie prouve qu'un extrait fonctionne, pas que le code livré fonctionne, et elle cesse d'être fidèle au premier changement.
 
 ### En attente, avec leur déclencheur
+
+**Feuille de comptage imprimable.** La requête produit aujourd'hui des lignes qu'on lit à l'écran, filtrées par démonstration et par bloc — suffisant pour une répétition seul devant un ordinateur. **Déclencheur : la première fois que l'app se montre à quelqu'un.** Ce jour-là il faut une page qu'on tient à la main dans une allée, avec ses cases à cocher, et l'annexe nettement séparée de la feuille à cocher. Pas avant : construire une mise en page pour un document qu'on est seul à lire serait du temps pris à ce qui rend l'app montrable.
 
 Ces chantiers ne sont pas repoussés par manque de temps : il leur manque une condition qui n'est pas remplie. Les inscrire avec leur déclencheur évite qu'ils reviennent chaque mois sous forme de bonne idée.
 

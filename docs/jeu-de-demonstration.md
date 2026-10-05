@@ -8,6 +8,12 @@
 > **Toutes les données décrites ici sont fictives.** Clients, références,
 > libellés : inventés. Aucune ne provient d'un entrepôt réel.
 >
+> **Révision du 6 octobre, troisième passe.** Deux imprécisions relevées par
+> Claude Code en committant : le §1 promettait une base « sans aucun
+> inventaire » sans dire ce qu'une répétition y laisse, et le §9 affirmait que
+> **tous** les id de mouvement dérivent du lot et du triplet — vrai des 22
+> lignes d'ouverture, faux des 25 postérieures.
+>
 > **Révision du 6 octobre, seconde passe.** Le §10 gagne une **annexe de
 > mise en scène** : sur une démonstration sur papier, la feuille *est*
 > l'entrepôt, donc une référence absente de la feuille n'existe pas et le fait
@@ -52,6 +58,20 @@ démontre rien du tout.
 que le visiteur va lancer — c'est tout l'intérêt de la démonstration. Les
 écarts sont **plantés dans l'écart entre la base et une feuille de comptage
 papier** (§6), pas enregistrés.
+
+**Une répétition en laisse pourtant, et c'est sans conséquence.** Précision
+ajoutée le 6 octobre : la clôture n'existant pas, chaque démonstration se
+termine par un abandon, et dérouler les trois en laisse trois inventaires
+abandonnés avec leurs lignes de comptage. Ça ne dégrade rien, pour une raison
+qui vient du modèle : **une ligne de comptage ne déplace aucun stock.** Seule
+une clôture écrirait des mouvements, et elle n'existe pas. Le théorique se
+recalcule à chaque lancement sur `ts < frozen_ts`, donc la démonstration
+suivante est identique à la première, indéfiniment.
+
+Ce qui changerait ce verdict, et c'est le seul déclencheur à surveiller : un
+écran qui listerait les inventaires passés. Le jour où il existe, cette trace
+devient visible par un visiteur, et c'est alors — et seulement alors — qu'une
+base est resemée avant une démonstration.
 
 ## 2. La fiction
 
@@ -233,7 +253,7 @@ La feuille elle-même est traitée au **§10** : elle ne s'écrit pas à la main
    Conséquence à ne pas mettre dans la démonstration pour l'instant : cette
    sortie refusée est démontrable dès aujourd'hui, et ce serait montrer une
    dette à un visiteur. Elle devient la démonstration de la liste d'anomalies
-   le jour où le §12 point 6 est livré — avertir au lieu de refuser. D'ici là,
+   le jour où le §12 point 8 est livré — avertir au lieu de refuser. D'ici là,
    le fait 3 ne sert qu'à produire un écart, et c'est déjà beaucoup : l'app
    trouve neuf cartons que personne ne savait avoir.
 4. Le contre-exemple, et il est indispensable : sans lui, le visiteur conclut
@@ -320,7 +340,7 @@ les **quantités**, pas sur les instants.
 
 **Aucune position négative n'est plantée**, et ce n'est pas un choix : les
 policies refusent aujourd'hui une sortie supérieure au stock. La
-démonstration de la liste d'anomalies arrive donc avec le §12 point 6, pas
+démonstration de la liste d'anomalies arrive donc avec le §12 point 8, pas
 avant. À ce moment-là, le fait 3 est exactement le terrain pour la planter.
 
 ## 8. Ce que le script doit vérifier sur lui-même
@@ -348,9 +368,14 @@ refuse de se déclarer réussi si l'un échoue :
   retouche à la main dans l'éditeur SQL est invisible au dépôt, donc perdue au
   prochain remontage de la base — et elle casse silencieusement les contrôles
   du §8.
-- **Rejeu idempotent.** Deuxième exécution : rien de plus écrit. Les `id` de
-  mouvement sont dérivés du lot et du triplet, comme pour l'import de stock
-  d'ouverture (spec §7).
+- **Rejeu idempotent.** Deuxième exécution : rien de plus écrit. Deux schémas
+  d'identifiant, et il faut les distinguer — le document ne le faisait pas
+  jusqu'au 6 octobre. Les 22 lignes du **lot d'ouverture** dérivent leur `id`
+  du lot et du triplet, comme l'import de stock d'ouverture (spec §7). Les 25
+  **mouvements postérieurs** n'ont pas d'équivalent dans l'app : ils dérivent
+  d'une étiquette propre à chaque mouvement, schéma documenté en tête du
+  script. C'est acceptable parce qu'il ne sert qu'au semis et ne prétend pas
+  être la règle de l'app — mais l'écrire « comme l'import » était faux.
 - **Les données ne portent aucun nom réel**, et c'est à ce passage que les
   derniers codes réels sortent des fichiers vivants du dépôt : les exemples de
   `src/changelog.ts`, des trois fichiers d'internationalisation, de

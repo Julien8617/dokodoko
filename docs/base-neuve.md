@@ -141,7 +141,26 @@ Dans cet ordre, parce que chaque étape dépend de la précédente :
    **Il faut les feuilles de comptage pour cette étape** — une par périmètre,
    générées depuis la base semée (`jeu-de-demonstration.md` §10). Sans elles,
    il n'y a rien à compter, et une feuille incomplète fabriquerait des écarts
-   fantômes sur tout ce qu'elle n'énumère pas.
+   fantômes sur tout ce qu'elle n'énumère pas. Ne comptez que les lignes du
+   bloc « feuille à cocher » ; l'annexe est là pour être vue, pas comptée.
+
+   **Un seul geste à ne pas faire : saisir autre chose que zéro sur
+   `VRN009`.** Elle est inactive, et lui donner du stock la réactive — c'est
+   la règle, et c'est même ce que le fait 4 vérifie en creux. Abandonner
+   l'inventaire ne défait pas la réactivation.
+
+   **Si ça arrive, c'est réparable, et il faut savoir comment** : abandonnez
+   l'inventaire, puis redésactivez `VRN009` au Catalogue. Sa désactivation
+   sera acceptée parce que son stock est resté nul — **une ligne de comptage
+   ne déplace aucun stock**, seule une clôture en écrirait. La porte paraît à
+   sens unique, elle ne l'est pas ; mais sans le savoir on croit le jeu de
+   démonstration perdu.
+
+   **Chaque inventaire s'abandonne avant de lancer le suivant** (un seul
+   `en_cours` à la fois, motif libre demandé). Les trois inventaires
+   abandonnés restent en base ensuite, avec leurs lignes de comptage, et c'est
+   sans conséquence : rien ne les affiche, et le théorique se recalcule à
+   chaque lancement. Le détail est au §1 du jeu de démonstration.
 
 ## 9. Remettre la sauvegarde en service
 
