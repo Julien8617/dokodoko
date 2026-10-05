@@ -25,15 +25,12 @@
 -- continuent de passer puisqu'ils portent sur l'état final, pas sur le
 -- nombre de lignes posées à cet instant.
 --
--- Déviation volontaire, signalée à l'agent d'architecture plutôt que
--- tranchée en silence : la ligne d'annulation plantée au §7 du jeu de
--- démonstration NE porte PAS `annule_mouvement_id`. L'écran Mouvement ne
--- pose jamais cette colonne aujourd'hui (dette assumée, spec v2 §14,
--- toujours vraie au 6 octobre 2026) — le commentaire obligatoire est la
--- seule trace que l'app sait produire pour une annulation. Y renseigner
--- `annule_mouvement_id` ici aurait posé en base un état que l'app elle-même
--- ne sait pas écrire, exactement ce que docs/base-neuve.md refuse pour la
--- clôture d'inventaire — le même principe, appliqué ici.
+-- La ligne d'annulation plantée au §7 du jeu de démonstration NE porte PAS
+-- `annule_mouvement_id` — ratifié par l'agent d'architecture le 6 octobre
+-- 2026 (jeu de démonstration §7). L'écran Mouvement ne pose jamais cette
+-- colonne aujourd'hui (dette assumée, spec v2 §14) — le commentaire
+-- obligatoire est la seule trace que l'app sait produire pour une
+-- annulation. Le jour où cette dette se referme, le semis posera le lien.
 --
 -- Les identifiants de mouvement du lot d'ouverture reproduisent EXACTEMENT
 -- `deriveMouvementId` (src/lib/csvImport.ts) : préfixe
@@ -406,7 +403,8 @@ end if;
 
 -- Fait 3 — KLS001 : la base sous-compte (12 cartons = 144 pièces en
 -- C-02-1), le physique en porte 21 (sur la feuille) — sens inversé le
--- 6 octobre, voir en-tête.
+-- 6 octobre (jeu de démonstration §6 point 3), contre les deux versions
+-- précédentes du document, qui le faisaient tenir dans l'autre sens.
 if (select coalesce(sum(quantite_pieces), 0) from mouvements where ref_code = 'KLS001' and emplacement_code = 'C-02-1') <> 144 then
   raise exception 'Fait 3 (KLS001) : stock en C-02-1 différent de 144 pièces';
 end if;
@@ -422,19 +420,30 @@ if (select coalesce(sum(quantite_pieces), 0) from mouvements where ref_code = 'V
   raise exception 'Fait 4 (VRN009) : stock en C-04-2 différent de 0';
 end if;
 
--- Fait 5 — déménagé le 6 octobre de KLS006/B-07-1 vers VRN006/C-03-1 (voir
--- en-tête) : l'opérateur est déjà en C-03-1 pour VRN005 (scopée), et croise
--- VRN006 (pas scopée) au même endroit. Pas un écart : base == feuille,
--- c'est la question d'extension de périmètre qui fait la démonstration.
--- Valeur réelle du script : 6 cartons (360 pièces), pas les « 15 cartons »
--- du §6 du jeu de démonstration — écart entre le document et ce script
--- signalé à l'agent d'architecture, non tranché ici (aucune donnée n'a été
--- changée pour faire coïncider les deux).
+-- Fait 5 — déménagé le 6 octobre (jeu de démonstration §6 point 5) de
+-- KLS006/B-07-1 vers VRN006/C-03-1 : l'opérateur est déjà en C-03-1 pour
+-- VRN005 (scopée), et croise VRN006 (pas scopée) au même endroit. Pas un
+-- écart : base == feuille, c'est la question d'extension de périmètre qui
+-- fait la démonstration. Deux conditions pour que la scène tienne, les
+-- deux vérifiées ici plutôt qu'une vérification de client qui ne dit rien
+-- sur la mise en scène elle-même :
+--   1. VRN006 doit être active, sinon la saisie pose AUSSI une question de
+--      réactivation à côté de celle d'extension — un second mécanisme que
+--      le fait 5 ne doit pas démontrer par accident ;
+--   2. VRN005 doit avoir du stock en C-03-1, puisque c'est ce qui amène
+--      l'opérateur à cet endroit en premier lieu.
+-- Valeur réelle du script pour VRN006/C-03-1 : 6 cartons (360 pièces), pas
+-- les « 15 cartons » du §6 du jeu de démonstration — écart entre le
+-- document et ce script signalé à l'agent d'architecture, non tranché ici
+-- (aucune donnée n'a été changée pour faire coïncider les deux).
+if (select actif from "references" where code = 'VRN006') is distinct from true then
+  raise exception 'Fait 5 (VRN006) : la référence doit être active';
+end if;
 if (select coalesce(sum(quantite_pieces), 0) from mouvements where ref_code = 'VRN006' and emplacement_code = 'C-03-1') <> 360 then
   raise exception 'Fait 5 (VRN006) : stock en C-03-1 différent de 360 pièces';
 end if;
-if (select client_code from "references" where code = 'VRN006') is distinct from 'VERNALIS' then
-  raise exception 'Fait 5 (VRN006) : la référence doit appartenir à VERNALIS';
+if (select coalesce(sum(quantite_pieces), 0) from mouvements where ref_code = 'VRN005' and emplacement_code = 'C-03-1') <= 0 then
+  raise exception 'Fait 5 (VRN006) : VRN005 doit avoir du stock en C-03-1 pour amener l''opérateur à cet endroit';
 end if;
 
 raise notice 'Semis du jeu de démonstration : tous les contrôles ont passé.';
