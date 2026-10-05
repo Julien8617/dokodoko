@@ -1,12 +1,14 @@
 # どこどこ — Spec : suivi de stock en entrepôt
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 3.3 — 5 octobre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 3.4 — 5 octobre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
 > Une fonctionnalité absente d'ici ne s'implémente pas : elle se propose, elle s'inscrit ici, puis elle s'implémente. Un écart assumé se répercute dans ce fichier **au même commit**, avec sa raison en une phrase. En cas de contradiction entre ce document et une instruction donnée en session, le signaler et demander l'arbitrage plutôt que de trancher seul.
 
 Remplace la spec v1 (cartographie seule). Ce qui en est repris est signalé.
+
+**3.4 — le jeu de démonstration est conçu** (`docs/jeu-de-demonstration.md`), ce qui révise le §12 point 2 : le jeu ne contient **aucun** inventaire. Et le trou du périmètre client est mesuré : c'est un défaut d'affichage, pas une perte.
 
 **3.3 — le dépôt reste public, par décision** (§2), et ce que ça entraîne sur les noms réels. La contrainte « public ou pas de déploiement gratuit » est vraie de GitHub Pages sur compte gratuit, pas de l'hébergement : les deux sorties sont écrites pour le jour où elles serviront.
 
@@ -538,6 +540,10 @@ La saisie libre reste la règle du module, parce qu'elle seule révèle une pale
 **Un périmètre client est donc l'union de deux ensembles, pas un seul** : les références rattachées au client, *et* les lignes d'`inventaire_references` ajoutées en cours de route. La règle à tenir : **aucune saisie ne s'enregistre dans un inventaire sans appartenir à son périmètre à la fin du geste** — soit elle y était, soit la question l'y a fait entrer. Sinon une référence comptée n'est rattachée à rien : ni au périmètre, ni au rappel, ni aux écarts, et le carton compté n'apparaît sur aucun écran. C'est la forme de défaut la plus coûteuse du module, celle qui ne se signale pas.
 
 Ce n'était pas à la fonction de suggestion de l'inventer, et Claude Code a eu raison de le signaler plutôt que de le combler : dériver un périmètre client de `references.client_code` ou de l'union des deux change ce qu'un périmètre client **est**. C'est un arbitrage, pas une correction.
+
+**Mesuré le 5 octobre, par lecture du code : c'est un défaut d'affichage, pas une perte.** `getInventaireSynthese` part du théorique — filtré au périmètre — puis **ajoute toute ligne de comptage réellement écrite**, y compris hors périmètre. Une saisie sur une référence d'un autre client apparaît donc bien dans l'écran des écarts, avec un théorique à zéro ; seul le marqueur « hors périmètre » manque, `outOfScope` ne testant que `references`. Le carton compté se voit. Le chantier passe en file derrière la clôture d'inventaire, qui touche de toute façon ces fonctions.
+
+**Et c'est la règle des deux gardes qui a tenu, par construction.** Le §6.5 pose que la seconde garde — l'écran des écarts, qui lit ce qui est réellement en base — rattrape ce que la première laisse passer, et que si les deux divergent c'est elle qu'il faut croire. C'est exactement ce qui s'est produit : la garde de saisie ignorait le cas, l'écran des écarts l'a affiché quand même. La règle n'a pas été appliquée ici, elle a **protégé** — et c'est la différence entre un principe écrit et un principe qui travaille.
 
 **3. Rappel des références à compter**, toujours, quel que soit le périmètre. **Liste uniforme : code et libellé, rien d'autre.**
 
@@ -1136,7 +1142,9 @@ Les photos de référence restent facultatives ; si elles sont faites, elles pas
 
    La reconstruction suit la procédure de l'ancien point 8 ter, qui garde toute sa valeur : nouveau projet Supabase, application de **toutes** les migrations du dépôt dans l'ordre — un échec à cette étape est une bonne nouvelle, il nomme ce qui manquait quand ça ne coûte rien —, puis chargement du jeu de démonstration par un script committé, jamais à la main.
 
-   Le jeu de démonstration se conçoit avant de s'écrire (§2). Il doit contenir au moins : deux clients aux codes distincts, une référence dont deux conditionnements coexistent, une référence inactive à stock nul, des emplacements sur plusieurs zones dont une inter-allée, et un inventaire clos portant quelques écarts réels — dont une paire compensée qui ressemble à un déplacement de palette. Chacun de ces cas existe parce qu'il démontre une règle du §4 ou du §6 ; un jeu de données qui ne démontre rien n'est qu'un remplissage.
+   **Le jeu est conçu : `docs/jeu-de-demonstration.md`.** Trois clients, 24 références dont deux inactives et deux à double conditionnement, 75 emplacements dont trois inter-allées, et cinq faits plantés qui démontrent chacun une règle du §4 ou du §6. Ce document dit ce qui était voulu ; le script de semis l'implémente, et c'est le script qu'on corrige si les deux divergent.
+
+   **Révision du 5 octobre : le jeu ne contient aucun inventaire.** La version antérieure de ce point en demandait un, clos, portant des écarts. Deux raisons de renoncer, et la seconde est la vraie. Un inventaire ouvert bloquerait celui que le visiteur va lancer, or c'est précisément la démonstration. Et un inventaire **clos** ne peut pas exister : la clôture n'est pas écrite (point 3), donc un script qui en fabriquerait un poserait en base un état que l'app est incapable de produire — une démonstration qui montre ce que le code ne sait pas faire. Les écarts vivent donc dans la divergence entre la base et une **feuille de comptage papier** remise au visiteur, qui compte et saisit lui-même.
 
    Condition qui ne se négocie pas, et qui survit intacte au changement de cadre : **toute migration est un fichier committé.** C'est ce qui rend cette bascule possible, et ce qui rendra possible la suivante.
 
