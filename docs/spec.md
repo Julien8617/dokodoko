@@ -1,12 +1,14 @@
 # どこどこ — Spec : suivi de stock en entrepôt
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 3.5 — 5 octobre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 3.6 — 5 octobre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
 > Une fonctionnalité absente d'ici ne s'implémente pas : elle se propose, elle s'inscrit ici, puis elle s'implémente. Un écart assumé se répercute dans ce fichier **au même commit**, avec sa raison en une phrase. En cas de contradiction entre ce document et une instruction donnée en session, le signaler et demander l'arbitrage plutôt que de trancher seul.
 
 Remplace la spec v1 (cartographie seule). Ce qui en est repris est signalé.
+
+**3.6 — tests du 5 octobre concluants, gel levé.** Le point 1 du §12 est clos. La procédure de montage d'une base neuve sort du §12 pour devenir `docs/base-neuve.md`, parce qu'elle servira à nouveau le jour où un client arrive.
 
 **3.5 — la question d'extension pour les périmètres client passe devant le reste de la file** (§6.5), parce que la démonstration la rend visible. Et le mode opératoire de la démonstration est revu : voir la révision de `docs/jeu-de-demonstration.md`.
 
@@ -1140,11 +1142,13 @@ Les photos de référence restent facultatives ; si elles sont faites, elles pas
 
 ### Ce qui compte maintenant
 
-1. **Les trois chantiers en attente** (§6.5, §6.8). Spécifiés, arbitrés, non implémentés : une écriture ne pose qu'une question ; `suggestableReferences` suit le périmètre plutôt que le drapeau ; le contrôle `actif` remonte dans la fonction d'écriture partagée au lieu de manquer à l'écran des écarts. Les trois touchent le même module — un seul passage, sous `advisor()`. Ils améliorent ce qui marche déjà, donc ils passent en premier **parce qu'ils sont prêts**, pas parce qu'ils sont les plus importants.
+1. ~~**Les trois chantiers en attente** (§6.5, §6.8)~~ — **livrés et vérifiés sur appareil le 5 octobre**, en 15 points, comportement observé identique au comportement attendu. Une écriture ne pose qu'une question ; `suggestableReferences` suit le périmètre ; le contrôle `actif` vit dans `writeSaisie`, seul point d'écriture des deux écrans. Conservé ici barré, et non supprimé, parce que c'est le premier lot du nouveau cadre et que son ordre — ce qui est prêt passe avant ce qui est important — a bien fonctionné.
 
 2. **Base neuve et jeu de démonstration.** Un seul chantier, pour deux raisons qui se rejoignent : sortir les données réelles, et se donner une vitrine. La base actuelle porte encore un client et son référentiel ; elle est détruite, pas archivée.
 
-   La reconstruction suit la procédure de l'ancien point 8 ter, qui garde toute sa valeur : nouveau projet Supabase, application de **toutes** les migrations du dépôt dans l'ordre — un échec à cette étape est une bonne nouvelle, il nomme ce qui manquait quand ça ne coûte rien —, puis chargement du jeu de démonstration par un script committé, jamais à la main.
+   **La procédure est sortie d'ici : `docs/base-neuve.md`.** Elle a cessé d'être une étape du calendrier pour devenir un mode opératoire réutilisable — c'est celui qui servira le jour où une base se monte pour un vrai client, le script de semis remplacé par l'import du stock d'ouverture. Ce qu'elle garde de l'ancien point 8 ter : nouveau projet, application de **toutes** les migrations dans l'ordre — un échec y est une bonne nouvelle, il nomme ce qui manquait quand ça ne coûte rien —, puis chargement par un script committé, jamais à la main.
+
+   Deux étapes y verrouillent l'accès si on les oublie : l'envoi des codes par e-mail et la liste blanche. Elles passent avant tout le reste côté application.
 
    **Le jeu est conçu : `docs/jeu-de-demonstration.md`.** Trois clients, 24 références dont deux inactives et deux à double conditionnement, 75 emplacements dont trois inter-allées, et cinq faits plantés qui démontrent chacun une règle du §4 ou du §6. Ce document dit ce qui était voulu ; le script de semis l'implémente, et c'est le script qu'on corrige si les deux divergent.
 
