@@ -1,12 +1,14 @@
 # どこどこ — Spec : suivi de stock en entrepôt
 
-> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 3.4 — 5 octobre 2026.
+> **Référence de périmètre du dépôt.** Emplacement : `docs/spec.md`. Version 3.5 — 5 octobre 2026.
 >
 > Ce document dit ce qui est dans le périmètre et ce qui n'y est pas. Le `README.md` dit où on en est, le `CLAUDE.md` dit comment travailler.
 >
 > Une fonctionnalité absente d'ici ne s'implémente pas : elle se propose, elle s'inscrit ici, puis elle s'implémente. Un écart assumé se répercute dans ce fichier **au même commit**, avec sa raison en une phrase. En cas de contradiction entre ce document et une instruction donnée en session, le signaler et demander l'arbitrage plutôt que de trancher seul.
 
 Remplace la spec v1 (cartographie seule). Ce qui en est repris est signalé.
+
+**3.5 — la question d'extension pour les périmètres client passe devant le reste de la file** (§6.5), parce que la démonstration la rend visible. Et le mode opératoire de la démonstration est revu : voir la révision de `docs/jeu-de-demonstration.md`.
 
 **3.4 — le jeu de démonstration est conçu** (`docs/jeu-de-demonstration.md`), ce qui révise le §12 point 2 : le jeu ne contient **aucun** inventaire. Et le trou du périmètre client est mesuré : c'est un défaut d'affichage, pas une perte.
 
@@ -542,6 +544,8 @@ La saisie libre reste la règle du module, parce qu'elle seule révèle une pale
 Ce n'était pas à la fonction de suggestion de l'inventer, et Claude Code a eu raison de le signaler plutôt que de le combler : dériver un périmètre client de `references.client_code` ou de l'union des deux change ce qu'un périmètre client **est**. C'est un arbitrage, pas une correction.
 
 **Mesuré le 5 octobre, par lecture du code : c'est un défaut d'affichage, pas une perte.** `getInventaireSynthese` part du théorique — filtré au périmètre — puis **ajoute toute ligne de comptage réellement écrite**, y compris hors périmètre. Une saisie sur une référence d'un autre client apparaît donc bien dans l'écran des écarts, avec un théorique à zéro ; seul le marqueur « hors périmètre » manque, `outOfScope` ne testant que `references`. Le carton compté se voit. Le chantier passe en file derrière la clôture d'inventaire, qui touche de toute façon ces fonctions.
+
+**Mais il passe devant le reste de la file, et c'est la démonstration qui l'a décidé.** Relevé le 5 octobre au soir, en concevant le jeu de démonstration : un visiteur qui lance un inventaire par client et tape le code d'une référence d'un autre client n'obtient **aucune question**. Ce n'est plus une hypothèse d'architecte sur un cas rare, c'est quelque chose qu'on peut montrer à quelqu'un — et le §12 juge un chantier à ce que quelqu'un d'autre peut en voir. La démonstration n'a pas changé le défaut ; elle a changé sa priorité, ce qui est son travail.
 
 **Et c'est la règle des deux gardes qui a tenu, par construction.** Le §6.5 pose que la seconde garde — l'écran des écarts, qui lit ce qui est réellement en base — rattrape ce que la première laisse passer, et que si les deux divergent c'est elle qu'il faut croire. C'est exactement ce qui s'est produit : la garde de saisie ignorait le cas, l'écran des écarts l'a affiché quand même. La règle n'a pas été appliquée ici, elle a **protégé** — et c'est la différence entre un principe écrit et un principe qui travaille.
 

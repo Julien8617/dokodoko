@@ -2,8 +2,17 @@
 
 Instructions pour toute session Claude Code travaillant sur ce dépôt.
 `README.md` dit où on en est. Ce fichier dit comment travailler.
-`docs/spec.md` dit ce qui est dans le périmètre et ce qui n'y est pas —
-lire les trois au début de session.
+`docs/spec.md` dit ce qui est dans le périmètre et ce qui n'y est pas.
+`docs/architecte.md` dit comment le projet se conduit — qui décide quoi,
+et la propriété de chaque fichier. Lire les quatre au début de session.
+
+**Propriété de ce fichier : le dépôt, pas l'agent d'architecture.**
+`docs/architecte.md` fixe la règle pour tous les fichiers du dépôt ; pour
+celui-ci en particulier, l'agent d'architecture demande des modifications
+point par point et ne l'édite jamais en l'envoyant entier — contrairement
+à `docs/spec.md`, `docs/jeu-de-demonstration.md`, `docs/architecte.md` et
+`README.md`, qui se reçoivent tels quels et se committent sans
+reformulation.
 
 ## Le périmètre est fixé par la spec, pas par la conversation
 

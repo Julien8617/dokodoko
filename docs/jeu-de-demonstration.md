@@ -7,6 +7,13 @@
 >
 > **Toutes les données décrites ici sont fictives.** Clients, références,
 > libellés : inventés. Aucune ne provient d'un entrepôt réel.
+>
+> **Révision du 5 octobre, au soir.** Trois corrections, relevées par Claude
+> Code à la lecture : le fait 5 ne se démontre que sur un périmètre **par
+> références** (§6) ; le fait 4 porte désormais un casier nommé, `C-04-2`
+> (§5 et §6) ; et `VRN005` est dispersée sur `C-01-1`, `C-03-1` et `AB-02-0`
+> — la version initiale citait `C-01-2` puis se contredisait deux lignes plus
+> bas.
 
 ## 1. À quoi sert ce jeu de données
 
@@ -131,14 +138,14 @@ cosmétique.
 casiers. Trois faits à planter explicitement, parce qu'ils sont la
 démonstration 2 :
 
-- **`VRN005` dans trois casiers** — `C-01-1`, `C-01-2` et `AB-02-0`. Une
+- **`VRN005` dans trois casiers** — `C-01-1`, `C-03-1` et `AB-02-0`. Une
   référence dispersée est le cas normal, et c'est pourquoi aucun indicateur
   d'avancement par référence n'est possible pendant un inventaire (spec §6.5).
 - **`B-05-1` porte `KLS002` et `KLS003`** — mélange légitime, même famille.
-- **`C-03-1` porte `VRN005` et `VRN006`** — idem côté cosmétique, et ce casier
-  est aussi un de ceux où `VRN005` apparaît : un casier mixte *et* une
-  référence dispersée se croisent au même endroit, ce qui est le cas réel que
-  les écrans doivent rendre lisible.
+- **`C-03-1` porte `VRN005` et `VRN006`** — idem côté cosmétique, et c'est
+  l'un des trois casiers de `VRN005` : un casier mixte *et* une référence
+  dispersée se croisent au même endroit, ce qui est le cas réel que les écrans
+  doivent rendre lisible.
 - **`MRV004` seul sur `A-10-1` et `A-10-2`** — les parcs occupent deux niveaux
   entiers, personne ne mélange rien avec eux.
 
@@ -146,6 +153,16 @@ Les 6 références sans stock : les deux inactives, plus quatre actives à zéro
 Une référence active à stock nul est un cas courant — en rupture, pas
 abandonnée — et c'est le cas qu'une saisie à zéro pendant un inventaire
 confirme sans la réactiver.
+
+**`VRN009` garde un casier, et c'est `C-04-2`.** Une référence à stock nul
+n'est nulle part, ce qui ne donne rien à vérifier ni à contrôler — trou
+relevé par Claude Code. Le journal lui donne donc une vie complète : entrée
+au lot d'ouverture sur `C-04-2`, deux sorties qui l'épuisent, puis la
+désactivation. Son théorique sur `C-04-2` est nul, le casier existe, et le
+visiteur a un endroit précis où aller constater le vide. C'est au passage la
+seule référence du jeu dont le journal raconte un cycle entier — reçue,
+vendue, épuisée, retirée —, ce qui démontre mieux que n'importe quel écran
+que le stock est un journal.
 
 ## 6. Les cinq faits plantés, et la feuille de comptage
 
@@ -158,8 +175,8 @@ comptage fictive qu'on remet au visiteur. Il compte, il saisit, l'app révèle.
 | 1 | `MRV002` | 18 cartons en `A-07-2` | 18 cartons en `AB-01-0` | **Déplacement probable** : écart net nul, casiers différents |
 | 2 | `VRN003` | 40 cartons en `B-03-1` | 34 cartons | **Manque de 6 cartons** (144 pièces) |
 | 3 | `KLS001` | 21 cartons en `C-02-1` | 12 cartons | **Surplus théorique de 9 cartons** |
-| 4 | `VRN009` | 0 | 0, casier vérifié | **Rien** — l'absence est confirmée, la référence reste inactive |
-| 5 | `KLS006` | 15 cartons en `B-07-1` | 15 cartons | **Question d'extension de périmètre**, si l'inventaire est lancé sur `VERNALIS` |
+| 4 | `VRN009` | 0 sur `C-04-2` | `C-04-2` vérifié, vide | **Rien** — l'absence est confirmée, la référence reste inactive |
+| 5 | `KLS006` | 15 cartons en `B-07-1` | 15 cartons | **Question d'extension de périmètre** — uniquement sur un inventaire **par références** |
 
 **Chacun a une cause racontable, et c'est la cause qui fait la démonstration :**
 
@@ -178,9 +195,43 @@ comptage fictive qu'on remet au visiteur. Il compte, il saisit, l'app révèle.
 5. Le cas de l'opérateur consciencieux qui trouve, dans son allée, une
    référence qui n'est pas dans sa liste.
 
-**Le mode opératoire de la démonstration découle de la table** : lancer un
-inventaire sur `VERNALIS` révèle les faits 2, 4 et 5 ; un inventaire `Tout`
-révèle les cinq. Les deux valent le coup d'être montrés, dans cet ordre.
+**Le fait 5 ne se démontre que sur un périmètre par références, et ce n'est
+pas un détail de mise en scène.** Correction du 5 octobre : la version
+initiale de ce document le faisait porter sur un inventaire `VERNALIS`, où la
+question d'extension **n'existe pas** — c'est le trou mis en file derrière la
+clôture d'inventaire (spec §6.5). J'avais conçu une vitrine autour d'une
+fonction que je venais moi-même de reporter. Relevé par Claude Code avant
+l'écriture du script.
+
+Les deux autres sorties possibles ont été écartées. Montrer « ce que l'app
+fait aujourd'hui » reviendrait à mettre en vitrine un silence. Et avancer le
+chantier pour les besoins de la démonstration inverserait l'ordre : le §12 ne
+retient un chantier que s'il rend l'app compréhensible ou utilisable par
+quelqu'un d'autre, pas parce qu'une démonstration en a besoin — et toucher le
+module Inventaire juste avant de monter une base neuve ferait changer deux
+choses à la fois.
+
+**La démonstration produit en revanche un argument pour ce chantier, et il
+faut l'inscrire** : un visiteur qui lance un inventaire par client et tape le
+code d'une référence d'un autre client n'obtient aucune question. Ce n'est
+plus une hypothèse d'architecte, c'est quelque chose qu'on peut voir. Le
+chantier reste derrière la clôture, mais il passe devant le reste de la file.
+
+**Le mode opératoire découle de la table, et il exerce les trois genres de
+périmètre** — ce que la version initiale ne faisait pas :
+
+1. **Inventaire par références**, sur `VRN003`, `VRN005` et `MRV002` → révèle
+   les faits **1, 2 et 5**. C'est la démonstration principale : les trois
+   choses les plus convaincantes en une seule tournée, dont la palette
+   déplacée. À montrer en premier.
+2. **Inventaire par client**, sur `VERNALIS` → révèle les faits **2 et 4**, et
+   démontre le périmètre par ce qu'il **ne** demande pas : `KLS006` est
+   physiquement dans l'allée, en `B-07-1`, et n'apparaît pas au rappel.
+   `VRN009`, inactive, y apparaît en revanche — aucun périmètre ne filtre les
+   inactives (spec §6.8), et c'est volontaire.
+3. **Inventaire `Tout`** → révèle les faits **1 à 4**. Pas le 5 : tout est
+   dans le périmètre, il n'y a rien à étendre. C'est le mode exhaustif, celui
+   qui amorcerait un stock d'ouverture.
 
 ## 7. L'historique des mouvements
 
