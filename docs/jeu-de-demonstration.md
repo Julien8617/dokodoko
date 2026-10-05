@@ -8,6 +8,13 @@
 > **Toutes les données décrites ici sont fictives.** Clients, références,
 > libellés : inventés. Aucune ne provient d'un entrepôt réel.
 >
+> **Révision du 6 octobre, seconde passe.** Le §10 gagne une **annexe de
+> mise en scène** : sur une démonstration sur papier, la feuille *est*
+> l'entrepôt, donc une référence absente de la feuille n'existe pas et le fait
+> 5 ne se déclenchait jamais. Trouvé par Claude Code. Et `VRN006` en `C-03-1`
+> porte **6 cartons**, la valeur du script, non 15 — chiffre que j'avais
+> recopié de l'ancienne adresse du fait 5 sans le vérifier.
+>
 > **Révision du 6 octobre.** Quatre corrections, toutes relevées par Claude
 > Code en écrivant le script. Le **fait 3 est inversé** — la base dit moins
 > que le physique, pas plus : dans l'autre sens, aucune position négative
@@ -200,7 +207,7 @@ La feuille elle-même est traitée au **§10** : elle ne s'écrit pas à la main
 | 2 | `VRN003` | 40 cartons en `B-03-1` | 34 cartons | **Manque de 6 cartons** (144 pièces) |
 | 3 | `KLS001` | **12** cartons en `C-02-1` | **21** cartons | **Surplus de 9 cartons** (108 pièces) que la base ignorait |
 | 4 | `VRN009` | 0 sur `C-04-2` | `C-04-2` vérifié, vide | **Rien** — l'absence est confirmée, la référence reste inactive |
-| 5 | `VRN006` | 15 cartons en `C-03-1` | 15 cartons | **Question d'extension de périmètre** — uniquement sur un inventaire **par références** |
+| 5 | `VRN006` | 6 cartons en `C-03-1` | 6 cartons | **Question d'extension de périmètre** — uniquement sur un inventaire **par références** |
 
 **Chacun a une cause racontable, et c'est la cause qui fait la démonstration :**
 
@@ -393,12 +400,43 @@ conditionnements, et le visiteur doit savoir lequel il compte. Les deux lignes
 « 7 cartons de 24 » et « 11 cartons de 12 » sont exactement ce qui rend
 lisible le « 300 pièces » affiché par l'app.
 
-**Une feuille par périmètre, et elle ne porte que les références du
-périmètre.** Pour la démonstration 1, celles de `VRN003`, `VRN005` et
-`MRV002` — y compris les trois casiers de `VRN005`, dont `AB-02-0`. Ce qui se
-trouve physiquement à côté n'est pas sur le papier, et c'est le principe même :
-le **fait 5** vit précisément là, dans le `VRN006` que l'opérateur voit en
-`C-03-1` sans l'avoir sur sa feuille.
+**Une feuille par périmètre, et la feuille à cocher ne porte que les
+références du périmètre.** Pour la démonstration 1, celles de `VRN003`,
+`VRN005` et `MRV002` — y compris les trois casiers de `VRN005`, dont
+`AB-02-0`.
+
+**Mais elle porte une annexe, et sans elle le fait 5 ne se déclenche jamais.**
+Trouvé par Claude Code le 6 octobre, et c'est le défaut le plus intéressant du
+jeu, parce qu'il vient d'une règle juste appliquée au mauvais monde. Sur une
+feuille de comptage réelle, « ne porter que le périmètre » est correct : ce qui
+est sur l'étagère existe indépendamment du papier. **En démonstration, il n'y a
+pas d'étagère** — la feuille est le seul rayon que le visiteur voit. Une
+référence absente de la feuille n'existe pas, donc personne ne tape jamais le
+code de `VRN006`, donc la question d'extension ne se pose jamais.
+
+La feuille joue donc deux rôles qu'un entrepôt sépare : **la consigne de
+comptage** et **la réalité physique**. Il faut les séparer sur le papier
+aussi, en deux blocs qu'on ne peut pas confondre :
+
+1. **La feuille à cocher** — le périmètre, casier par casier, cases en tête de
+   ligne. C'est la seule partie qui se compte.
+2. **« Vous voyez aussi, dans les mêmes casiers »** — les références **hors
+   périmètre** qui ont du stock dans un casier que la tournée visite, avec
+   leurs quantités. Pas de cases à cocher, titre explicite, bloc séparé. Elle
+   tient la place du monde physique que le papier ne peut pas montrer.
+
+Pour la démonstration 1, l'annexe porte `VRN006` en `C-03-1`, 6 cartons — et
+c'est la ligne qui fait exister le fait 5. **Elle se calcule, elle ne s'écrit
+pas** : les références ayant du stock dans les casiers touchés par le
+périmètre, moins le périmètre. La même requête produit les deux blocs, depuis
+les mêmes données, et la règle « la feuille à cocher ne porte que le
+périmètre » reste intacte.
+
+Les deux autres sorties envisagées sont écartées. Une **ligne de données** sur
+la feuille à cocher serait le contraire de la leçon : le visiteur compterait
+`VRN006` comme s'il était au périmètre. Une **consigne verbale** de
+l'animateur ne vit nulle part, et rien dans ce projet ne vit dans une
+conversation.
 
 **Mise en forme : un document d'une page par périmètre**, cases à cocher en
 tête de ligne, trié par casier puis par référence — l'ordre de la tournée, qui

@@ -81,20 +81,31 @@ invisible au dépôt, donc perdue au prochain remontage — et elle casse les
 contrôles sans rien dire. Si le jeu est faux, on corrige le script et on
 recommence.
 
-### Essai à blanc, facultatif et à borner
+### Pas d'essai à blanc, et c'est raisonné
 
-**Ce script n'a jamais tourné**, et sa première exécution sera celle-ci. Le
-risque est contenu — une transaction unique, des contrôles en fin, et un échec
-qui ne laisse rien derrière lui — mais il existe une répétition gratuite : le
-PostgreSQL installé en local pour l'essai de restauration de septembre. Base
-vide neuve, les migrations dans l'ordre, puis le semis, et on regarde si les
-contrôles passent.
+**Ce script n'a jamais tourné**, et sa première exécution sera celle-ci. La
+version du 5 octobre de cette procédure proposait une répétition sur le
+PostgreSQL installé en local en septembre ; elle est retirée le 6, sur le
+chiffrage de Claude Code.
 
-**À borner à une demi-heure.** Les policies qui s'appuient sur les fonctions
-d'authentification de Supabase peuvent refuser de s'appliquer en local, et se
-battre contre ça ne rapporte rien : l'information cherchée est « les quantités
-tombent-elles juste », pas « Supabase est-il reproductible ». Si ça accroche,
-on arrête et on passe à l'étape 5 pour de vrai.
+Un PostgreSQL ordinaire n'a ni les rôles `anon` / `authenticated` /
+`service_role`, ni le schéma `auth`, ni `auth.jwt()` : l'étape 2 y échoue dès
+la première policy. Il faudrait un prélude qui simule tout ça — et ce fichier
+devrait ensuite suivre les internes de Supabase à chaque migration, pour un
+usage unique. Une pièce qui ne sert qu'à rendre une répétition possible
+pourrit en silence.
+
+**Et l'essai aurait porté sur la mauvaise étape.** Ce que le semis peut rater,
+ses propres contrôles l'attrapent, sur la vraie base, dans une transaction qui
+ne laisse rien derrière elle : l'échec coûte une correction et un
+relancement, pas une soirée. L'étape réellement incertaine est la **2**, les
+migrations — et c'est précisément celle qu'un PostgreSQL local ne peut pas
+éprouver, pour les raisons ci-dessus.
+
+Un second projet Supabase jetable ne vaut pas mieux : toutes les étapes avant
+la 10 sont réversibles, et un semis qui échoue laisse la base exactement à
+l'état de l'étape 4, prête à être resemée. **La vraie exécution est la
+répétition.**
 
 ## 6. Vérifier les comptes
 
