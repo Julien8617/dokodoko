@@ -26,7 +26,7 @@ interface ResultLine {
   totalPieces: number
 }
 
-// Écran Recherche : "où se trouve REU003 ?" / "qu'y a-t-il dans A-05-1 ?".
+// Écran Recherche : "où se trouve VRN003 ?" / "qu'y a-t-il dans A-05-1 ?".
 // Stock COURANT (vue `stock`, jamais figé) — contrairement à l'Inventaire
 // qui compare à un instant T, ici on veut toujours la situation actuelle.
 export default function Search({ onBack }: { onBack: () => void }) {
@@ -149,7 +149,7 @@ export default function Search({ onBack }: { onBack: () => void }) {
     setError(null)
 
     if (mode === 'reference') {
-      // La recherche floue accepte "65"/"265" pour trouver "REU265" (mode
+      // La recherche floue accepte "65"/"265" pour trouver "VRN265" (mode
       // Inventaire), mais lancer la recherche exige de trancher : un code
       // exact prime, sinon un unique résultat flou suffit — au-delà, on
       // laisse choisir dans la liste plutôt que de deviner.

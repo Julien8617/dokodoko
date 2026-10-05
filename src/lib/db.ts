@@ -186,7 +186,7 @@ function normalizeSearchText(s: string): string {
 //    ne respecte ni l'ordre ni la casse du libellé en base).
 // 2. Normalisation avant comparaison (voir normalizeSearchText).
 // 3. Ordre des résultats : préfixe exact du code, puis code en
-//    sous-chaîne, puis libellé — sans quoi taper "65" noierait REU065
+//    sous-chaîne, puis libellé — sans quoi taper "65" noierait VRN065
 //    sous tout article dont le nom contient "65".
 // 4. L'affichage (code + libellé) reste la responsabilité de l'appelant,
 //    cette fonction ne renvoie que les `Reference` triées.
@@ -427,7 +427,7 @@ export async function listStockAtEmplacement(emplacementCode: string): Promise<S
 }
 
 // Stock courant (vue, jamais figé) d'une référence, tous emplacements
-// confondus — écran Recherche : "où se trouve REU003 ?". Même remarque sur
+// confondus — écran Recherche : "où se trouve VRN003 ?". Même remarque sur
 // le cache que ci-dessus.
 export async function listStockByReference(refCode: string): Promise<StockByReferenceLine[]> {
   return getStockByReference(refCode)

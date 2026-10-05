@@ -865,8 +865,8 @@ body {
     color: #000;
   }
   /* Code article et emplacement à position constante (spec 2.49 point 7,
-     revu en 2.50) : `min-width`, jamais `width` — le jeu REUZEL plafonne à
-     six caractères aujourd'hui, une largeur fixe passerait mais casserait
+     revu en 2.50) : `min-width`, jamais `width` — le jeu de démonstration
+     plafonne à six caractères aujourd'hui, une largeur fixe passerait mais casserait
      en silence le jour où un code serait plus long. La colonne s'élargit
      au besoin et pousse la désignation, qui absorbe sans dommage. */
   .print-col-code {

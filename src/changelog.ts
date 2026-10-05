@@ -10,6 +10,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '0.9.53',
+    date: '2026-10-06',
+    items: [
+      'Dernier code réel retiré des fichiers vivants du dépôt (jeu de démonstration, spec §9) : l\'exemple du champ référence affiche maintenant VRN001 plutôt que l\'ancien code du pilote',
+    ],
+  },
+  {
     version: '0.9.52',
     date: '2026-10-05',
     items: [
@@ -305,7 +312,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: '0.9.17',
     date: '2026-09-16',
     items: [
-      'Mesure (pas encore un choix définitif) : le champ référence de la marche s’ouvre sur un clavier orienté chiffres — à confirmer sur iPhone que les lettres restent atteignables pour REU et un nom d’article',
+      'Mesure (pas encore un choix définitif) : le champ référence de la marche s’ouvre sur un clavier orienté chiffres — à confirmer sur iPhone que les lettres restent atteignables pour VRN et un nom d’article',
     ],
   },
   {
@@ -357,8 +364,8 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: '0.9.10',
     date: '2026-09-16',
     items: [
-      'Recherche par nom d’article, enfin conforme à la spec : taper « matelas bleu » retrouve « Matelas XL bleu » quel que soit l’ordre des mots, les accents ou la casse — utile quand la facture ne porte pas la référence',
-      'Cette recherche est désormais la même partout (Recherche, Mouvement, sélection de références pour un inventaire) — un code tapé reste prioritaire sur un nom qui le contiendrait par coïncidence (« 65 » retrouve toujours REU065 en premier)',
+      'Recherche par nom d’article, enfin conforme à la spec : taper « 70 matelas » retrouve « Matelas bébé 70×140 » quel que soit l’ordre des mots, les accents ou la casse — utile quand la facture ne porte pas la référence',
+      'Cette recherche est désormais la même partout (Recherche, Mouvement, sélection de références pour un inventaire) — un code tapé reste prioritaire sur un nom qui le contiendrait par coïncidence (« 65 » retrouve toujours VRN065 en premier)',
     ],
   },
   {
@@ -430,7 +437,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: '0.9.0',
     date: '2026-09-14',
     items: [
-      'Le bouton Recherche fonctionne enfin : cherche le stock actuel par référence (« où se trouve REU003 ? ») ou par emplacement (« qu’y a-t-il dans A-05-1 ? »), avec la même recherche floue et la même reconnaissance des codes emplacement que dans l’Inventaire',
+      'Le bouton Recherche fonctionne enfin : cherche le stock actuel par référence (« où se trouve VRN003 ? ») ou par emplacement (« qu’y a-t-il dans A-05-1 ? »), avec la même recherche floue et la même reconnaissance des codes emplacement que dans l’Inventaire',
     ],
   },
   {
@@ -461,7 +468,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: '0.6.0',
     date: '2026-09-14',
     items: [
-      'Inventaire : liste déroulante d’aide à la frappe sur le champ référence — recherche par sous-chaîne (« 65 », « 265 » ou « REU26 » trouvent tous « REU265 »), pas besoin de taper le code en entier',
+      'Inventaire : liste déroulante d’aide à la frappe sur le champ référence — recherche par sous-chaîne (« 65 », « 265 » ou « VRN26 » trouvent tous « VRN265 »), pas besoin de taper le code en entier',
       'Astuce : comme la recherche marche avec les chiffres seuls, un seul passage au clavier numérique suffit pour trouver une référence, sans revenir au clavier lettres',
     ],
   },

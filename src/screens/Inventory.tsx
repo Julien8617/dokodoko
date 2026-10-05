@@ -1063,7 +1063,7 @@ function Walk({
     ? matchReferences(scopeChecklistQuery, checklistReferences ?? [])
     : (checklistReferences ?? [])
 
-  // matchReferences (db.ts) : code ("65"/"265"/"REU26" trouvent "REU265",
+  // matchReferences (db.ts) : code ("65"/"265"/"VRN26" trouvent "VRN265",
   // pas seulement au clavier chiffres) ET libellé par jetons normalisés
   // (§6.2, spec 2.20) — même recherche que Recherche et Mouvement.
   const referenceSuggestions = matchReferences(refCode, suggestableReferences)
@@ -1564,7 +1564,7 @@ function Walk({
               casier(s)" laisserait croire à une complétude que rien ne
               garantit. Même raisonnement que l'abandon du compteur
               "4/12 comptées". Tri alphabétique fixe (naturel : les codes
-              REU003/REU009/REU010 partagent la même largeur de suffixe,
+              VRN003/VRN009/VRN010 partagent la même largeur de suffixe,
               donc l'ordre lexicographique suffit déjà), position stable
               d'une ouverture à l'autre — la recherche filtre l'ensemble,
               elle ne réordonne jamais par pertinence. */}

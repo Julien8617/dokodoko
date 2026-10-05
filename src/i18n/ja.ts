@@ -165,7 +165,7 @@ const ja: Dictionary = {
     previousCasier: '前のロケーション',
     nextCasier: '次のロケーション',
     reference: '品番',
-    referencePlaceholder: 'REU001',
+    referencePlaceholder: 'VRN001',
     conditionnement: '荷姿',
     aEcouler: '在庫処分中',
     cartons: 'カートン',

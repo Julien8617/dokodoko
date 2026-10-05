@@ -34,12 +34,15 @@ create policy clients_insert on clients for insert to authenticated
 create policy clients_update on clients for update to authenticated
   using (is_email_allowed()) with check (is_email_allowed());
 
--- Backfill : les réfs de démo existantes sont rattachées à REUZEL (le seul
--- client du pilote) avant de rendre la colonne obligatoire.
-insert into clients (code, nom) values ('REUZEL', 'REUZEL');
-
+-- Historique (jusqu'au 6 octobre 2026) : cette migration rattachait ici les
+-- références existantes du pilote à un client réel inséré en dur. Sur la
+-- base de démonstration, ce client n'a plus de sens — `client_code` doit
+-- rester obligatoire (toute référence appartient à un client), mais aucune
+-- ligne ne préexiste à une base neuve pour qu'il y ait quoi que ce soit à
+-- rattacher : le backfill n'a plus de données à porter, seule la contrainte
+-- reste (jeu de démonstration §9 : "la migration qui insérait un client de
+-- démonstration perd ses données").
 alter table "references" add column client_code text references clients(code);
-update "references" set client_code = 'REUZEL' where client_code is null;
 alter table "references" alter column client_code set not null;
 
 create table inventaires (

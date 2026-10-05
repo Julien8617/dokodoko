@@ -165,7 +165,7 @@ const fr: Dictionary = {
     previousCasier: 'Casier précédent',
     nextCasier: 'Casier suivant',
     reference: 'Référence',
-    referencePlaceholder: 'REU001',
+    referencePlaceholder: 'VRN001',
     conditionnement: 'Conditionnement',
     aEcouler: 'à écouler',
     cartons: 'Cartons',
